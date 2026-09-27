@@ -1,40 +1,43 @@
-import { Download, LayoutGrid, Sparkles, Tags } from 'lucide-react';
+import { LayoutGrid, Settings, Sparkles, Tags } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { NotchNav, type NotchItemData } from '@/components/ui/adaptive-notch-navigation-bar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useCollection } from '@/hooks/use-collection';
+import { rememberAppearance, watchAppearance } from '@/lib/appearance';
 import { useSuggestions } from '@/hooks/use-suggestions';
+import { BrandIcon } from './brand-icon';
+import { CardViewer } from './card-viewer';
 import { ExportView } from './export-view';
 import { ReviewView } from './review-view';
 import { SuggestionsView } from './suggestions-view';
 import { SyncStatus } from './sync-status';
+import { ThemeToggle } from './theme-toggle';
 import { TagsView } from './tags-view';
 import { Toaster } from './toaster';
 import { UpdateBanner } from './update-banner';
 
-type ViewId = 'review' | 'tags' | 'suggestions' | 'export';
+type ViewId = 'review' | 'tags' | 'suggestions' | 'settings';
 
 function Logo() {
+  const palette = useCollection((s) => s.settings.palette);
   return (
     <div className="flex h-8.5 items-center gap-2">
-      <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-        <Tags className="size-4" />
-      </div>
-      <span className="hidden text-sm font-bold tracking-tight sm:inline">Collection+</span>
+      <BrandIcon palette={palette} small className="size-7 drop-shadow-[0_2px_6px_var(--frame-glow)]" />
+      <span className="hidden text-sm font-bold tracking-tight sm:inline">
+        Collection<span className="text-frame-holo">+</span>
+      </span>
     </div>
   );
 }
 
-/** Applique le thème (auto / clair / sombre) sur <html>. */
-function useTheme() {
+/** Applique le mode (auto / clair / sombre) et la palette sur <html>. */
+function useAppearance() {
   const theme = useCollection((s) => s.settings.theme);
+  const palette = useCollection((s) => s.settings.palette);
   useEffect(() => {
-    const media = window.matchMedia('(prefers-color-scheme: dark)');
-    const apply = () => document.documentElement.classList.toggle('dark', theme === 'dark' || (theme === 'system' && media.matches));
-    apply();
-    media.addEventListener('change', apply);
-    return () => media.removeEventListener('change', apply);
-  }, [theme]);
+    rememberAppearance({ theme, palette });
+    return watchAppearance(() => ({ theme, palette }));
+  }, [theme, palette]);
 }
 
 export function App({ initialView = 'review' }: { initialView?: ViewId }) {
@@ -46,7 +49,7 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
     () => useSuggestions.getState().pending().reduce((n, p) => n + p.cards.length, 0),
     [rules, facts, version],
   );
-  useTheme();
+  useAppearance();
 
   useEffect(() => {
     // Après chaque synchro, les cartes déjà analysées une fois le sont aussi pour les nouvelles
@@ -65,7 +68,7 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
     { id: 'review', label: 'Revue', icon: LayoutGrid, badge: newCount ? String(newCount) : undefined },
     { id: 'tags', label: 'Étiquettes', icon: Tags },
     { id: 'suggestions', label: 'Suggestions', icon: Sparkles, badge: pendingCount ? String(pendingCount) : undefined },
-    { id: 'export', label: 'Export', icon: Download },
+    { id: 'settings', label: 'Paramètres', icon: Settings },
   ];
 
   return (
@@ -75,17 +78,23 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
         activeId={view}
         onActiveChange={(id) => setView(id as ViewId)}
         logo={<Logo />}
-        rightContent={<SyncStatus />}
+        rightContent={
+          <div className="flex items-center gap-1">
+            <SyncStatus />
+            <ThemeToggle />
+          </div>
+        }
         contentClassName="items-stretch justify-start px-0 sm:px-0 md:px-0 pb-0 overflow-hidden"
       >
         <div className="h-full w-full overflow-y-auto">
           {view === 'review' && <ReviewView />}
           {view === 'tags' && <TagsView onOpenReview={() => setView('review')} />}
           {view === 'suggestions' && <SuggestionsView />}
-          {view === 'export' && <ExportView />}
+          {view === 'settings' && <ExportView />}
         </div>
       </NotchNav>
       <Toaster />
+      <CardViewer />
       <UpdateBanner />
     </TooltipProvider>
   );

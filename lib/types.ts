@@ -1,6 +1,7 @@
 export type Rarity = 'C' | 'PC' | 'R' | 'SR' | 'L' | 'UR';
 
-export const RARITY_ORDER: Rarity[] = ['UR', 'L', 'SR', 'R', 'PC', 'C'];
+/** De la plus haute à la plus basse : Légendaire est au-dessus d'Ultra rare. */
+export const RARITY_ORDER: Rarity[] = ['L', 'UR', 'SR', 'R', 'PC', 'C'];
 
 export const RARITY_LABEL: Record<Rarity, string> = {
   C: 'Commun',
@@ -21,10 +22,27 @@ export interface OwnedCard {
   rarity: Rarity | null;
   imageUrl: string | null;
   wikipediaUrl: string | null;
+  /** Courte description (Wikidata), affichée sur la carte comme sur le site. */
+  description?: string | null;
+  /** Statistiques de jeu, si l'API les fournit. */
+  attack?: number | null;
+  defense?: number | null;
   /** Étiquettes posées sur au moins un exemplaire (union de ownedTags). */
   tagIds: string[];
   /** Étiquettes par exemplaire : le site étiquette chaque user_card séparément. */
   ownedTags: Record<string, string[]>;
+  /** Date et provenance de chaque exemplaire (clé : user_card id). */
+  acquired?: Record<string, Acquisition>;
+}
+
+export type AcquisitionSource = 'pack' | 'trade';
+
+export interface Acquisition {
+  /** Horodatage d'obtention (ms), inconnu pour les cartes déjà là à l'installation. */
+  at: number | null;
+  source: AcquisitionSource | null;
+  /** Déduit des actions faites sur le site plutôt que fourni par l'API. */
+  estimated: boolean;
 }
 
 /** Étiquette native du site. */

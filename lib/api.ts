@@ -1,6 +1,6 @@
 import { sleep } from './queue';
 import { transport } from './transport';
-import type { OwnedCard, Rarity, SiteTag } from './types';
+import type { Acquisition, OwnedCard, Rarity, SiteTag } from './types';
 
 const MAX_COLLECTION_PAGES = 300;
 
@@ -35,10 +35,12 @@ export async function fetchFullCollection(onPage?: (page: number, cards: number)
       const ownedId: string | null = entry?.id ?? null;
       const count = Number(entry?.count) || 1;
       const tagIds = extractTagIds(entry);
+      const acquired = extractAcquisition(entry);
 
       if (existing) {
         if (ownedId && !existing.ownedIds.includes(ownedId)) existing.ownedIds.push(ownedId);
         if (ownedId) existing.ownedTags[ownedId] = tagIds;
+        if (ownedId && acquired) (existing.acquired ??= {})[ownedId] = acquired;
         existing.count += count;
         for (const id of tagIds) if (!existing.tagIds.includes(id)) existing.tagIds.push(id);
       } else {
@@ -50,8 +52,15 @@ export async function fetchFullCollection(onPage?: (page: number, cards: number)
           rarity: (card.rarity as Rarity) ?? null,
           imageUrl: card.image_url ?? null,
           wikipediaUrl: card.wikipedia_url ?? null,
+          description: firstString(
+            card.description, card.short_description, card.wikidata_description, card.wiki_description,
+            card.wikipedia_description, card.subtitle, card.summary, card.wikidata?.description, entry?.description,
+          ),
+          attack: firstNumber(card.attack, card.atk, card.stats?.attack),
+          defense: firstNumber(card.defense, card.def, card.stats?.defense),
           tagIds,
           ownedTags: ownedId ? { [ownedId]: tagIds } : {},
+          acquired: ownedId && acquired ? { [ownedId]: acquired } : {},
         });
       }
     }
@@ -61,6 +70,23 @@ export async function fetchFullCollection(onPage?: (page: number, cards: number)
   }
 
   return [...byCard.values()];
+}
+
+/** Le nom exact des champs varie selon les versions de l'API : on prend le premier renseigné. */
+const firstString = (...values: unknown[]) => values.find((v): v is string => typeof v === 'string' && v.trim() !== '') ?? null;
+const firstNumber = (...values: unknown[]) => {
+  const found = values.find((v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)));
+  return found === undefined ? null : Number(found);
+};
+
+/** Date / provenance de l'exemplaire, si l'API les expose (noms de champs possibles). */
+function extractAcquisition(entry: any): Acquisition | null {
+  const rawAt = firstString(entry?.obtained_at, entry?.acquired_at, entry?.received_at, entry?.created_at, entry?.inserted_at);
+  const at = rawAt ? Date.parse(rawAt) : NaN;
+  const rawSource = (firstString(entry?.source, entry?.origin, entry?.obtained_from, entry?.obtained_via, entry?.acquired_via, entry?.acquisition_type) ?? '').toLowerCase();
+  const source = /trade|exchange|echange|swap/.test(rawSource) ? 'trade' : /pack|booster|open|draw/.test(rawSource) ? 'pack' : null;
+  if (Number.isNaN(at) && !source) return null;
+  return { at: Number.isNaN(at) ? null : at, source, estimated: false };
 }
 
 /** Les étiquettes peuvent arriver sous forme d'ids ou d'objets ; on normalise en ids. */

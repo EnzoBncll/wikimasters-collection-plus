@@ -7,8 +7,10 @@ import { toast } from '@/hooks/use-toast';
 import { useVisibleCards } from '@/hooks/use-review';
 import { downloadText, toCsv, toTsv } from '@/lib/csv';
 import { EXPORT_SHEETS, type SheetExport } from '@/lib/sheets';
+import { PALETTES, holoGradient, type PaletteId } from '@/lib/palettes';
 import type { Settings } from '@/lib/store';
 import { cn } from '@/lib/utils';
+import { BrandIcon } from './brand-icon';
 
 function Card({ icon, title, text, children }: { icon: React.ReactNode; title: string; text: string; children: React.ReactNode }) {
   return (
@@ -33,6 +35,32 @@ function SettingRow({ title, text, children }: { title: string; text: string; ch
         <p className="text-xs text-muted-foreground">{text}</p>
       </div>
       {children}
+    </div>
+  );
+}
+
+function PalettePicker({ value, onChange }: { value: PaletteId; onChange: (id: PaletteId) => void }) {
+  return (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+      {PALETTES.map((p) => {
+        const active = p.id === value;
+        return (
+          <button
+            key={p.id}
+            type="button"
+            onClick={() => onChange(p.id)}
+            aria-pressed={active}
+            className={cn(
+              'group flex cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 text-xs transition',
+              active ? 'border-primary bg-accent font-semibold ring-1 ring-primary' : 'hover:border-foreground/20 hover:bg-muted',
+            )}
+          >
+            <BrandIcon palette={p.id} className="size-12 transition group-hover:-translate-y-0.5" />
+            <span className="leading-tight">{p.name}</span>
+            <span className="h-1 w-full rounded-full" style={{ backgroundImage: holoGradient(p, 90) }} />
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -81,8 +109,8 @@ export function ExportView() {
     <div className="mx-auto w-full max-w-4xl space-y-8 px-4 py-6 sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Export & réglages</h1>
-          <p className="text-sm text-muted-foreground">Exporte ta collection avec statuts et étiquettes.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Paramètres</h1>
+          <p className="text-sm text-muted-foreground">Export de ta collection, apparence et réglages.</p>
         </div>
         <div className="flex rounded-full border p-1 text-sm">
           {(['all', 'filtered'] as const).map((s) => (
@@ -141,7 +169,7 @@ export function ExportView() {
           <SettingRow title="Pastilles sur le site" text="Affiche Trade / Not Trade sur les cartes de WikiMasters.">
             <Switch checked={settings.showBadges} onCheckedChange={(showBadges) => updateSettings({ showBadges })} />
           </SettingRow>
-          <SettingRow title="Thème" text="Apparence de l'extension.">
+          <SettingRow title="Mode" text="Clair, sombre ou selon le système.">
             <div className="flex rounded-full border p-1">
               {themes.map((t) => (
                 <button
@@ -158,6 +186,13 @@ export function ExportView() {
               ))}
             </div>
           </SettingRow>
+          <div className="space-y-3 px-5 py-4">
+            <div>
+              <p className="text-sm font-medium">Palette</p>
+              <p className="text-xs text-muted-foreground">Couleurs de l'interface, du bouton sur le site et de l'icône de l'extension.</p>
+            </div>
+            <PalettePicker value={settings.palette} onChange={(palette) => updateSettings({ palette })} />
+          </div>
         </div>
       </section>
     </div>

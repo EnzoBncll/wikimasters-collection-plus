@@ -1,39 +1,19 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+@import '@fontsource-variable/outfit';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Thème « Collection+ » : base zinc neutre + accent violet.
+ * Charte « Holo » : les couleurs (accent, neutres teintés, cadre) viennent de la palette choisie,
+ * appliquées en variables sur <html> par lib/palettes.ts (applyPalette).
+ * Ici : seulement ce qui ne dépend pas de la palette.
  * Les couleurs de rareté reprennent celles du jeu (information du jeu, pas de la marque).
  */
 :root {
   --radius: 0.75rem;
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.21 0.006 285.885);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.21 0.006 285.885);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.21 0.006 285.885);
-  --primary: oklch(0.541 0.247 293.009);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.955 0.012 293);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.541 0.247 293.009);
-
   --trade: oklch(0.696 0.17 162.48);
   --not-trade: oklch(0.637 0.237 25.331);
-  /* Dossiers animés (étiquettes sans couleur) */
-  --folder-back: oklch(0.72 0.12 293);
-  --folder-front: oklch(0.8 0.1 293);
-  --folder-tab: oklch(0.65 0.14 293);
 
   --rarity-c: #b8f2d5;
   --rarity-pc: #b1cff2;
@@ -43,29 +23,9 @@
   --rarity-ur: #fa9931;
 }
 
-.dark {
-  --background: oklch(0.16 0.004 286);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.702 0.183 293.541);
-  --primary-foreground: oklch(0.16 0.004 286);
-  --secondary: oklch(0.274 0.006 286.033);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.3 0.03 293);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.702 0.183 293.541);
-}
-
 @theme inline {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-heading: 'Outfit Variable', 'Outfit', ui-sans-serif, system-ui, sans-serif;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -88,6 +48,11 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-frame: var(--frame);
+  --color-frame-foreground: var(--frame-foreground);
+  --color-frame-muted: var(--frame-muted);
+  --color-frame-active: var(--frame-active);
+  --color-frame-glow: var(--frame-glow);
   --color-trade: var(--trade);
   --color-not-trade: var(--not-trade);
   --color-rarity-c: var(--rarity-c);
@@ -98,6 +63,22 @@
   --color-rarity-ur: var(--rarity-ur);
 }
 
+/* Dégradé irisé de la palette. */
+@utility bg-holo {
+  background-image: var(--holo);
+}
+@utility text-holo {
+  background-image: var(--holo);
+  background-clip: text;
+  color: transparent;
+}
+
+@utility text-frame-holo {
+  background-image: var(--frame-holo);
+  background-clip: text;
+  color: transparent;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -105,4 +86,190 @@
   body {
     @apply bg-background text-foreground antialiased;
   }
+}
+
+/*
+ * Cartes au format WikiMasters (5/7) : fond ondulé pastel de la rareté avec un grain papier fin,
+ * et, au survol seulement, un reflet qui dépend de la rareté :
+ *   C, PC, R  → simple lueur sous le pointeur ;
+ *   SR        → bandes irisées ;
+ *   UR        → feuille holographique « diffraction » (rayons + anneaux arc-en-ciel) ;
+ *   L         → la même en plus intense, avec paillettes et liseré irisé (rareté la plus haute).
+ * Le pointeur règle --mx / --my (0–100 %), --cx / --cy (centre du motif), --hue et l'inclinaison --rx / --ry
+ * (voir components/app/wm-card.tsx).
+ */
+@layer components {
+  .wm-card {
+    --c: #d4d4d8;
+    --mx: 50%;
+    --my: 50%;
+    --cx: 50%;
+    --cy: 45%;
+    --hue: 0deg;
+    --rx: 0deg;
+    --ry: 0deg;
+    container-type: inline-size;
+    position: relative;
+    aspect-ratio: 5 / 7;
+    overflow: hidden;
+    /* Pas de cqw ici : sur l'élément conteneur lui-même, ils se rapportent au parent. */
+    border-radius: 7.5% / 5.4%;
+    background:
+      radial-gradient(120% 70% at 0% 0%, rgb(255 255 255 / 0.5), transparent 60%),
+      repeating-radial-gradient(ellipse 170% 105% at 115% 125%, color-mix(in oklab, var(--c) 80%, white) 0, var(--c) 9%, color-mix(in oklab, var(--c) 80%, white) 18%),
+      var(--c);
+    box-shadow: 0 10px 24px -12px rgb(0 0 0 / 0.55), inset 0 0 0 1px rgb(0 0 0 / 0.06);
+    transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease;
+    font-family: var(--font-heading);
+  }
+  .wm-card[data-tilting] {
+    /* Inclinaison seulement pendant le survol : au repos, pas de calque 3D (texte net). */
+    transform: perspective(800px) rotateX(var(--rx)) rotateY(var(--ry)) scale(1.03);
+    transition: box-shadow 0.35s ease;
+    box-shadow: 0 22px 40px -14px rgb(0 0 0 / 0.6);
+  }
+  .wm-card[data-rarity='C'] { --c: var(--rarity-c); }
+  .wm-card[data-rarity='PC'] { --c: var(--rarity-pc); }
+  .wm-card[data-rarity='R'] { --c: var(--rarity-r); }
+  .wm-card[data-rarity='SR'] { --c: var(--rarity-sr); }
+  .wm-card[data-rarity='UR'] { --c: var(--rarity-ur); }
+  .wm-card[data-rarity='L'] {
+    --c: #d4a72c;
+    /* Feuille d'or brossée : dégradé métallique + fines stries horizontales + reflet diagonal. */
+    background:
+      radial-gradient(120% 70% at 0% 0%, rgb(255 250 220 / 0.55), transparent 55%),
+      repeating-linear-gradient(0deg, rgb(255 255 255 / 0.08) 0 1px, rgb(120 80 0 / 0.06) 1px 2px, transparent 2px 3px),
+      linear-gradient(125deg, #a67c1a 0%, #f3d87a 16%, #caa032 32%, #fff3c2 46%, #dcb448 58%, #9c7418 76%, #ecd070 90%, #b8912a 100%);
+  }
+
+  /* Grain papier : fin et serré, uniquement sur le fond coloré (sous l'image et le texte). */
+  .wm-paper {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.25' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.35 0 0 0 0 0.3 0 0 0 0 0.25 0 0 0 0.9 -0.2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 120px 120px;
+    mix-blend-mode: multiply;
+    opacity: 0.35;
+  }
+
+  .wm-glare,
+  .wm-holo,
+  .wm-foil,
+  .wm-glitter,
+  .wm-rim {
+    position: absolute;
+    inset: 0;
+    z-index: 35;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+  }
+
+  /* Lueur sous le pointeur (toutes raretés) */
+  .wm-glare {
+    background: radial-gradient(circle at var(--mx) var(--my), rgb(255 255 255 / 0.6), transparent 55%);
+    mix-blend-mode: overlay;
+  }
+  .wm-card:hover .wm-glare { opacity: 0.7; }
+
+  /*
+   * Irisé doux : un arc-en-ciel très étiré qui glisse avec le pointeur (pas de motif visible),
+   * dosé selon la rareté. Pour UR / L, une trame de micro-lignes diagonales très fines donne l'aspect « feuille ».
+   */
+  .wm-holo {
+    background-image: linear-gradient(
+      var(--holo-angle, 110deg),
+      hsl(0 100% 75%),
+      hsl(45 100% 70%),
+      hsl(100 90% 70%),
+      hsl(180 100% 72%),
+      hsl(230 100% 75%),
+      hsl(285 100% 75%),
+      hsl(0 100% 75%),
+      hsl(45 100% 70%)
+    );
+    background-size: 400% 400%;
+    background-position: var(--mx) var(--my);
+    mix-blend-mode: soft-light;
+  }
+  .wm-card[data-rarity='SR']:hover .wm-holo { opacity: 0.55; }
+  .wm-card[data-rarity='UR']:hover .wm-holo { opacity: 0.7; }
+  .wm-card[data-rarity='L']:hover .wm-holo { opacity: 0.4; }
+
+  .wm-foil {
+    z-index: 25;
+    background-image:
+      repeating-linear-gradient(125deg, rgb(255 255 255 / 0) 0 1.5px, rgb(255 255 255 / 0.55) 1.5px 2px, rgb(255 255 255 / 0) 2px 3.5px),
+      linear-gradient(var(--holo-angle, 110deg), hsl(0 100% 70%), hsl(60 100% 65%), hsl(150 100% 65%), hsl(210 100% 70%), hsl(280 100% 72%), hsl(0 100% 70%));
+    background-size: 100% 100%, 300% 300%;
+    background-position: 0 0, var(--mx) var(--my);
+    /* La trame ne se voit que dans la zone éclairée par le pointeur. */
+    mask-image: radial-gradient(circle at var(--mx) var(--my), #000 0, rgb(0 0 0 / 0.35) 45%, transparent 80%);
+    mix-blend-mode: color-dodge;
+  }
+  .wm-card[data-rarity='UR']:hover .wm-foil { opacity: 0.22; }
+  .wm-card[data-rarity='L']:hover .wm-foil { opacity: 0.35; }
+
+  /* Paillettes très fines (L) */
+  .wm-glitter {
+    z-index: 25;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='1' seed='7' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 12 0 0 0 -9.4'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23g)'/%3E%3C/svg%3E");
+    background-size: 140px 140px;
+    background-position: calc(var(--mx) * -0.3) calc(var(--my) * -0.3);
+    mask-image: radial-gradient(circle at var(--mx) var(--my), #000 0, transparent 70%);
+    mix-blend-mode: color-dodge;
+  }
+  .wm-card[data-rarity='L']:hover .wm-glitter { opacity: 0.7; }
+
+  /*
+   * Animation permanente (UR et L) : un reflet qui passe tout seul, même sans survol.
+   * UR : irisé arc-en-ciel qui dérive lentement ; L : éclat doré qui balaie la carte.
+   */
+  .wm-shine {
+    position: absolute;
+    inset: 0;
+    z-index: 26;
+    pointer-events: none;
+    display: none;
+  }
+  .wm-card[data-rarity='UR'] .wm-shine {
+    display: block;
+    background-image: linear-gradient(110deg, hsl(0 100% 72%), hsl(50 100% 68%), hsl(140 90% 68%), hsl(200 100% 70%), hsl(270 100% 74%), hsl(330 100% 72%), hsl(0 100% 72%));
+    background-size: 300% 300%;
+    mix-blend-mode: soft-light;
+    opacity: 0.55;
+    animation: wm-drift 7s ease-in-out infinite alternate;
+  }
+  .wm-card[data-rarity='L'] .wm-shine {
+    display: block;
+    background-image: linear-gradient(105deg, transparent 40%, rgb(255 252 235 / 0.95) 49%, rgb(255 236 160 / 0.6) 53%, transparent 60%);
+    background-size: 300% 100%;
+    background-repeat: no-repeat;
+    mix-blend-mode: overlay;
+    opacity: 0.9;
+    animation: wm-glint 4.5s ease-in-out infinite;
+  }
+  @keyframes wm-drift {
+    from { background-position: 0% 0%; }
+    to { background-position: 100% 100%; }
+  }
+  @keyframes wm-glint {
+    0%, 35% { background-position: 150% 0; }
+    75%, 100% { background-position: -50% 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wm-card .wm-shine { animation: none; }
+  }
+
+  /* Liseré irisé autour de la carte (L) */
+  .wm-rim {
+    border-radius: inherit;
+    padding: 1.4%;
+    background: conic-gradient(from var(--hue), #ff3d6e, #ffb13d, #f7ff3d, #3dff8b, #3de2ff, #5a6bff, #d13dff, #ff3d6e);
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+  }
+  .wm-card[data-rarity='L']:hover .wm-rim { opacity: 0.55; }
 }

@@ -4,8 +4,11 @@
     {
       "name": "wm-tags-preview",
       "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["preview:mock"],
-      "port": 5178
+      "runtimeArgs": [
+        "preview:mock"
+      ],
+      "port": 5178,
+      "autoPort": true
     }
   ]
 }

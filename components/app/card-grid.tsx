@@ -5,10 +5,10 @@ import { useReview } from '@/hooks/use-review';
 import { explicitStatus } from '@/lib/trade';
 import type { OwnedCard, SiteTag } from '@/lib/types';
 import { CardTile } from './card-tile';
+import { useCardViewer } from './card-viewer';
 
 const MIN_TILE = 168;
 const GAP = 12;
-const BODY_HEIGHT = 68;
 
 export interface CardGridHandle {
   columns: number;
@@ -38,7 +38,8 @@ export const CardGrid = forwardRef<CardGridHandle, CardGridProps>(function CardG
 
   const columns = Math.max(1, Math.floor((width + GAP) / (MIN_TILE + GAP)));
   const tileWidth = width ? (width - GAP * (columns - 1)) / columns : MIN_TILE;
-  const rowHeight = Math.round(tileWidth * 0.75 + 4 + BODY_HEIGHT);
+  // Cartes au format 5/7, comme sur WikiMasters.
+  const rowHeight = Math.round((tileWidth * 7) / 5);
   const rowCount = Math.ceil(cards.length / columns);
 
   const virtualizer = useVirtualizer({
@@ -115,8 +116,19 @@ export const CardGrid = forwardRef<CardGridHandle, CardGridProps>(function CardG
     [cards, setTrade, statusOf],
   );
 
+  const openCard = useCallback((index: number) => useCardViewer.getState().open(cards, index), [cards]);
+
   return (
-    <div ref={scrollRef} className="h-full overflow-y-auto overscroll-contain px-4 pt-1 pb-28 sm:px-6" onMouseDown={onMouseDown} onMouseOver={onMouseOver}>
+    <div
+      ref={scrollRef}
+      className="h-full overflow-y-auto overscroll-contain px-4 pt-1 pb-28 sm:px-6"
+      onMouseDown={onMouseDown}
+      onMouseOver={onMouseOver}
+      onDoubleClick={(e) => {
+        const tile = (e.target as HTMLElement).closest<HTMLElement>('[data-index]');
+        if (tile) useCardViewer.getState().open(cards, Number(tile.dataset.index));
+      }}
+    >
       <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
         {virtualizer.getVirtualItems().map((row) => {
           const start = row.index * columns;
@@ -150,6 +162,7 @@ export const CardGrid = forwardRef<CardGridHandle, CardGridProps>(function CardG
                     focused={index === focus}
                     tags={cardTags}
                     onToggleStatus={toggleStatus}
+                    onOpen={openCard}
                   />
                 );
               })}

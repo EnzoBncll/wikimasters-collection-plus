@@ -14,6 +14,8 @@ export interface Project {
   subtitle?: string;
   /** Lien ouvert par le bouton d'action de la visionneuse (ajout Collection+). */
   href?: string;
+  /** Rendu personnalisé de la carte dans l'éventail du dossier (ajout Collection+). */
+  render?: () => React.ReactNode;
 }
 
 const PLACEHOLDER_IMAGE = "https://cdn.21st.dev/assets/mirror/a6/a6535354cc7145b294c0454885bfcb2b4cfc6d31b7dd724e696fe7173ff89dd4.jpg";
@@ -21,6 +23,7 @@ const PLACEHOLDER_IMAGE = "https://cdn.21st.dev/assets/mirror/a6/a6535354cc7145b
 // --- Internal Components ---
 
 interface ProjectCardProps {
+  render?: () => React.ReactNode;
   image: string;
   title: string;
   delay: number;
@@ -32,7 +35,7 @@ interface ProjectCardProps {
 }
 
 const ProjectCard = forwardRef<HTMLDivElement, ProjectCardProps>(
-  ({ image, title, delay, isVisible, index, totalCount, onClick, isSelected }, ref) => {
+  ({ render, image, title, delay, isVisible, index, totalCount, onClick, isSelected }, ref) => {
     const middleIndex = (totalCount - 1) / 2;
     const factor = totalCount > 1 ? (index - middleIndex) / middleIndex : 0;
 
@@ -62,6 +65,9 @@ const ProjectCard = forwardRef<HTMLDivElement, ProjectCardProps>(
           onClick();
         }}
       >
+        {render ? (
+          <div className="size-full transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover/card:-translate-y-6 group-hover/card:scale-125">{render()}</div>
+        ) : (
         <div className={cn(
           "w-full h-full rounded-lg overflow-hidden shadow-xl bg-card border border-white/5 relative",
           "transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
@@ -80,6 +86,7 @@ const ProjectCard = forwardRef<HTMLDivElement, ProjectCardProps>(
             {title}
           </p>
         </div>
+        )}
       </div>
     );
   }
@@ -378,6 +385,10 @@ export interface AnimatedFolderProps {
   onAction?: (project: Project) => void;
   /** Contrôles affichés sous le titre (ajout Collection+). */
   footer?: React.ReactNode;
+  /** Clic sur le dossier (hors cartes et contrôles) : ouverture de l'album (ajout Collection+). */
+  onOpen?: () => void;
+  /** Clic sur une carte de l'éventail, à la place de la visionneuse intégrée (ajout Collection+). */
+  onProjectClick?: (index: number) => void;
 }
 
 export const AnimatedFolder: React.FC<AnimatedFolderProps> = ({
@@ -391,6 +402,8 @@ export const AnimatedFolder: React.FC<AnimatedFolderProps> = ({
   actionLabel,
   onAction,
   footer,
+  onOpen,
+  onProjectClick,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -402,6 +415,7 @@ export const AnimatedFolder: React.FC<AnimatedFolderProps> = ({
   const total = count ?? projects.length;
 
   const handleProjectClick = (project: Project, index: number) => {
+    if (onProjectClick) return onProjectClick(index);
     const cardEl = cardRefs.current[index];
     if (cardEl) setSourceRect(cardEl.getBoundingClientRect());
     setSelectedIndex(index);
@@ -423,6 +437,10 @@ export const AnimatedFolder: React.FC<AnimatedFolderProps> = ({
         style={{ minWidth: "280px", minHeight: "320px", perspective: "1200px", transform: isHovered ? "scale(1.04) rotate(-1.5deg)" : "scale(1) rotate(0deg)" }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
+        onClick={onOpen}
+        role={onOpen ? 'button' : undefined}
+        tabIndex={onOpen ? 0 : undefined}
+        onKeyDown={onOpen ? (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onOpen()) : undefined}
       >
         <div
           className="absolute inset-0 rounded-2xl transition-opacity duration-700"
@@ -433,7 +451,7 @@ export const AnimatedFolder: React.FC<AnimatedFolderProps> = ({
           <div className="absolute w-12 h-4 rounded-t-md border-t border-x border-white/10" style={{ background: tabBg, filter: gradient ? "brightness(0.85)" : "none", top: "calc(50% - 48px - 12px)", left: "calc(50% - 64px + 16px)", transformOrigin: "bottom center", transform: isHovered ? "rotateX(-30deg) translateY(-3px)" : "rotateX(0deg) translateY(0)", transition: "transform 700ms cubic-bezier(0.16, 1, 0.3, 1)", zIndex: 10 }} />
           <div className="absolute" style={{ top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 20 }}>
             {previewProjects.map((project, index) => (
-              <ProjectCard key={project.id} ref={(el) => { cardRefs.current[index] = el; }} image={project.image} title={project.title} delay={index * 50} isVisible={isHovered} index={index} totalCount={previewProjects.length} onClick={() => handleProjectClick(project, index)} isSelected={hiddenCardId === project.id} />
+              <ProjectCard key={project.id} ref={(el) => { cardRefs.current[index] = el; }} render={project.render} image={project.image} title={project.title} delay={index * 50} isVisible={isHovered} index={index} totalCount={previewProjects.length} onClick={() => handleProjectClick(project, index)} isSelected={hiddenCardId === project.id} />
             ))}
           </div>
           <div className="absolute w-32 h-24 rounded-lg shadow-lg border border-white/20" style={{ background: frontBg, top: "calc(50% - 48px + 4px)", transformOrigin: "bottom center", transform: isHovered ? "rotateX(35deg) translateY(12px)" : "rotateX(0deg) translateY(0)", transition: "transform 700ms cubic-bezier(0.16, 1, 0.3, 1)", zIndex: 30 }} />

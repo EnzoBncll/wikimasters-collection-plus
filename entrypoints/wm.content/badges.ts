@@ -4,12 +4,13 @@ import type { OwnedCard, TradeStatus } from '@/lib/types';
 
 const BADGE_CLASS = 'wmt-trade-badge';
 const STYLE_ID = 'wmt-badge-style';
+const LABEL: Record<TradeStatus, string> = { trade: 'Trade', not_trade: 'Not Trade', unset: 'Sans statut' };
 
 const normalize = (s: string | null | undefined) =>
   (s ?? '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
 
 /**
- * Pastilles 🟢 / 🔴 sur les cartes affichées par le site.
+ * Pastilles 🟢 / 🔴 / ⚪ sur les cartes affichées par le site ; le statut s'affiche au survol.
  * Les cartes du site sont des div[class*="glow-"] contenant un h3 avec le titre.
  */
 export class Badges {
@@ -24,12 +25,26 @@ export class Badges {
       style.id = STYLE_ID;
       style.textContent = `
         .${BADGE_CLASS} {
-          position: absolute; top: 6px; left: 50%; transform: translateX(-50%); z-index: 30;
-          padding: 1px 8px; border-radius: 999px; font: 700 10px/1.6 system-ui, sans-serif;
-          color: #fff; pointer-events: none; box-shadow: 0 2px 6px rgb(0 0 0 / .45);
+          position: absolute; top: 8px; right: 8px; z-index: 30;
+          display: flex; align-items: center; justify-content: flex-end;
+          height: 14px; min-width: 14px; max-width: 14px; padding: 0; overflow: hidden;
+          border-radius: 999px; box-sizing: border-box;
+          background: var(--wmt-dot); color: var(--wmt-ink);
+          box-shadow: 0 0 0 2px rgb(255 255 255 / .85), 0 2px 6px rgb(0 0 0 / .5);
+          font: 700 10px/14px system-ui, sans-serif; white-space: nowrap;
+          cursor: default; opacity: .9;
+          transition: max-width .22s ease, padding .22s ease, opacity .15s ease, transform .15s ease, box-shadow .15s ease;
         }
-        .${BADGE_CLASS}[data-s="trade"] { background: #22c55e; }
-        .${BADGE_CLASS}[data-s="not_trade"] { background: #ef4444; }
+        .${BADGE_CLASS}::before { content: attr(data-label); opacity: 0; transition: opacity .15s ease; }
+        .${BADGE_CLASS}:hover {
+          max-width: 120px; padding: 0 8px; opacity: 1; transform: scale(1.08);
+          box-shadow: 0 0 0 2px rgb(255 255 255 / .95), 0 0 12px var(--wmt-dot), 0 2px 8px rgb(0 0 0 / .5);
+        }
+        .${BADGE_CLASS}:hover::before { opacity: 1; transition-delay: .08s; }
+        *:hover > .${BADGE_CLASS} { opacity: 1; }
+        .${BADGE_CLASS}[data-s="trade"] { --wmt-dot: #22c55e; --wmt-ink: #fff; }
+        .${BADGE_CLASS}[data-s="not_trade"] { --wmt-dot: #ef4444; --wmt-ink: #fff; }
+        .${BADGE_CLASS}[data-s="unset"] { --wmt-dot: #f4f4f5; --wmt-ink: #18181b; }
       `;
       document.head.append(style);
     }
@@ -58,7 +73,7 @@ export class Badges {
       const existing = card.querySelector<HTMLElement>(`:scope > .${BADGE_CLASS}`);
       const status = this.enabled && h3 ? this.byTitle.get(normalize(h3.textContent)) : undefined;
 
-      if (!status || status === 'unset') {
+      if (!status) {
         existing?.remove();
         continue;
       }
@@ -67,7 +82,7 @@ export class Badges {
       const badge = existing ?? document.createElement('span');
       badge.className = BADGE_CLASS;
       badge.dataset.s = status;
-      badge.textContent = status === 'trade' ? 'Trade' : 'Not Trade';
+      badge.dataset.label = LABEL[status];
       if (!existing) {
         if (getComputedStyle(card).position === 'static') card.style.position = 'relative';
         card.append(badge);

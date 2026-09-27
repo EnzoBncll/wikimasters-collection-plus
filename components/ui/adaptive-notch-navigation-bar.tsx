@@ -56,7 +56,7 @@ export function NotchLeftWing({
       fill="none"
       shapeRendering="geometricPrecision"
       className={cn(
-        "pointer-events-none absolute right-full size-2.5 md:size-4 overflow-visible select-none text-zinc-950 transition-colors duration-200 dark:text-zinc-200",
+        "pointer-events-none absolute right-full size-2.5 md:size-4 overflow-visible select-none text-frame transition-colors duration-200",
         isBottom ? "bottom-0" : "top-0",
         className
       )}
@@ -88,7 +88,7 @@ export function NotchRightWing({
       fill="none"
       shapeRendering="geometricPrecision"
       className={cn(
-        "pointer-events-none absolute left-full size-2.5 md:size-4 overflow-visible select-none text-zinc-950 transition-colors duration-200 dark:text-zinc-200",
+        "pointer-events-none absolute left-full size-2.5 md:size-4 overflow-visible select-none text-frame transition-colors duration-200",
         isBottom ? "bottom-0" : "top-0",
         className
       )}
@@ -120,7 +120,7 @@ export function NotchCornerLeftWing({
       fill="none"
       shapeRendering="geometricPrecision"
       className={cn(
-        "pointer-events-none absolute left-0 size-2.5 md:size-4 overflow-visible select-none text-zinc-950 transition-colors duration-200 dark:text-zinc-200",
+        "pointer-events-none absolute left-0 size-2.5 md:size-4 overflow-visible select-none text-frame transition-colors duration-200",
         isBottom ? "bottom-full" : "top-full",
         className
       )}
@@ -152,7 +152,7 @@ export function NotchCornerRightWing({
       fill="none"
       shapeRendering="geometricPrecision"
       className={cn(
-        "pointer-events-none absolute right-0 size-2.5 md:size-4 overflow-visible select-none text-zinc-950 transition-colors duration-200 dark:text-zinc-200",
+        "pointer-events-none absolute right-0 size-2.5 md:size-4 overflow-visible select-none text-frame transition-colors duration-200",
         isBottom ? "bottom-full" : "top-full",
         className
       )}
@@ -227,10 +227,10 @@ export const NotchItem = forwardRef<HTMLButtonElement, NotchItemProps>(
         onKeyDown={handleKeyDown}
         className={cn(
           "relative flex h-9 cursor-pointer items-center gap-2 rounded-full px-3.5 text-sm font-medium transition-colors outline-none select-none",
-          "focus-visible:ring-2 focus-visible:ring-zinc-400 focus-visible:ring-offset-1 dark:focus-visible:ring-zinc-500",
+          "focus-visible:ring-2 focus-visible:ring-frame-muted focus-visible:ring-offset-1 focus-visible:ring-offset-frame",
           isActive
-            ? "font-semibold text-zinc-50 dark:text-zinc-950"
-            : "text-zinc-400 hover:text-zinc-200 dark:text-zinc-600 dark:hover:text-zinc-900",
+            ? "font-semibold text-frame-foreground"
+            : "text-frame-muted hover:text-frame-foreground",
           disabled && "cursor-not-allowed pointer-events-none opacity-40",
           className
         )}
@@ -239,7 +239,7 @@ export const NotchItem = forwardRef<HTMLButtonElement, NotchItemProps>(
         {isActive && (
           <motion.span
             layoutId="notch-active-pill"
-            className="absolute inset-0 rounded-full bg-zinc-800 dark:bg-zinc-300"
+            className="absolute inset-0 rounded-full bg-frame-active ring-1 ring-frame-foreground/10 ring-inset"
             transition={{
               type: "spring",
               stiffness: 400,
@@ -254,8 +254,8 @@ export const NotchItem = forwardRef<HTMLButtonElement, NotchItemProps>(
               className={cn(
                 "size-4 shrink-0 transition-colors",
                 isActive
-                  ? "text-zinc-50 dark:text-zinc-950"
-                  : "text-zinc-400 group-hover:text-zinc-200 dark:text-zinc-600 dark:group-hover:text-zinc-900"
+                  ? "text-frame-foreground"
+                  : "text-frame-muted group-hover:text-frame-foreground"
               )}
             />
           )}
@@ -263,7 +263,7 @@ export const NotchItem = forwardRef<HTMLButtonElement, NotchItemProps>(
           <span className="leading-none">{label}</span>
 
           {badge && (
-            <span className="rounded-full bg-zinc-800 px-1.5 py-0.5 text-[10px] font-bold tracking-tight uppercase text-zinc-300 dark:bg-zinc-300 dark:text-zinc-800">
+            <span className="rounded-full bg-holo px-1.5 py-0.5 text-[10px] font-bold tracking-tight uppercase text-zinc-950">
               {badge}
             </span>
           )}
@@ -301,10 +301,10 @@ function NotchDropdownItem({
       onClick={handleClick}
       className={cn(
         "flex w-full cursor-pointer items-center justify-between gap-2.5 rounded-xl px-3 py-2 text-left text-sm outline-none transition-colors select-none",
-        "focus-visible:ring-2 focus-visible:ring-zinc-400 dark:focus-visible:ring-zinc-500",
+        "focus-visible:ring-2 focus-visible:ring-frame-muted",
         isSelected
-          ? "bg-zinc-800 font-semibold text-zinc-50 dark:bg-zinc-300 dark:text-zinc-950"
-          : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 active:bg-zinc-800 dark:text-zinc-600 dark:hover:bg-zinc-300/60 dark:hover:text-zinc-950 dark:active:bg-zinc-300",
+          ? "bg-frame-active font-semibold text-frame-foreground"
+          : "text-frame-muted hover:bg-frame-active/60 hover:text-frame-foreground active:bg-frame-active",
         item.disabled && "cursor-not-allowed pointer-events-none opacity-40"
       )}
     >
@@ -314,8 +314,8 @@ function NotchDropdownItem({
             className={cn(
               "size-4 shrink-0",
               isSelected
-                ? "text-zinc-50 dark:text-zinc-950"
-                : "text-zinc-400 dark:text-zinc-600"
+                ? "text-frame-foreground"
+                : "text-frame-muted"
             )}
           />
         )}
@@ -323,14 +323,14 @@ function NotchDropdownItem({
         <span>{item.label}</span>
 
         {item.badge && (
-          <span className="rounded-full bg-zinc-800 px-1.5 py-0.5 text-[10px] font-bold tracking-tight uppercase text-zinc-300 dark:bg-zinc-300 dark:text-zinc-800">
+          <span className="rounded-full bg-holo px-1.5 py-0.5 text-[10px] font-bold tracking-tight uppercase text-zinc-950">
             {item.badge}
           </span>
         )}
       </div>
 
       {isSelected && (
-        <Check className="size-3.5 text-zinc-50 dark:text-zinc-950" />
+        <Check className="size-3.5 text-frame-foreground" />
       )}
     </button>
   );
@@ -431,7 +431,7 @@ export function NotchNav({
   return (
     <div
       className={cn(
-        "fixed inset-0 h-screen w-screen overflow-hidden bg-zinc-950 p-0 md:p-2 transition-colors duration-200 dark:bg-zinc-200",
+        "fixed inset-0 h-screen w-screen overflow-hidden bg-frame p-0 md:p-2 transition-colors duration-200",
         className
       )}
       {...props}
@@ -453,13 +453,13 @@ export function NotchNav({
           <aside
             aria-label="Brand logo notch"
             className={cn(
-              "hidden xl:flex absolute left-0 z-50 h-10 px-5 select-none transition-colors duration-200 bg-zinc-950 dark:bg-zinc-200 dark:text-zinc-950",
+              "hidden xl:flex absolute left-0 z-50 h-10 px-5 select-none transition-colors duration-200 bg-frame text-frame-foreground",
               isBottom
                 ? "bottom-0 rounded-tr-[24px] md:items-end"
                 : "top-0 rounded-br-[24px] md:items-baseline"
             )}
           >
-            <div className="flex items-center text-zinc-50 dark:text-zinc-950">
+            <div className="flex items-center text-frame-foreground">
               {logo}
             </div>
 
@@ -474,7 +474,7 @@ export function NotchNav({
           role="tablist"
           aria-orientation="horizontal"
           className={cn(
-            "hidden xl:flex absolute left-1/2 -translate-x-1/2 z-50 h-11 px-4 bg-zinc-950 text-zinc-50 select-none transition-colors duration-200 dark:bg-zinc-200 dark:text-zinc-950",
+            "hidden xl:flex absolute left-1/2 -translate-x-1/2 z-50 h-11 px-4 bg-frame text-frame-foreground select-none transition-colors duration-200",
             isBottom
               ? "bottom-0 rounded-t-[24px] md:items-end"
               : "top-0 rounded-b-[24px] md:items-start"
@@ -507,7 +507,7 @@ export function NotchNav({
           <aside
             aria-label="User actions notch"
             className={cn(
-              "hidden xl:flex absolute right-0 z-50 h-10 px-5 select-none transition-colors duration-200 bg-zinc-950 dark:bg-zinc-200 dark:text-zinc-950",
+              "hidden xl:flex absolute right-0 z-50 h-10 px-5 select-none transition-colors duration-200 bg-frame text-frame-foreground",
               isBottom
                 ? "bottom-0 rounded-tl-[24px] md:items-end"
                 : "top-0 rounded-bl-[24px] md:items-start"
@@ -517,7 +517,7 @@ export function NotchNav({
 
             <NotchCornerRightWing position={position} />
 
-            <div className="flex items-center text-zinc-50 dark:text-zinc-950">
+            <div className="flex items-center text-frame-foreground">
               {rightContent}
             </div>
           </aside>
@@ -529,7 +529,7 @@ export function NotchNav({
         <div
           ref={containerRef}
           className={cn(
-            "xl:hidden absolute z-50 flex flex-col bg-zinc-950 text-zinc-50 select-none transition-colors duration-200 dark:bg-zinc-200 dark:text-zinc-950",
+            "xl:hidden absolute z-50 flex flex-col bg-frame text-frame-foreground select-none transition-colors duration-200",
             "w-auto left-1/2 -translate-x-1/2 px-4",
             isBottom
               ? "bottom-0 rounded-t-[24px]"
@@ -549,7 +549,7 @@ export function NotchNav({
           >
             {/* Left Logo Slot */}
             {showLogo && logo && (
-              <div className="flex shrink-0 items-center text-zinc-50 dark:text-zinc-950">
+              <div className="flex shrink-0 items-center text-frame-foreground">
                 {logo}
               </div>
             )}
@@ -561,10 +561,10 @@ export function NotchNav({
               aria-haspopup="listbox"
               aria-label="Toggle navigation menu"
               onClick={handleToggleDropdown}
-              className="group flex h-8 sm:h-8.5 w-full cursor-pointer items-center justify-center gap-1.5 rounded-full px-2.5 py-2.5 sm:p-2.5 text-xs sm:text-sm font-semibold text-zinc-50 outline-none transition-colors sm:hover:bg-zinc-800/60 focus-visible:ring-2 focus-visible:ring-zinc-400 dark:text-zinc-950 dark:sm:hover:bg-zinc-300/60 dark:focus-visible:ring-zinc-500"
+              className="group flex h-8 sm:h-8.5 w-full cursor-pointer items-center justify-center gap-1.5 rounded-full px-2.5 py-2.5 sm:p-2.5 text-xs sm:text-sm font-semibold text-frame-foreground outline-none transition-colors sm:hover:bg-frame-active/60 focus-visible:ring-2 focus-visible:ring-frame-muted"
             >
               {activeItem?.icon && (
-                <activeItem.icon className="size-3.5 sm:size-4 shrink-0 text-zinc-400 dark:text-zinc-600" />
+                <activeItem.icon className="size-3.5 sm:size-4 shrink-0 text-frame-muted" />
               )}
 
               <span className="leading-none">{activeItem?.label}</span>
@@ -572,14 +572,14 @@ export function NotchNav({
               {isBottom ? (
                 <ChevronUp
                   className={cn(
-                    "size-3.5 text-zinc-400 transition-transform duration-200 dark:text-zinc-600",
+                    "size-3.5 text-frame-muted transition-transform duration-200",
                     isDropdownOpen && "rotate-180"
                   )}
                 />
               ) : (
                 <ChevronDown
                   className={cn(
-                    "size-3.5 text-zinc-400 transition-transform duration-200 dark:text-zinc-600",
+                    "size-3.5 text-frame-muted transition-transform duration-200",
                     isDropdownOpen && "rotate-180"
                   )}
                 />
@@ -588,7 +588,7 @@ export function NotchNav({
 
             {/* Right Action Slot */}
             {showRightContent && rightContent && (
-              <div className="flex shrink-0 items-center justify-end text-zinc-50 dark:text-zinc-950 w-max">
+              <div className="flex shrink-0 items-center justify-end text-frame-foreground w-max">
                 {rightContent}
               </div>
             )}

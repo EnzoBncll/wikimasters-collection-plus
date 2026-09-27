@@ -1,7 +1,9 @@
 import { apiJson, fetchFullCollection, type SiteTagsApi } from './api';
 import { collectionCache, collectionDirty, type CollectionCache } from './cache';
+import { mergeAcquisitions } from './acquisitions';
+import { fillDescriptions } from './descriptions';
 import { setAssignments } from './siteTags';
-import type { Settings } from './store';
+import { reviewedSnapshotItem, type Settings } from './store';
 import { ensureTradeTags } from './trade';
 
 /** Au-delà, on recharge tout même si rien ne semble avoir changé (échanges acceptés par d'autres, etc.). */
@@ -46,6 +48,14 @@ export async function syncCollection(
   const cards = canReuse
     ? cached!.cards
     : await fetchFullCollection((page, n) => onProgress?.({ step: 'collection', page, cards: n }));
+
+  if (!canReuse) await mergeAcquisitions(cards, cached?.version === 2 ? cached.fullAt : null);
+  if (cards.some((c) => !c.description)) await fillDescriptions(cards);
+
+  // Première synchro : la collection existante sert de référence, rien n'est « nouveau ».
+  if ((await reviewedSnapshotItem.getValue()) === null) {
+    await reviewedSnapshotItem.setValue(Object.fromEntries(cards.map((c) => [c.cardId, c.count])));
+  }
 
   onProgress?.({ step: 'tags' });
   setAssignments(cards, await api.assignments(tags.map((t) => t.id)));

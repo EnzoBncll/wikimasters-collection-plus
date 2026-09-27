@@ -40,7 +40,7 @@ export function SyncStatus() {
           syncing ? 'animate-pulse bg-primary' : error ? 'bg-destructive' : 'bg-trade',
         )}
       />
-      <span className="hidden text-zinc-400 sm:inline dark:text-zinc-600" title={error ?? undefined}>
+      <span className="hidden text-frame-muted sm:inline" title={error ?? undefined}>
         {label}
       </span>
       <button
@@ -48,7 +48,7 @@ export function SyncStatus() {
         onClick={() => sync(true)}
         disabled={syncing}
         title="Recharger toute la collection depuis le site"
-        className="flex size-7 cursor-pointer items-center justify-center rounded-full text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-50 disabled:cursor-default dark:text-zinc-600 dark:hover:bg-zinc-300 dark:hover:text-zinc-950"
+        className="flex size-7 cursor-pointer items-center justify-center rounded-full text-frame-muted transition hover:bg-frame-active hover:text-frame-foreground disabled:cursor-default"
       >
         <RefreshCw className={cn('size-3.5', syncing && 'animate-spin')} />
       </button>

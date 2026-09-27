@@ -1,4 +1,4 @@
-// Sert la build (.output/chrome-mv3) avec la simulation dev/preview-shim.js injectée dans review.html.
+// Sert la build (.output/chrome-mv3) avec la simulation dev/preview-shim.js injectée dans review.html et popup.html.
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
@@ -18,7 +18,7 @@ createServer(async (req, res) => {
     const file = join(ROOT, normalize(path === '/' ? '/review.html' : path));
     if (!file.startsWith(ROOT)) throw new Error('forbidden');
     let body = await readFile(file);
-    if (file.endsWith('review.html')) body = body.toString().replace('<head>', '<head><script src="/__shim.js"></script>');
+    if (/(review|popup)\.html$/.test(file)) body = body.toString().replace('<head>', '<head><script src="/__shim.js"></script>');
     res.writeHead(200, { 'content-type': TYPES[extname(file)] ?? 'application/octet-stream' }).end(body);
   } catch {
     res.writeHead(404).end('Not found');

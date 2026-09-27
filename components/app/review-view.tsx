@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useCollection } from '@/hooks/use-collection';
+import { useCardViewer } from './card-viewer';
 import { hasActiveFilters, useReview, useVisibleCards, type SortKey } from '@/hooks/use-review';
 import { cn } from '@/lib/utils';
 import { CardGrid, type CardGridHandle } from './card-grid';
@@ -69,6 +70,8 @@ export function ReviewView() {
         if (sel.has(card.cardId)) sel.delete(card.cardId);
         else sel.add(card.cardId);
         state.set({ selected: sel, anchor: state.focus });
+      } else if (e.key === 'Enter') {
+        if (visible[state.focus]) useCardViewer.getState().open(visible, state.focus);
       } else if (key === 't') setTrade(targets, 'trade');
       else if (key === 'n') setTrade(targets, 'not_trade');
       else if (key === 'e' && targets.length) {

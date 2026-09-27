@@ -1,6 +1,48 @@
 // Aperçu hors extension : simule les API chrome.* et le site / Supabase avec de fausses données.
 (() => {
   const store = {}; const listeners = [];
+  // ?theme=dark&palette=cyberpunk&albumStyle=kraft : réglages de départ (captures du README).
+  const params = new URLSearchParams(location.search);
+  if (params.has('theme') || params.has('palette') || params.has('albumStyle') || params.has('tagsLayout')) {
+    store.settings = {
+      theme: params.get('theme') || 'system',
+      palette: params.get('palette') || 'nuit-violette',
+      albumStyle: params.get('albumStyle') || 'relie',
+      tagsLayout: params.get('tagsLayout') || 'folders',
+    };
+  }
+  // ?demo=viewer : ouvre la première carte de l'album en grand ; ?demo=wishes : ajoute trois souhaits et descend au panneau.
+  const demo = params.get('demo');
+  const until = (sel, cb) => {
+    const timer = setInterval(() => {
+      const el = document.querySelector(sel);
+      if (el) (clearInterval(timer), cb(el));
+    }, 200);
+  };
+  if (demo === 'viewer') {
+    until('[data-album-sticker]', (el) => {
+      const r = el.getBoundingClientRect();
+      el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, clientX: r.x + 10, clientY: r.y + 10, button: 0 }));
+      window.dispatchEvent(new PointerEvent('pointerup', { clientX: r.x + 10, clientY: r.y + 10 }));
+    });
+  }
+  if (demo === 'wishes') {
+    const heart = '[title="Ajouter à la liste de souhaits"]';
+    until(heart, async () => {
+      for (const skip of [0, 1, 3]) {
+        document.querySelectorAll(heart)[skip]?.click();
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      document.querySelector('[data-wishes]')?.scrollIntoView();
+    });
+  }
+  if (params.has('static')) window.__collectionPlusStatic = true;
+  // ?static : sans animations CSS (captures figées à l'état final).
+  if (params.has('static')) {
+    const style = document.createElement('style');
+    style.textContent = '*,*::before,*::after{animation-duration:0s!important;animation-delay:0s!important;transition:none!important}';
+    document.head.append(style);
+  }
   const b64 = (o) => btoa(JSON.stringify(o)).replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_');
   const jwt = 'x.' + b64({ sub: 'user-1', exp: Math.floor(Date.now() / 1000) + 3600 }) + '.y';
   const session = 'base64-' + b64({ access_token: jwt });
@@ -11,7 +53,7 @@
       async remove(keys) { [].concat(keys).forEach((k) => delete store[k]); },
       onChanged: { addListener: (l) => listeners.push((c) => l(c)), removeListener() {} },
     }, onChanged: { addListener: (l) => listeners.push(l), removeListener() {} } },
-    runtime: { id: 'test', getManifest: () => ({ oauth2: null }), getURL: (p) => p, sendMessage: async () => ({ error: 'not_configured' }), onMessage: { addListener() {} } },
+    runtime: { id: 'test', getManifest: () => ({ oauth2: null, version: '0.1.0' }), getURL: (p) => p, sendMessage: async () => ({ error: 'not_configured' }), onMessage: { addListener() {} } },
     tabs: { query: async () => [] },
     cookies: { getAll: async () => [{ name: 'sb-cyrxjeppjqsxxjayfrur-auth-token', value: session }] },
   };
@@ -25,17 +67,19 @@
     'Zeus', 'Athéna', 'Odin', 'Super Mario Bros.', 'Minecraft', 'The Legend of Zelda', 'Tetris', 'Breaking Bad', 'Game of Thrones', 'Friends', 'Apple', 'Google', 'Renault',
     'Real Madrid Club de Fútbol', 'Paris Saint-Germain Football Club', 'Olympique de Marseille', 'Bataille de Waterloo', 'Seconde Guerre mondiale', 'Jean-Paul Belmondo',
     'Brad Pitt', 'Scarlett Johansson', 'Omar Sy', 'Roger Federer', 'Usain Bolt', 'Serena Williams', 'Tony Parker'];
+  const DESCRIPTIONS = ['footballeur international français', 'ville et capitale', 'film réalisé en 1972', 'espèce de mammifère', 'physicien théoricien', 'jeu vidéo de plateforme', 'monument historique', 'série télévisée américaine', 'divinité de la mythologie grecque', 'planète du Système solaire'];
   const entries = Array.from({ length: 420 }, (_, i) => {
     const n = i % 400;
     const title = n < real.length ? real[n] : `Carte ${n}`;
     return { id: `own-${i}`, card_id: `card-${n}`, count: 1,
       card: { id: `card-${n}`, wikipedia_title: title, rarity: R[(n * 7) % 6],
+        description: DESCRIPTIONS[n % DESCRIPTIONS.length], attack: 1000 + ((n * 7919) % 8000), defense: 1000 + ((n * 104729) % 8000),
         image_url: n % 3 ? `https://picsum.photos/seed/wm${n}/320/240` : null,
         wikipedia_url: n < real.length ? `https://fr.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}` : 'https://fr.wikipedia.org' } };
   });
   const tags = [{ id: 't-trade', name: 'Trade', color: '#22c55e' }, { id: 't-nt', name: 'Not Trade', color: '#ef4444' },
     { id: 't-foot', name: 'Footballeurs', color: '#3b82f6' }, { id: 't-pays', name: 'Pays', color: '#f59e0b' }];
-  const uct = [['own-3', 't-nt'], ['own-5', 't-nt'], ['own-1', 't-foot'], ['own-13', 't-foot'], ['own-8', 't-pays'], ['own-7', 't-trade']];
+  const uct = [['own-3', 't-nt'], ['own-5', 't-nt'], ['own-0', 't-foot'], ['own-1', 't-foot'], ['own-4', 't-foot'], ['own-5', 't-foot'], ['own-8', 't-pays'], ['own-7', 't-trade']];
   window.__calls = [];
   const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
   const orig = window.fetch.bind(window);
