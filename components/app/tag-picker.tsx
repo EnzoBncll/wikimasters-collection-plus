@@ -9,9 +9,10 @@ import { randomTagColor } from './color-picker';
 /**
  * Liste des étiquettes perso avec état pour la sélection (toutes / certaines / aucune).
  * Clic = pose sur toutes les cartes sélectionnées, ou retire si toutes l'ont déjà.
+ * Les changements restent en attente jusqu'à « Envoyer sur WikiMasters ».
  */
 export function TagPicker({ cards, onDone }: { cards: OwnedCard[]; onDone?: () => void }) {
-  const { tags, tradeTags, changeTags, createTag, job } = useCollection();
+  const { tags, tradeTags, stageTags, createTag, job } = useCollection();
   const [query, setQuery] = useState('');
 
   const systemIds = new Set(tradeTags ? [tradeTags.trade.id, tradeTags.notTrade.id] : []);
@@ -26,16 +27,16 @@ export function TagPicker({ cards, onDone }: { cards: OwnedCard[]; onDone?: () =
     return map;
   }, [cards]);
 
-  const toggle = async (tagId: string, name: string) => {
+  const toggle = (tagId: string) => {
     const all = coverage.get(tagId) === cards.length;
-    await changeTags(cards, [{ tagId, on: !all }], all ? `« ${name} » retirée` : `« ${name} » posée sur ${cards.length} carte(s)`);
+    stageTags(cards, [{ tagId, on: !all }]);
   };
 
   const create = async () => {
     const tag = await createTag(query, randomTagColor());
     if (tag) {
       setQuery('');
-      await changeTags(cards, [{ tagId: tag.id, on: true }], `« ${tag.name} » créée et posée`);
+      stageTags(cards, [{ tagId: tag.id, on: true }]);
       onDone?.();
     }
   };
@@ -65,7 +66,7 @@ export function TagPicker({ cards, onDone }: { cards: OwnedCard[]; onDone?: () =
               key={tag.id}
               type="button"
               disabled={Boolean(job)}
-              onClick={() => toggle(tag.id, tag.name)}
+              onClick={() => toggle(tag.id)}
               className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted disabled:opacity-50"
             >
               <span
@@ -96,6 +97,7 @@ export function TagPicker({ cards, onDone }: { cards: OwnedCard[]; onDone?: () =
           <p className="px-2 py-3 text-center text-xs text-muted-foreground">Tape un nom pour créer ta première étiquette.</p>
         )}
       </div>
+      <p className="border-t px-3 py-2 text-[11px] text-muted-foreground">En attente jusqu'à « Envoyer » (en bas de la barre latérale).</p>
     </div>
   );
 }

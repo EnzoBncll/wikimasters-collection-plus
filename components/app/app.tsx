@@ -65,10 +65,10 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
   }, []);
 
   const items: NotchItemData[] = [
-    { id: 'review', label: 'Revue', icon: LayoutGrid, badge: newCount ? String(newCount) : undefined },
-    { id: 'tags', label: 'Étiquettes', icon: Tags },
-    { id: 'suggestions', label: 'Suggestions', icon: Sparkles, badge: pendingCount ? String(pendingCount) : undefined },
-    { id: 'settings', label: 'Paramètres', icon: Settings },
+    { id: 'review', label: 'Cards', icon: LayoutGrid, badge: newCount ? String(newCount) : undefined },
+    { id: 'tags', label: 'Albums', icon: Tags },
+    { id: 'suggestions', label: 'Enhance', icon: Sparkles, badge: pendingCount ? String(pendingCount) : undefined },
+    { id: 'settings', label: 'Paramètres', icon: Settings, iconOnly: true },
   ];
 
   return (

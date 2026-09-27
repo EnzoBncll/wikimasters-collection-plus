@@ -1,12 +1,15 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronLeft, ChevronRight, ExternalLink, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ExternalLink, Tags, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { create } from 'zustand';
 import { useCollection } from '@/hooks/use-collection';
 import { formatAcquiredAt, fullDate, SOURCE_LABEL } from '@/lib/acquisitions';
 import { RARITY_LABEL, type OwnedCard } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { TagPicker } from './tag-picker';
+import { TRADE_LABEL, TradeCart, tradeDotClass } from './trade-cart';
 import { WmCard } from './wm-card';
 
 interface ViewerState {
@@ -30,14 +33,16 @@ export const useCardViewer = create<ViewerState>((set, get) => ({
   },
 }));
 
-const STATUS = { trade: ['Trade', 'bg-trade'], not_trade: ['Not Trade', 'bg-not-trade'], unset: ['Sans statut', 'bg-zinc-500'] } as const;
 const nf = new Intl.NumberFormat('fr-FR');
 
 /** Carte affichée en grand, avec ses informations ; ← → pour parcourir, Échap pour fermer. */
 export function CardViewer() {
   const { cards, index, close, go } = useCardViewer();
-  const { tags, tradeTags, statusOf } = useCollection();
-  const card = index !== null ? cards[index] : undefined;
+  const { tags, tradeTags, explicitOf, cycleTrade, pending, cards: current } = useCollection();
+  // La liste parcourue est figée à l'ouverture : on relit la carte à jour (étiquettes en attente comprises).
+  const listed = index !== null ? cards[index] : undefined;
+  const card = (listed && current.find((c) => c.cardId === listed.cardId)) ?? listed;
+  const [tagsOpen, setTagsOpen] = useState(false);
   const [dir, setDir] = useState(0);
   const [size, setSize] = useState(360);
 
@@ -52,7 +57,12 @@ export function CardViewer() {
     if (!card) return;
     // En capture : passe avant les raccourcis de la Revue et de l'album.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') close();
+      const el = e.target as HTMLElement;
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return;
+      if (e.key === 'Escape') {
+        if (document.querySelector('[data-slot="popover-content"]')) return;
+        close();
+      }
       else if (e.key === 'ArrowRight') (setDir(1), go(1));
       else if (e.key === 'ArrowLeft') (setDir(-1), go(-1));
       else return;
@@ -65,7 +75,7 @@ export function CardViewer() {
 
   const systemIds = new Set(tradeTags ? [tradeTags.trade.id, tradeTags.notTrade.id] : []);
   const cardTags = card ? tags.filter((t) => card.tagIds.includes(t.id) && !systemIds.has(t.id)) : [];
-  const status = card ? STATUS[statusOf(card)] : null;
+  const status = card ? explicitOf(card) : 'unset';
   // Exemplaires du plus récent au plus ancien ; les exemplaires sans date sont regroupés en un seul.
   const copies = Object.values(card?.acquired ?? {});
   const dated = copies.filter((a) => a.at || a.source).sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
@@ -123,11 +133,22 @@ export function CardViewer() {
                 <dt className="text-xs text-white/60">Exemplaires</dt>
                 <dd className="text-lg font-semibold tabular-nums">{card.count ? `×${card.count}` : 'Pas encore'}</dd>
               </div>
-              {status && card.count > 0 && (
+              {card.count > 0 && (
                 <div className="rounded-xl bg-white/10 p-3">
                   <dt className="text-xs text-white/60">Statut</dt>
-                  <dd className="flex items-center gap-1.5 font-semibold">
-                    <span className={cn('size-2 rounded-full', status[1])} /> {status[0]}
+                  <dd>
+                    <button
+                      type="button"
+                      onClick={() => cycleTrade(card)}
+                      title="Cliquer pour changer"
+                      className="mt-0.5 flex cursor-pointer items-center gap-2 font-semibold transition hover:opacity-80"
+                    >
+                      <span className={cn('flex size-6 items-center justify-center rounded-full', tradeDotClass[status])}>
+                        <TradeCart status={status} className="size-3" />
+                      </span>
+                      {TRADE_LABEL[status]}
+                      {card.cardId in pending && <span className="size-1.5 rounded-full bg-amber-400" title="Pas encore envoyé" />}
+                    </button>
                   </dd>
                 </div>
               )}
@@ -159,13 +180,26 @@ export function CardViewer() {
                 </ul>
               </div>
             )}
-            {cardTags.length > 0 && (
-              <div className="flex flex-wrap gap-1.5">
+            {card.count > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
                 {cardTags.map((t) => (
                   <span key={t.id} className="flex items-center gap-1.5 rounded-full bg-white/10 px-2.5 py-1 text-xs">
                     <span className="size-2 rounded-full" style={{ backgroundColor: t.color ?? '#a1a1aa' }} /> {t.name}
                   </span>
                 ))}
+                <Popover open={tagsOpen} onOpenChange={setTagsOpen}>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="flex cursor-pointer items-center gap-1.5 rounded-full border border-dashed border-white/30 px-2.5 py-1 text-xs text-white/80 transition hover:border-white/60 hover:bg-white/10 hover:text-white"
+                    >
+                      <Tags className="size-3.5" /> {cardTags.length ? 'Modifier' : 'Ajouter des étiquettes'}
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent side="bottom" align="start" className="z-[100] w-auto p-0">
+                    <TagPicker cards={[card]} />
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
             {card.wikipediaUrl && (

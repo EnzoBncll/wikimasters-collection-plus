@@ -22,6 +22,7 @@ export async function applyTagChanges(
   cards: OwnedCard[],
   changes: TagChange[],
   onProgress?: (p: QueueProgress) => void,
+  queue: { concurrency?: number; minDelayMs?: number } = {},
 ): Promise<QueueProgress> {
   const jobs = changes.flatMap(({ tagId, on }) => {
     const ids: string[] = [];
@@ -48,7 +49,7 @@ export async function applyTagChanges(
         }
       }
     },
-    { concurrency: 2, minDelayMs: 150, onProgress },
+    { concurrency: 2, minDelayMs: 150, ...queue, onProgress },
   );
 
   for (const card of touched) card.tagIds = [...new Set(Object.values(card.ownedTags).flat())];

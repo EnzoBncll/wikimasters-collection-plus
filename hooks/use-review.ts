@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
 import { create } from 'zustand';
+import { latestAcquisition } from '@/lib/acquisitions';
 import { RARITY_ORDER, type OwnedCard, type Rarity, type TradeStatus } from '@/lib/types';
 import { useCollection } from './use-collection';
 
-export type SortKey = 'rarity' | 'title' | 'count';
+export type SortKey = 'rarity' | 'date' | 'title' | 'count';
 export type StatusFilter = 'all' | TradeStatus;
 /** 'none' = cartes sans aucune étiquette personnelle. */
 export type TagFilter = string | 'none';
@@ -68,7 +69,7 @@ const rank = (r: Rarity | null) => (r ? RARITY_ORDER.indexOf(r) : 99);
 
 /** Cartes visibles selon les filtres et le tri courants. */
 export function useVisibleCards(): OwnedCard[] {
-  const { cards, newIds, version, tradeTags, statusOf } = useCollection();
+  const { cards, newIds, version, tradeTags, explicitOf } = useCollection();
   const settings = useCollection((s) => s.settings);
   const { query, onlyNew, status, rarities, tagFilters, duplicates, sort } = useReview();
 
@@ -77,7 +78,7 @@ export function useVisibleCards(): OwnedCard[] {
     const systemTags = new Set(tradeTags ? [tradeTags.trade.id, tradeTags.notTrade.id] : []);
     return cards
       .filter((c) => !onlyNew || newIds.has(c.cardId))
-      .filter((c) => status === 'all' || statusOf(c) === status)
+      .filter((c) => status === 'all' || explicitOf(c) === status)
       .filter((c) => !rarities.size || (c.rarity !== null && rarities.has(c.rarity)))
       .filter((c) => !duplicates || c.count > 1)
       .filter((c) => {
@@ -87,10 +88,12 @@ export function useVisibleCards(): OwnedCard[] {
       })
       .filter((c) => !q || c.title.toLowerCase().includes(q))
       .sort((a, b) => {
+        // Plus récentes d'abord ; les cartes sans date connue (déjà là à l'installation) à la fin.
+        if (sort === 'date') return (latestAcquisition(b)?.at ?? 0) - (latestAcquisition(a)?.at ?? 0) || rank(a.rarity) - rank(b.rarity) || a.title.localeCompare(b.title, 'fr');
         if (sort === 'title') return a.title.localeCompare(b.title, 'fr');
         if (sort === 'count') return b.count - a.count || a.title.localeCompare(b.title, 'fr');
         return rank(a.rarity) - rank(b.rarity) || a.title.localeCompare(b.title, 'fr');
       });
     // version : les cartes sont mutées en place lors des changements d'étiquettes.
-  }, [cards, newIds, version, tradeTags, settings, query, onlyNew, status, rarities, tagFilters, duplicates, sort, statusOf]);
+  }, [cards, newIds, version, tradeTags, settings, query, onlyNew, status, rarities, tagFilters, duplicates, sort, explicitOf]);
 }

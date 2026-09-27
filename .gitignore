@@ -3,3 +3,4 @@ node_modules
 .wxt
 web-ext.config.ts
 .env.local
+.DS_Store

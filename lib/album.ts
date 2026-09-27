@@ -48,3 +48,8 @@ export function pageCount(slotCount: number): number {
   const pages = Math.ceil(slotCount / SLOTS_PER_PAGE) + 1;
   return Math.max(2, pages + (pages % 2));
 }
+
+/** Description libre affichée sous le titre de la couverture, par album (même clé que la disposition). */
+export const albumDescriptionsItem = storage.defineItem<Record<string, string>>('local:albumDescriptions', {
+  fallback: {},
+});

@@ -21,8 +21,8 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   defaultTrade: true,
-  tradeTagName: 'Trade',
-  notTradeTagName: 'Not Trade',
+  tradeTagName: '🟢 Trade',
+  notTradeTagName: '🔴 Not Trade',
   showBadges: true,
   sheetImages: true,
   theme: 'system',
@@ -35,8 +35,14 @@ export const settingsItem = storage.defineItem<Settings>('local:settings', {
   fallback: DEFAULT_SETTINGS,
 });
 
+/** Anciens noms des étiquettes système, renommés avec leur pastille sur le site. */
+export const LEGACY_TRADE_TAG_NAMES = { trade: 'Trade', notTrade: 'Not Trade' };
+
 export async function getSettings(): Promise<Settings> {
-  return { ...DEFAULT_SETTINGS, ...(await settingsItem.getValue()) };
+  const settings = { ...DEFAULT_SETTINGS, ...(await settingsItem.getValue()) };
+  if (settings.tradeTagName === LEGACY_TRADE_TAG_NAMES.trade) settings.tradeTagName = DEFAULT_SETTINGS.tradeTagName;
+  if (settings.notTradeTagName === LEGACY_TRADE_TAG_NAMES.notTrade) settings.notTradeTagName = DEFAULT_SETTINGS.notTradeTagName;
+  return settings;
 }
 
 /**

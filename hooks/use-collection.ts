@@ -4,8 +4,9 @@ import type { QueueProgress } from '@/lib/queue';
 import { siteTagsApi } from '@/lib/siteTags';
 import { getSettings, lastReviewAtItem, reviewedSnapshotItem, settingsItem, type Settings } from '@/lib/store';
 import { syncCollection, type SyncProgress } from '@/lib/sync';
+import { groupPending, pendingItem, prunePending, stageChanges, withPending, type PendingChanges } from '@/lib/pending';
 import { applyTagChanges, type TagChange } from '@/lib/tagging';
-import { applyTradeStatus, newCardIds, tradeStatus, type TradeTags } from '@/lib/trade';
+import { explicitStatus, newCardIds, tradeStatus, type TradeTags } from '@/lib/trade';
 import { DEFAULT_SETTINGS } from '@/lib/store';
 import type { OwnedCard, SiteTag, TradeStatus } from '@/lib/types';
 import { toast } from './use-toast';
@@ -14,7 +15,12 @@ const api = siteTagsApi;
 
 interface CollectionState {
   ready: boolean;
+  /** Cartes telles qu'affichées : état du site + modifications en attente. */
   cards: OwnedCard[];
+  /** Cartes telles que sur le site. */
+  remote: OwnedCard[];
+  /** Modifications d'étiquettes (dont Trade / Not Trade) pas encore envoyées. */
+  pending: PendingChanges;
   tags: SiteTag[];
   tradeTags: TradeTags | null;
   settings: Settings;
@@ -35,7 +41,18 @@ interface CollectionState {
   init(): Promise<void>;
   sync(force?: boolean): Promise<void>;
   statusOf(card: OwnedCard): TradeStatus;
-  setTrade(cards: OwnedCard[], target: 'trade' | 'not_trade'): Promise<void>;
+  /** Statut réellement posé (ou en attente), sans le « Trade par défaut ». */
+  explicitOf(card: OwnedCard): TradeStatus;
+  /** Met le statut en attente d'envoi. */
+  setTrade(cards: OwnedCard[], target: 'trade' | 'not_trade'): void;
+  /** Sans statut → Trade → Not Trade → Trade… */
+  cycleTrade(card: OwnedCard): void;
+  /** Met des changements d'étiquettes en attente d'envoi. */
+  stageTags(cards: OwnedCard[], changes: TagChange[]): void;
+  /** Envoie toutes les modifications en attente au site, calmement (une requête à la fois). */
+  pushPending(): Promise<void>;
+  discardPending(): void;
+  /** Applique tout de suite sur le site (règles automatiques…). */
   changeTags(cards: OwnedCard[], changes: TagChange[], label: string): Promise<void>;
   createTag(name: string, color: string): Promise<SiteTag | null>;
   updateTag(tagId: string, patch: { name?: string; color?: string }): Promise<void>;
@@ -52,13 +69,26 @@ export const useCollection = create<CollectionState>((set, get) => {
     const syncedAt = Date.now();
     set({ syncedAt });
     const cache = await collectionCache.getValue();
-    if (cache) await collectionCache.setValue({ ...cache, cards: get().cards, tags: get().tags, ...patch, syncedAt });
-    else await saveCards(get().cards, syncedAt);
+    if (cache) await collectionCache.setValue({ ...cache, cards: get().remote, tags: get().tags, ...patch, syncedAt });
+    else await saveCards(get().remote, syncedAt);
+  };
+
+  const remoteById = () => new Map(get().remote.map((c) => [c.cardId, c]));
+
+  /** Recalcule les cartes affichées ; `pending` est enregistré pour survivre à la fermeture de l'onglet. */
+  const setPending = (pending: PendingChanges) => {
+    set({ pending, cards: withPending(get().remote, pending), version: get().version + 1 });
+    pendingItem.setValue(pending);
   };
 
   const adopt = async (cache: CollectionCache) => {
+    const byId = new Map(cache.cards.map((c) => [c.cardId, c]));
+    const pending = prunePending(get().pending, byId, new Set(cache.tags.map((t) => t.id)));
+    pendingItem.setValue(pending);
     set({
-      cards: cache.cards,
+      remote: cache.cards,
+      pending,
+      cards: withPending(cache.cards, pending),
       tags: cache.tags,
       tradeTags: cache.tradeTags,
       syncedAt: cache.syncedAt,
@@ -71,6 +101,8 @@ export const useCollection = create<CollectionState>((set, get) => {
   return {
     ready: false,
     cards: [],
+    remote: [],
+    pending: {},
     tags: [],
     tradeTags: null,
     settings: DEFAULT_SETTINGS,
@@ -84,12 +116,13 @@ export const useCollection = create<CollectionState>((set, get) => {
     version: 0,
 
     async init() {
-      const [settings, cache, lastReviewAt] = await Promise.all([
+      const [settings, cache, lastReviewAt, pending] = await Promise.all([
         getSettings(),
         collectionCache.getValue(),
         lastReviewAtItem.getValue(),
+        pendingItem.getValue(),
       ]);
-      set({ settings, lastReviewAt });
+      set({ settings, lastReviewAt, pending });
       if (cache?.version === 2) await adopt(cache);
 
       // Mises à jour venant d'autres vues (site, autre onglet).
@@ -126,21 +159,49 @@ export const useCollection = create<CollectionState>((set, get) => {
       return tradeTags ? tradeStatus(card, tradeTags, settings) : 'unset';
     },
 
-    async setTrade(cards, target) {
+    explicitOf(card) {
       const { tradeTags } = get();
-      if (!tradeTags || !cards.length || get().job) return;
-      const label = target === 'trade' ? 'Trade' : 'Not Trade';
-      set({ job: { done: 0, total: 1, failed: 0, label } });
+      return tradeTags ? explicitStatus(card, tradeTags) : 'unset';
+    },
+
+    setTrade(cards, target) {
+      const { tradeTags } = get();
+      if (!tradeTags || !cards.length) return;
+      const [on, off] = target === 'trade' ? [tradeTags.trade, tradeTags.notTrade] : [tradeTags.notTrade, tradeTags.trade];
+      get().stageTags(cards, [{ tagId: off.id, on: false }, { tagId: on.id, on: true }]);
+    },
+
+    cycleTrade(card) {
+      get().setTrade([card], get().explicitOf(card) === 'trade' ? 'not_trade' : 'trade');
+    },
+
+    stageTags(cards, changes) {
+      if (!cards.length || !changes.length) return;
+      setPending(stageChanges(get().pending, remoteById(), cards.map((c) => c.cardId), changes));
+    },
+
+    async pushPending() {
+      if (get().job) return;
+      const groups = groupPending(get().pending);
+      if (!groups.length) return;
+      const byId = remoteById();
+      const label = 'Envoi sur WikiMasters';
+      let failed = 0;
+      set({ job: { done: 0, total: groups.length, failed: 0, label } });
       try {
-        const result = await applyTradeStatus(api, cards, target, tradeTags, (p) => set({ job: { ...p, label } }));
-        set({ version: get().version + 1 });
+        for (const [i, group] of groups.entries()) {
+          const cards = group.cardIds.map((id) => byId.get(id)).filter((c): c is OwnedCard => Boolean(c));
+          // Une requête à la fois, espacées : pas de rafale sur l'API du site.
+          const result = await applyTagChanges(api, cards, [{ tagId: group.tagId, on: group.on }], undefined, { concurrency: 1, minDelayMs: 350 });
+          failed += result.failed;
+          set({ job: { done: i + 1, total: groups.length, failed, label } });
+        }
+        // applyTagChanges a mis à jour les cartes du site en mémoire : ce qui est passé sort de l'attente.
+        set({ remote: [...get().remote] });
+        setPending(prunePending(get().pending, remoteById()));
         await persist();
-        toast(
-          result.failed
-            ? `${label} : ${result.failed} lot(s) en échec sur ${result.total}`
-            : `${label} · ${cards.length} carte${cards.length > 1 ? 's' : ''}`,
-          result.failed ? 'error' : 'success',
-        );
+        const left = Object.keys(get().pending).length;
+        toast(left ? `Envoi partiel : ${left} carte(s) encore en attente` : 'Modifications envoyées sur WikiMasters', left ? 'error' : 'success');
       } catch (error) {
         toast(errorText(error), 'error');
       } finally {
@@ -148,12 +209,19 @@ export const useCollection = create<CollectionState>((set, get) => {
       }
     },
 
+    discardPending() {
+      setPending({});
+    },
+
     async changeTags(cards, changes, label) {
       if (!cards.length || !changes.length || get().job) return;
       set({ job: { done: 0, total: 1, failed: 0, label } });
       try {
-        const result = await applyTagChanges(api, cards, changes, (p) => set({ job: { ...p, label } }));
-        set({ version: get().version + 1 });
+        const byId = remoteById();
+        const remote = cards.map((c) => byId.get(c.cardId)).filter((c): c is OwnedCard => Boolean(c));
+        const result = await applyTagChanges(api, remote, changes, (p) => set({ job: { ...p, label } }));
+        set({ remote: [...get().remote] });
+        setPending(prunePending(get().pending, remoteById()));
         await persist();
         toast(result.failed ? `${label} : ${result.failed} lot(s) en échec` : label, result.failed ? 'error' : 'success');
       } catch (error) {
@@ -196,13 +264,14 @@ export const useCollection = create<CollectionState>((set, get) => {
       if (tradeTags && (tagId === tradeTags.trade.id || tagId === tradeTags.notTrade.id)) return;
       try {
         await api.delete(tagId);
-        const cards = get().cards;
+        const cards = get().remote;
         for (const card of cards) {
           if (!card.tagIds.includes(tagId)) continue;
           for (const ownedId of card.ownedIds) card.ownedTags[ownedId] = (card.ownedTags[ownedId] ?? []).filter((t) => t !== tagId);
           card.tagIds = card.tagIds.filter((t) => t !== tagId);
         }
-        set({ tags: get().tags.filter((t) => t.id !== tagId), version: get().version + 1 });
+        set({ tags: get().tags.filter((t) => t.id !== tagId), remote: [...cards] });
+        setPending(prunePending(get().pending, remoteById(), new Set(get().tags.map((t) => t.id))));
         await persist();
         toast('Étiquette supprimée', 'success');
       } catch (error) {
@@ -211,7 +280,7 @@ export const useCollection = create<CollectionState>((set, get) => {
     },
 
     async validateReview() {
-      const snapshot = Object.fromEntries(get().cards.map((c) => [c.cardId, c.count]));
+      const snapshot = Object.fromEntries(get().remote.map((c) => [c.cardId, c.count]));
       const now = Date.now();
       await reviewedSnapshotItem.setValue(snapshot);
       await lastReviewAtItem.setValue(now);

@@ -1,16 +1,18 @@
-import { Maximize2 } from 'lucide-react';
+import { ArrowLeftRight, Maximize2 } from 'lucide-react';
 import { memo } from 'react';
-import { describeAcquisition, fullDate, latestAcquisition, SOURCE_LABEL } from '@/lib/acquisitions';
+import { describeAcquisition, fullDate, latestAcquisition } from '@/lib/acquisitions';
 import { RARITY_LABEL, type OwnedCard, type SiteTag, type TradeStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { TRADE_LABEL, TradeCart, tradeDotClass } from './trade-cart';
 import { WmCard } from './wm-card';
 
 interface CardTileProps {
   card: OwnedCard;
   index: number;
+  /** Statut posé ou en attente (sans le « Trade par défaut »). */
   status: TradeStatus;
-  /** Trade par défaut, sans étiquette posée. */
-  implicit: boolean;
+  /** Des modifications de la carte attendent l'envoi au site. */
+  pending: boolean;
   isNew: boolean;
   selected: boolean;
   focused: boolean;
@@ -20,13 +22,11 @@ interface CardTileProps {
   onOpen: (index: number) => void;
 }
 
-const STATUS_LABEL: Record<TradeStatus, string> = { trade: 'Trade', not_trade: 'Not Trade', unset: '—' };
-
 export const CardTile = memo(function CardTile({
   card,
   index,
   status,
-  implicit,
+  pending,
   isNew,
   selected,
   focused,
@@ -58,9 +58,10 @@ export const CardTile = memo(function CardTile({
             {isNew && (
               <span
                 title={acquired?.at ? `Obtenue ${describeAcquisition(acquired)} (${fullDate(acquired.at)})` : undefined}
-                className="absolute bottom-[3cqw] left-[4.5cqw] rounded-[2cqw] bg-holo px-[3cqw] py-[1cqw] text-[5cqw] font-bold tracking-wide text-zinc-950 uppercase shadow"
+                className="absolute bottom-[3cqw] left-[4.5cqw] flex items-center rounded-[2cqw] bg-holo px-[3cqw] py-[1cqw] text-[5cqw] font-bold tracking-wide text-zinc-950 uppercase shadow"
               >
-                Nouveau{acquired?.source && ` · ${SOURCE_LABEL[acquired.source]}`}
+                New
+                {acquired?.source === 'trade' && <ArrowLeftRight className="ml-[1.5cqw] inline size-[5cqw] align-[-0.6cqw]" strokeWidth={3} aria-label="obtenue par échange" />}
               </span>
             )}
             {tags.length > 0 && (
@@ -96,17 +97,16 @@ export const CardTile = memo(function CardTile({
                 e.stopPropagation();
                 onToggleStatus(index);
               }}
-              title={implicit ? 'Trade par défaut (pas encore étiquetée) · cliquer pour basculer' : 'Cliquer pour basculer'}
+              title={`${TRADE_LABEL[status]}${pending ? ' · pas encore envoyé' : ''} — cliquer pour ${status === 'trade' ? 'passer en Not Trade' : 'passer en Trade'}`}
+              aria-label={`Statut : ${TRADE_LABEL[status]}`}
               className={cn(
-                'absolute top-[4.5cqw] right-[4.5cqw] z-10 flex cursor-pointer items-center gap-[1.5cqw] rounded-full px-[3cqw] py-[1.2cqw] text-[5.5cqw] leading-none font-bold text-white shadow-md backdrop-blur transition hover:scale-105',
-                status === 'trade' && 'bg-trade/90',
-                status === 'not_trade' && 'bg-not-trade/90',
-                status === 'unset' && 'bg-zinc-500/80',
-                implicit && 'bg-trade/55 ring-1 ring-white/40 ring-inset',
+                'absolute top-[4cqw] right-[4cqw] z-10 flex size-[13cqw] cursor-pointer items-center justify-center rounded-full transition duration-150 hover:scale-115 active:scale-95',
+                tradeDotClass[status],
+                status === 'unset' && 'opacity-80 group-hover:opacity-100',
               )}
             >
-              <span className="size-[2.5cqw] rounded-full bg-white/90" />
-              {STATUS_LABEL[status]}
+              <TradeCart status={status} className="size-[6.5cqw]" />
+              {pending && <span className="absolute -bottom-[0.5cqw] -left-[0.5cqw] size-[3.6cqw] rounded-full bg-amber-400 ring-[0.8cqw] ring-white" />}
             </button>
           </>
         }

@@ -34,6 +34,8 @@ export interface NotchItemData {
   icon?: LucideIcon | ComponentType<{ className?: string }>;
   badge?: string;
   disabled?: boolean;
+  /** N'affiche que l'icône (le libellé reste en infobulle et pour les lecteurs d'écran). */
+  iconOnly?: boolean;
 }
 
 export interface NotchWingProps {
@@ -177,6 +179,7 @@ export interface NotchItemProps
   icon?: LucideIcon | ComponentType<{ className?: string }>;
   badge?: string;
   disabled?: boolean;
+  iconOnly?: boolean;
   onSelect: (id: string) => void;
 }
 
@@ -189,6 +192,7 @@ export const NotchItem = forwardRef<HTMLButtonElement, NotchItemProps>(
       icon: Icon,
       badge,
       disabled,
+      iconOnly,
       className,
       onClick,
       onSelect,
@@ -225,8 +229,11 @@ export const NotchItem = forwardRef<HTMLButtonElement, NotchItemProps>(
         disabled={disabled}
         onClick={handleClick}
         onKeyDown={handleKeyDown}
+        title={iconOnly ? label : undefined}
+        aria-label={iconOnly ? label : undefined}
         className={cn(
-          "relative flex h-9 cursor-pointer items-center gap-2 rounded-full px-3.5 text-sm font-medium transition-colors outline-none select-none",
+          iconOnly ? "w-9 justify-center px-0" : "px-3.5",
+          "relative flex h-9 cursor-pointer items-center gap-2 rounded-full text-sm font-medium transition-colors outline-none select-none",
           "focus-visible:ring-2 focus-visible:ring-frame-muted focus-visible:ring-offset-1 focus-visible:ring-offset-frame",
           isActive
             ? "font-semibold text-frame-foreground"
@@ -260,7 +267,7 @@ export const NotchItem = forwardRef<HTMLButtonElement, NotchItemProps>(
             />
           )}
 
-          <span className="leading-none">{label}</span>
+          <span className={cn("leading-none", iconOnly && "sr-only")}>{label}</span>
 
           {badge && (
             <span className="rounded-full bg-holo px-1.5 py-0.5 text-[10px] font-bold tracking-tight uppercase text-zinc-950">
@@ -494,6 +501,7 @@ export function NotchNav({
                   icon={item.icon}
                   badge={item.badge}
                   disabled={item.disabled}
+                  iconOnly={item.iconOnly}
                   isActive={item.id === activeId}
                   onSelect={handleSelect}
                 />

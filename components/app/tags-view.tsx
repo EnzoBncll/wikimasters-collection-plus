@@ -18,6 +18,7 @@ import { useCollection } from '@/hooks/use-collection';
 import { useReview } from '@/hooks/use-review';
 import { RARITY_LABEL, type OwnedCard, type SiteTag } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { toast } from '@/hooks/use-toast';
 import { Album } from './album';
 import { useCardViewer } from './card-viewer';
 import { ColorPicker, randomTagColor } from './color-picker';
@@ -363,10 +364,21 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
         {album && (
           <Album
             key={album.key}
-            title={album.title}
+            title={album.key === 'none' ? album.title : (tags.find((t) => t.id === album.key)?.name ?? album.title)}
             gradient={album.gradient}
             layoutKey={album.key}
             cards={album.key === 'none' ? untagged : (byTag.get(album.key) ?? [])}
+            onRename={
+              album.key !== 'none' && !systemIds.has(album.key)
+                ? async (name) => {
+                    if (tags.some((t) => t.id !== album.key && t.name.toLowerCase() === name.toLowerCase())) {
+                      toast(`L'étiquette « ${name} » existe déjà`, 'error');
+                      throw new Error('duplicate');
+                    }
+                    await updateTag(album.key, { name });
+                  }
+                : undefined
+            }
             onClose={() => setAlbum(null)}
           />
         )}

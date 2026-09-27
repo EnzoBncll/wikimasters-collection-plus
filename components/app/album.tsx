@@ -1,9 +1,9 @@
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion';
-import { ChevronDown, ChevronLeft, ChevronRight, ExternalLink, X } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Pencil, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCollection } from '@/hooks/use-collection';
-import { albumLayoutsItem, pageCount, reconcileSlots, SLOTS_PER_PAGE, swapSlots } from '@/lib/album';
+import { albumDescriptionsItem, albumLayoutsItem, pageCount, reconcileSlots, SLOTS_PER_PAGE, swapSlots } from '@/lib/album';
 import { RARITY_LABEL, type OwnedCard } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { AlbumWishes } from './album-wishes';
@@ -18,8 +18,10 @@ type Face = number | 'cover' | 'none';
 interface Leaf {
   /** 1 : la page de droite tourne vers la gauche ; -1 : l'inverse. */
   dir: 1 | -1;
-  /** Ouverture de la couverture (premier affichage). */
+  /** Ouverture de la couverture. */
   opening?: boolean;
+  /** Fermeture : la couverture revient se rabattre sur les pages. */
+  closing?: boolean;
 }
 
 interface Drag {
@@ -56,6 +58,128 @@ function Sticker({ card, lifted }: { card: OwnedCard; lifted?: boolean }) {
   );
 }
 
+interface CoverProps {
+  description: string;
+  /** Couverture interactive (livre fermé, rien ne tourne). */
+  editable: boolean;
+  /** Le nom de l'étiquette peut être changé (pas pour « Sans étiquette » ni Trade / Not Trade). */
+  canRename: boolean;
+  onSave: (name: string, description: string) => Promise<void>;
+  onOpen: () => void;
+}
+
+/** Titre et description de la couverture ; double-clic pour les modifier. */
+function CoverText({ title, look, cover }: { title: string; look: AlbumStyle; cover: CoverProps }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(title);
+  const [desc, setDesc] = useState(cover.description);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!editing) {
+      setName(title);
+      setDesc(cover.description);
+    }
+  }, [title, cover.description, editing]);
+  useEffect(() => {
+    if (!cover.editable) setEditing(false);
+  }, [cover.editable]);
+
+  const edit = () => cover.editable && setEditing(true);
+  const field = 'w-full rounded-[calc(var(--u)*1.5)] bg-black/25 text-center text-white outline-none ring-white/50 placeholder:text-white/50 focus:ring-[calc(var(--u)*0.4)]';
+
+  if (editing) {
+    return (
+      <form
+        className="flex w-full flex-col items-center gap-[calc(var(--u)*2.5)] select-text"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            e.stopPropagation();
+            setEditing(false);
+          }
+        }}
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (!name.trim() || saving) return;
+          setSaving(true);
+          try {
+            await cover.onSave(name.trim(), desc.trim());
+            setEditing(false);
+          } catch {
+            /* nom refusé (déjà pris…) : on reste en édition */
+          } finally {
+            setSaving(false);
+          }
+        }}
+      >
+        <input
+          autoFocus
+          onFocus={(e) => e.currentTarget.select()}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          disabled={!cover.canRename}
+          title={cover.canRename ? undefined : 'Le nom de cet album ne peut pas être changé'}
+          aria-label="Nom de l'album"
+          className={cn(field, 'px-[calc(var(--u)*3)] py-[calc(var(--u)*1.5)] text-[calc(var(--u)*6.5)] font-black disabled:opacity-70')}
+        />
+        <textarea
+          autoFocus={!cover.canRename}
+          value={desc}
+          onChange={(e) => setDesc(e.target.value)}
+          rows={3}
+          maxLength={280}
+          placeholder="Description (facultatif)"
+          aria-label="Description de l'album"
+          className={cn(field, 'resize-none px-[calc(var(--u)*3)] py-[calc(var(--u)*2)] text-[calc(var(--u)*3.4)] leading-snug')}
+        />
+        <div className="flex gap-[calc(var(--u)*2)] text-[calc(var(--u)*3.2)] font-semibold">
+          <button type="button" onClick={() => setEditing(false)} className="cursor-pointer rounded-full bg-white/15 px-[calc(var(--u)*4)] py-[calc(var(--u)*1.6)] transition hover:bg-white/25">
+            Annuler
+          </button>
+          <button
+            type="submit"
+            disabled={!name.trim() || saving}
+            className="cursor-pointer rounded-full bg-white px-[calc(var(--u)*4)] py-[calc(var(--u)*1.6)] text-zinc-900 shadow transition hover:bg-white/90 disabled:opacity-50"
+          >
+            {saving ? 'Enregistrement…' : 'Enregistrer'}
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  return (
+    <>
+      <h2
+        onDoubleClick={edit}
+        title={cover.editable ? 'Double-clic pour modifier' : undefined}
+        className={cn('text-[calc(var(--u)*8.5)] leading-none drop-shadow-md', look.coverTitle, cover.editable && 'cursor-text')}
+      >
+        {title}
+      </h2>
+      {cover.description ? (
+        <p
+          onDoubleClick={edit}
+          title={cover.editable ? 'Double-clic pour modifier' : undefined}
+          className={cn('line-clamp-4 max-w-full text-[calc(var(--u)*3.4)] leading-snug whitespace-pre-line opacity-90', cover.editable && 'cursor-text')}
+        >
+          {cover.description}
+        </p>
+      ) : (
+        cover.editable && (
+          <button
+            type="button"
+            onClick={edit}
+            className="flex cursor-pointer items-center gap-[calc(var(--u)*1.5)] rounded-full px-[calc(var(--u)*3)] py-[calc(var(--u)*1)] text-[calc(var(--u)*3)] opacity-70 transition hover:bg-white/15 hover:opacity-100"
+          >
+            <Pencil className="size-[calc(var(--u)*3)]" /> Ajouter une description
+          </button>
+        )
+      )}
+    </>
+  );
+}
+
 function Page({
   face,
   side,
@@ -68,6 +192,7 @@ function Page({
   over,
   palette,
   look,
+  cover,
 }: {
   face: Face;
   side: 'left' | 'right';
@@ -80,6 +205,7 @@ function Page({
   over: number | null;
   palette: ReturnType<typeof useCollection.getState>['settings']['palette'];
   look: AlbumStyle;
+  cover: CoverProps;
 }) {
   if (face === 'none') return null;
 
@@ -90,10 +216,19 @@ function Page({
         <div className="absolute inset-0 bg-[radial-gradient(120%_80%_at_30%_10%,rgb(255_255_255/0.2),transparent_60%)]" />
         <div className="relative flex h-full flex-col items-center justify-center gap-[calc(var(--u)*4)] px-[calc(var(--u)*10)] text-center">
           <p className="text-[calc(var(--u)*3.2)] font-semibold tracking-[0.3em] uppercase opacity-80">Album</p>
-          <h2 className={cn('text-[calc(var(--u)*8.5)] leading-none drop-shadow-md', look.coverTitle)}>{title}</h2>
+          <CoverText title={title} look={look} cover={cover} />
           <div className="h-[calc(var(--u)*1)] w-1/2 rounded-full bg-holo" />
           <p className="text-[calc(var(--u)*3.4)] font-medium opacity-90">{slots.filter(Boolean).length} vignettes</p>
-          <BrandIcon palette={palette} className="mt-[calc(var(--u)*6)] size-[calc(var(--u)*14)] drop-shadow-xl" />
+          <BrandIcon palette={palette} className="mt-[calc(var(--u)*4)] size-[calc(var(--u)*12)] drop-shadow-xl" />
+          {cover.editable && (
+            <button
+              type="button"
+              onClick={cover.onOpen}
+              className="absolute right-[calc(var(--u)*5)] bottom-[calc(var(--u)*5)] flex cursor-pointer items-center gap-[calc(var(--u)*1.5)] rounded-full bg-white/90 px-[calc(var(--u)*4)] py-[calc(var(--u)*2)] text-[calc(var(--u)*3.2)] font-semibold text-zinc-900 shadow-lg transition hover:scale-105 hover:bg-white"
+            >
+              Ouvrir <ChevronRight className="size-[calc(var(--u)*3.5)]" />
+            </button>
+          )}
         </div>
       </div>
     );
@@ -279,19 +414,23 @@ export interface AlbumProps {
   cards: OwnedCard[];
   /** Clé de rangement : identifiant de l'étiquette, ou « none ». */
   layoutKey: string;
+  /** Renomme l'étiquette ; absent quand le nom ne peut pas changer. */
+  onRename?: (name: string) => Promise<void>;
   onClose: () => void;
 }
 
 /** Album à feuilleter façon Panini : doubles pages, pages qui se tournent, vignettes à ranger par glisser-déposer. */
-export function Album({ title, gradient, cards, layoutKey, onClose }: AlbumProps) {
+export function Album({ title, gradient, cards, layoutKey, onRename, onClose }: AlbumProps) {
   const palette = useCollection((s) => s.settings.palette);
   const albumStyle = useCollection((s) => s.settings.albumStyle);
   const updateSettings = useCollection((s) => s.updateSettings);
   const look = ALBUM_STYLES[albumStyle] ?? ALBUM_STYLES.relie;
   const [slots, setSlots] = useState<(string | null)[] | null>(null);
   const [spread, setSpread] = useState(0);
-  // L'aperçu de développement (captures du README) saute l'ouverture de la couverture.
-  const [leaf, setLeaf] = useState<Leaf | null>(() => ((window as { __collectionPlusStatic?: boolean }).__collectionPlusStatic ? null : { dir: 1, opening: true }));
+  // L'album s'ouvre sur sa couverture ; l'aperçu de développement (captures du README) l'affiche déjà ouvert.
+  const [closed, setClosed] = useState(() => !(window as { __collectionPlusStatic?: boolean }).__collectionPlusStatic);
+  const [leaf, setLeaf] = useState<Leaf | null>(null);
+  const [description, setDescription] = useState('');
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<number | null>(null);
   const [pageW, setPageW] = useState(380);
@@ -309,8 +448,8 @@ export function Album({ title, gradient, cards, layoutKey, onClose }: AlbumProps
   const spreads = total / 2;
 
   // Refs lues par les gestionnaires de pointeur (évite les valeurs figées).
-  const state = useRef({ spread, spreads, leaf, slots });
-  state.current = { spread, spreads, leaf, slots };
+  const state = useRef({ spread, spreads, leaf, slots, closed });
+  state.current = { spread, spreads, leaf, slots, closed };
   dirRef.current = leaf?.dir ?? 1;
 
   // Chargement et rangement enregistré
@@ -341,21 +480,44 @@ export function Album({ title, gradient, cards, layoutKey, onClose }: AlbumProps
     return () => window.removeEventListener('resize', fit);
   }, []);
 
-  // Ouverture de la couverture
   useEffect(() => {
-    if (!slots || !leaf?.opening) return;
-    const timer = setTimeout(() => {
-      animate(progress, 1, { duration: 1, ease: [0.45, 0.05, 0.2, 1] }).then(() => {
+    albumDescriptionsItem.getValue().then((all) => setDescription(all[layoutKey] ?? ''));
+  }, [layoutKey]);
+
+  const saveCover = async (name: string, desc: string) => {
+    if (onRename && name !== title) await onRename(name);
+    const all = await albumDescriptionsItem.getValue();
+    const next = { ...all };
+    if (desc) next[layoutKey] = desc;
+    else delete next[layoutKey];
+    await albumDescriptionsItem.setValue(next);
+    setDescription(desc);
+  };
+
+  /** Couverture ↔ première double page. */
+  const toggleCover = useCallback(
+    (open: boolean) => {
+      const { leaf, closed, slots } = state.current;
+      if (leaf || !slots || closed !== open) return;
+      const next: Leaf = open ? { dir: 1, opening: true } : { dir: -1, closing: true };
+      setSpread(0);
+      if (open) setClosed(false);
+      dirRef.current = next.dir;
+      progress.set(0);
+      setLeaf(next);
+      state.current.leaf = next;
+      animate(progress, 1, { duration: 0.9, ease: [0.45, 0.05, 0.2, 1] }).then(() => {
+        if (!open) setClosed(true);
         setLeaf(null);
         progress.set(0);
       });
-    }, 250);
-    return () => clearTimeout(timer);
-  }, [slots, leaf?.opening, progress]);
+    },
+    [progress],
+  );
 
   const canFlip = (dir: 1 | -1) => {
-    const { spread, spreads, leaf } = state.current;
-    return !leaf && (dir === 1 ? spread < spreads - 1 : spread > 0);
+    const { spread, spreads, leaf, closed } = state.current;
+    return !leaf && !closed && (dir === 1 ? spread < spreads - 1 : spread > 0);
   };
 
   const endFlip = useCallback(
@@ -370,6 +532,9 @@ export function Album({ title, gradient, cards, layoutKey, onClose }: AlbumProps
 
   const flip = useCallback(
     (dir: 1 | -1) => {
+      // Tourner avant la première page revient sur la couverture, et inversement.
+      if (state.current.closed) return dir === 1 && toggleCover(true);
+      if (dir === -1 && state.current.spread === 0) return toggleCover(false);
       if (!canFlip(dir)) return;
       dirRef.current = dir;
       progress.set(0);
@@ -377,17 +542,19 @@ export function Album({ title, gradient, cards, layoutKey, onClose }: AlbumProps
       state.current.leaf = { dir };
       endFlip(dir, true);
     },
-    [endFlip, progress],
+    [endFlip, progress, toggleCover],
   );
 
   const jump = (to: number) => {
-    if (state.current.leaf) return;
+    if (state.current.leaf || state.current.closed) return;
     setSpread(Math.max(0, Math.min(spreads - 1, to)));
   };
 
   // Clavier
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return;
       if (e.key === 'Escape') onClose();
       else if (e.key === 'ArrowRight') flip(1);
       else if (e.key === 'ArrowLeft') flip(-1);
@@ -402,9 +569,9 @@ export function Album({ title, gradient, cards, layoutKey, onClose }: AlbumProps
    * - ailleurs sur une page : la page suit le doigt et se tourne si on la lâche après la moitié du chemin.
    */
   const onPointerDown = (e: React.PointerEvent) => {
-    if (e.button !== 0 || state.current.leaf || !state.current.slots) return;
+    if (e.button !== 0 || state.current.leaf || state.current.closed || !state.current.slots) return;
     const target = e.target as HTMLElement;
-    if (target.closest('a,button')) return;
+    if (target.closest('a,button,input,textarea')) return;
     const sticker = target.closest<HTMLElement>('[data-album-sticker]');
     const startX = e.clientX;
     const startY = e.clientY;
@@ -492,6 +659,11 @@ export function Album({ title, gradient, cards, layoutKey, onClose }: AlbumProps
   if (leaf?.opening) {
     under = ['none', 1];
     leafFaces = ['cover', 0];
+  } else if (leaf?.closing) {
+    under = ['none', 1];
+    leafFaces = [0, 'cover'];
+  } else if (closed) {
+    under = ['none', 'cover'];
   } else if (leaf?.dir === 1) {
     under = [L, R + 2 < total ? R + 2 : 'none'];
     leafFaces = [R, R + 1];
@@ -500,7 +672,15 @@ export function Album({ title, gradient, cards, layoutKey, onClose }: AlbumProps
     leafFaces = [L, L - 1];
   }
 
-  const pageProps = { slots: slots ?? [], cards: byId, title, gradient, total, drag, over, palette, look };
+  const bookShut = closed || leaf?.opening || leaf?.closing;
+  const cover: CoverProps = {
+    description,
+    editable: closed && !leaf,
+    canRename: Boolean(onRename),
+    onSave: saveCover,
+    onOpen: () => toggleCover(true),
+  };
+  const pageProps = { slots: slots ?? [], cards: byId, title, gradient, total, drag, over, palette, look, cover };
   const draggedCard = drag ? byId.get(drag.cardId) : undefined;
   const u = pageW / 100;
   const pageH = Math.round(pageW / 0.75);
@@ -539,9 +719,15 @@ export function Album({ title, gradient, cards, layoutKey, onClose }: AlbumProps
               </button>
             ))}
           </div>
-          <span className="text-white/70 tabular-nums">
-            Pages {L + 1}–{R + 1} / {total}
-          </span>
+          <button
+            type="button"
+            onClick={() => (closed ? toggleCover(true) : toggleCover(false))}
+            disabled={Boolean(leaf)}
+            className="flex cursor-pointer items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium transition hover:bg-white/20"
+          >
+            <BookOpen className="size-3.5" /> {closed ? 'Ouvrir' : 'Couverture'}
+          </button>
+          <span className="text-white/70 tabular-nums">{closed ? 'Couverture' : `Pages ${L + 1}–${R + 1} / ${total}`}</span>
           <button
             type="button"
             onClick={onClose}
@@ -557,8 +743,8 @@ export function Album({ title, gradient, cards, layoutKey, onClose }: AlbumProps
         <button
           type="button"
           onClick={() => flip(-1)}
-          disabled={spread === 0 || Boolean(leaf)}
-          aria-label="Page précédente"
+          disabled={closed || Boolean(leaf)}
+          aria-label={spread === 0 ? 'Revenir à la couverture' : 'Page précédente'}
           className="flex size-11 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 disabled:cursor-default disabled:opacity-30"
         >
           <ChevronLeft className="size-5" />
@@ -575,7 +761,7 @@ export function Album({ title, gradient, cards, layoutKey, onClose }: AlbumProps
           style={{ width: pageW * 2, height: pageH, perspective: pageW * 5, ['--u' as string]: `${u}px` }}
         >
           {/* Couverture ouverte derrière les pages, tranches de pages (style en relief) */}
-          {!leaf?.opening && (
+          {!bookShut && (
             <>
               <div
                 className="absolute rounded-[calc(var(--u)*3.5)]"
@@ -602,8 +788,8 @@ export function Album({ title, gradient, cards, layoutKey, onClose }: AlbumProps
           <div className="absolute inset-y-0 right-0 w-1/2">
             <Page face={under[1]} side="right" {...pageProps} />
           </div>
-          {!leaf && <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-black/20" />}
-          {look.id === 'classeur' && !leaf?.opening && <Rings />}
+          {!leaf && !closed && <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-black/20" />}
+          {look.id === 'classeur' && !bookShut && <Rings />}
 
           {leaf && leafFaces && (
             <motion.div
@@ -626,7 +812,7 @@ export function Album({ title, gradient, cards, layoutKey, onClose }: AlbumProps
         <button
           type="button"
           onClick={() => flip(1)}
-          disabled={spread >= spreads - 1 || Boolean(leaf)}
+          disabled={(!closed && spread >= spreads - 1) || Boolean(leaf)}
           aria-label="Page suivante"
           className="flex size-11 cursor-pointer items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 disabled:cursor-default disabled:opacity-30"
         >
@@ -635,7 +821,7 @@ export function Album({ title, gradient, cards, layoutKey, onClose }: AlbumProps
       </div>
 
       <div className="flex w-full flex-col items-center gap-2 text-xs text-white/60" style={{ maxWidth: pageW * 2 }}>
-        {spreads > 1 && (
+        {spreads > 1 && !closed && (
           <input
             type="range"
             min={0}

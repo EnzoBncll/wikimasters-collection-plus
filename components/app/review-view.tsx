@@ -9,9 +9,10 @@ import { hasActiveFilters, useReview, useVisibleCards, type SortKey } from '@/ho
 import { cn } from '@/lib/utils';
 import { CardGrid, type CardGridHandle } from './card-grid';
 import { FilterSidebar } from './filter-sidebar';
+import { PendingPanel } from './pending-panel';
 import { SelectionBar } from './selection-bar';
 
-const SORT_LABEL: Record<SortKey, string> = { rarity: 'Rareté', title: 'Titre', count: 'Exemplaires' };
+const SORT_LABEL: Record<SortKey, string> = { rarity: 'Rareté', date: 'Date d’obtention', title: 'Titre', count: 'Exemplaires' };
 
 export function ReviewView() {
   const { ready, cards, newIds, error, setTrade, validateReview, syncing } = useCollection();
@@ -144,6 +145,7 @@ export function ReviewView() {
           </DropdownMenu>
 
           <div className="ml-auto flex items-center gap-3">
+            <PendingPanel compact className={cn(sidebarOpen && 'lg:hidden')} />
             <span className="text-sm text-muted-foreground tabular-nums">
               {visible.length === cards.length ? `${cards.length} cartes` : `${visible.length} / ${cards.length}`}
             </span>

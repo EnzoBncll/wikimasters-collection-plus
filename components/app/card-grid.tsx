@@ -2,7 +2,6 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useCollection } from '@/hooks/use-collection';
 import { useReview } from '@/hooks/use-review';
-import { explicitStatus } from '@/lib/trade';
 import type { OwnedCard, SiteTag } from '@/lib/types';
 import { CardTile } from './card-tile';
 import { useCardViewer } from './card-viewer';
@@ -25,7 +24,7 @@ export const CardGrid = forwardRef<CardGridHandle, CardGridProps>(function CardG
   const [width, setWidth] = useState(0);
   const painting = useRef<boolean | null>(null);
 
-  const { tags, tradeTags, newIds, statusOf, setTrade } = useCollection();
+  const { tags, tradeTags, newIds, explicitOf, cycleTrade, pending } = useCollection();
   const { selected, focus } = useReview();
 
   useEffect(() => {
@@ -111,9 +110,9 @@ export const CardGrid = forwardRef<CardGridHandle, CardGridProps>(function CardG
   const toggleStatus = useCallback(
     (index: number) => {
       const card = cards[index];
-      if (card) setTrade([card], statusOf(card) === 'not_trade' ? 'trade' : 'not_trade');
+      if (card) cycleTrade(card);
     },
-    [cards, setTrade, statusOf],
+    [cards, cycleTrade],
   );
 
   const openCard = useCallback((index: number) => useCardViewer.getState().open(cards, index), [cards]);
@@ -145,7 +144,7 @@ export const CardGrid = forwardRef<CardGridHandle, CardGridProps>(function CardG
             >
               {cards.slice(start, start + columns).map((card, i) => {
                 const index = start + i;
-                const status = statusOf(card);
+                const status = explicitOf(card);
                 const cardTags = card.tagIds
                   .filter((id) => !systemTags.has(id))
                   .map((id) => tagsById.get(id))
@@ -156,7 +155,7 @@ export const CardGrid = forwardRef<CardGridHandle, CardGridProps>(function CardG
                     card={card}
                     index={index}
                     status={status}
-                    implicit={Boolean(tradeTags) && status === 'trade' && explicitStatus(card, tradeTags!) === 'unset'}
+                    pending={card.cardId in pending}
                     isNew={newIds.has(card.cardId)}
                     selected={selected.has(card.cardId)}
                     focused={index === focus}

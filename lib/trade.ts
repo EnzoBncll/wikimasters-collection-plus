@@ -1,7 +1,7 @@
 import type { SiteTagsApi } from './api';
 import type { QueueProgress } from './queue';
 import { applyTagChanges } from './tagging';
-import type { Settings } from './store';
+import { LEGACY_TRADE_TAG_NAMES, type Settings } from './store';
 import type { OwnedCard, SiteTag, TradeStatus } from './types';
 
 export interface TradeTags {
@@ -9,21 +9,31 @@ export interface TradeTags {
   notTrade: SiteTag;
 }
 
-/** Trouve (ou crée) les étiquettes Trade et Not Trade sur le site. */
+/**
+ * Trouve (ou crée) les étiquettes Trade et Not Trade sur le site, nommées avec leur pastille (🟢 / 🔴).
+ * Les anciennes étiquettes « Trade » / « Not Trade » sont renommées, pas dupliquées.
+ */
 export async function ensureTradeTags(api: SiteTagsApi, settings: Settings): Promise<{ tags: SiteTag[]; tradeTags: TradeTags }> {
   let tags = await api.list();
   const find = (name: string) => tags.find((t) => t.name.trim().toLowerCase() === name.trim().toLowerCase());
 
-  let trade = find(settings.tradeTagName);
-  if (!trade) {
-    trade = await api.create(settings.tradeTagName, '#22c55e');
-    tags = [...tags, trade];
-  }
-  let notTrade = find(settings.notTradeTagName);
-  if (!notTrade) {
-    notTrade = await api.create(settings.notTradeTagName, '#ef4444');
-    tags = [...tags, notTrade];
-  }
+  const ensure = async (name: string, legacy: string, color: string) => {
+    let tag = find(name);
+    if (tag) return tag;
+    const old = find(legacy);
+    if (old) {
+      await api.update(old.id, { name });
+      tag = { ...old, name };
+      tags = tags.map((t) => (t.id === old.id ? tag! : t));
+      return tag;
+    }
+    tag = await api.create(name, color);
+    tags = [...tags, tag];
+    return tag;
+  };
+
+  const trade = await ensure(settings.tradeTagName, LEGACY_TRADE_TAG_NAMES.trade, '#22c55e');
+  const notTrade = await ensure(settings.notTradeTagName, LEGACY_TRADE_TAG_NAMES.notTrade, '#ef4444');
   return { tags, tradeTags: { trade, notTrade } };
 }
 
