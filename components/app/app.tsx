@@ -10,6 +10,7 @@ import { SuggestionsView } from './suggestions-view';
 import { SyncStatus } from './sync-status';
 import { TagsView } from './tags-view';
 import { Toaster } from './toaster';
+import { UpdateBanner } from './update-banner';
 
 type ViewId = 'review' | 'tags' | 'suggestions' | 'export';
 
@@ -85,6 +86,7 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
         </div>
       </NotchNav>
       <Toaster />
+      <UpdateBanner />
     </TooltipProvider>
   );
 }

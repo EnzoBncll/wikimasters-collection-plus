@@ -34,3 +34,15 @@ button:hover { border-color: #3f3f46; }
 button.primary { background: oklch(0.702 0.183 293.541); border-color: transparent; color: #09090b; font-weight: 600; }
 #count:not(:empty) { padding: 1px 6px; border-radius: 999px; background: #27272a; font-size: 11px; }
 .hint { margin: 4px 0 0; color: #a1a1aa; font-size: 11px; text-align: center; }
+.update {
+  display: block;
+  margin: 4px 0 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #1e1b4b;
+  color: #c4b5fd;
+  font-size: 12px;
+  text-align: center;
+  text-decoration: none;
+}
+.update:hover { background: #312e81; }

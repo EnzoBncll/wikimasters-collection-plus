@@ -1,52 +1,77 @@
 # WikiMasters Collection+
 
-> Extension **non officielle**, sans lien avec l'équipe de WikiMasters.
+> Extension Chrome **non officielle** pour [WikiMasters](https://www.wiki-masters.com), sans lien avec l'équipe du jeu.
 
-Extension Chrome pour [WikiMasters](https://www.wiki-masters.com) : revue Trade / Not Trade de la collection, basée sur les étiquettes natives du site, et export CSV / Google Sheets.
+Range ta collection de cartes Wikipédia : tri **Trade / Not Trade** en quelques clics, **étiquettes** (celles du site), **suggestions automatiques** de groupes via Wikidata, et **export** CSV / Google Sheets.
+
+## Fonctionnalités
+
+- **Revue** : toutes tes cartes, filtres (statut, rareté, étiquettes, doublons, nouvelles), sélection multiple, raccourcis clavier (`T` Trade, `N` Not Trade, `E` étiqueter, `A` tout, `/` recherche).
+- **Trade / Not Trade** : deux étiquettes natives du site, option « tout Trade par défaut », pastilles sur les cartes de WikiMasters.
+- **Étiquettes** : dossiers animés, couleurs, renommage ; tout est visible sur le site.
+- **Suggestions** : Collection+ reconnaît ce que représente chaque carte (personnalité, film, ville, espèce, footballeur…) et propose des étiquettes en un clic. Règles optionnelles pour les futures cartes, **à valider** ou **automatiques**.
+- **Export** : CSV, copie pour tableur, ou classeur Google Sheets mis en forme.
+- **Cache local** : la collection s'affiche instantanément, seuls les changements sont rechargés.
+
+## Installation
+
+1. Télécharge le zip de la [dernière version](https://github.com/EnzoBncll/wikimasters-collection-plus/releases/latest) (`wikimasters-collection-plus-x.y.z-chrome.zip`).
+2. Dézippe-le dans un dossier que tu gardes (ex. `Documents/Collection+`).
+3. Ouvre `chrome://extensions`, active le **Mode développeur** (en haut à droite).
+4. **Charger l'extension non empaquetée** → choisis le dossier dézippé.
+5. Va sur WikiMasters (connecté) : un bouton **Collection+** apparaît en bas à gauche.
+
+> Garde un onglet WikiMasters ouvert quand tu utilises Collection+ : l'extension passe par lui pour parler au site.
+
+## Mises à jour
+
+Collection+ vérifie les nouvelles versions et affiche **« Version x.y.z disponible »** dans l'app et le popup. Pour mettre à jour :
+
+1. Télécharge le nouveau zip depuis la [page des versions](https://github.com/EnzoBncll/wikimasters-collection-plus/releases/latest).
+2. Remplace le contenu de ton dossier par celui du nouveau zip.
+3. Dans `chrome://extensions`, clique sur **↻ Recharger** sous Collection+.
+
+Tes réglages, règles et données restent en place (l'identifiant de l'extension est fixe).
+
+## Confidentialité
+
+Aucun serveur, aucune collecte : voir [PRIVACY.md](PRIVACY.md).
+
+---
 
 ## Développement
 
 ```bash
 pnpm install
-pnpm dev      # lance Chrome avec l'extension en rechargement à chaud
-pnpm build    # build de production dans .output/chrome-mv3
+pnpm dev            # Chrome avec l'extension en rechargement à chaud
+pnpm build          # build de production → .output/chrome-mv3
+pnpm preview:mock   # aperçu dans un navigateur, avec données simulées
+pnpm typecheck
 ```
 
-## Installation manuelle
+Stack : WXT (MV3) · React 19 · Tailwind v4 · shadcn/ui (`components/ui`) · framer-motion · zustand · TanStack Virtual.
 
-1. `pnpm build`
-2. Ouvrir `chrome://extensions`, activer le **Mode développeur**
-3. **Charger l'extension non empaquetée** → dossier `.output/chrome-mv3`
+### Publier une version
 
-## Utilisation
+```bash
+npm version patch   # ou minor / major : met à jour package.json, commit + tag vX.Y.Z
+git push --follow-tags
+```
 
-- **Collection+** s'ouvre dans un onglet dédié : bouton flottant **Collection+** en bas à gauche du site, ou icône de l'extension.
-- Navigation en encoche : **Revue** · **Étiquettes** · **Suggestions** (à venir) · **Export** (export + réglages + thème).
-- Revue : clic = sélection, Maj+clic = plage, glisser = peindre la sélection ; la pastille d'une carte bascule Trade / Not Trade.
-- Raccourcis : flèches, `Espace`, `T` Trade, `N` Not Trade, `E` étiqueter, `A` tout sélectionner, `/` recherche, `Échap`.
-- Garde un onglet WikiMasters ouvert : l'extension passe par lui pour parler au site.
+Le workflow [Release](.github/workflows/release.yml) construit le zip et crée la Release GitHub ; les extensions installées la détectent.
 
-## Stack
+### Export Google Sheets (optionnel)
 
-WXT (MV3) · React 19 · Tailwind v4 · shadcn/ui (`components/ui`) · framer-motion · lucide · zustand · TanStack Virtual.
+1. [Google Cloud Console](https://console.cloud.google.com) → nouveau projet → activer **Google Sheets API**.
+2. **Écran de consentement OAuth** (externe) → ajouter les comptes testeurs.
+3. **Identifiants → ID client OAuth** → type **Extension Chrome**, ID de l'élément : `npnhlblglinajejkkjcigeebgbogpbii`.
+4. En local : `WXT_GOOGLE_CLIENT_ID=…` dans `.env.local`. Pour les Releases : variable de dépôt `WXT_GOOGLE_CLIENT_ID` (Settings → Secrets and variables → Actions → Variables).
 
-## Cache et synchronisation
+### Cache et synchronisation
 
-- La collection est gardée en cache local (`chrome.storage.local`) : la revue s'affiche instantanément.
-- À chaque ouverture, une vérification légère compare `/api/my-collection/stats` et relit les étiquettes (1 requête Supabase).
-- Rechargement complet seulement si : le site a fait une action qui modifie la collection (paquet, échange, marché…, détectée automatiquement), les stats ont changé, le cache a plus de 6 h, ou clic sur ↻.
-- L'onglet Collection+, les pastilles du site et le popup partagent le même cache et se mettent à jour mutuellement.
+- Collection en cache (`chrome.storage.local`) ; à l'ouverture, vérification légère (`/api/my-collection/stats` + étiquettes).
+- Rechargement complet si le site a modifié la collection (paquet, échange, marché… détecté automatiquement), si les stats changent, si le cache a plus de 6 h, ou via ↻.
 
-## Export Google Sheets (configuration unique, ~10 min)
+## Licence
 
-L'export crée **un classeur** (onglets *Collection*, *À échanger*, *Stats*), mis en forme, puis le **réécrit au même endroit** à chaque export. L'extension n'a accès qu'aux fichiers qu'elle crée (scope `drive.file`).
-
-1. [console.cloud.google.com](https://console.cloud.google.com) → créer un projet (ex. « WikiMasters Collection+ »).
-2. **API et services → Bibliothèque** → activer **Google Sheets API**.
-3. **Écran de consentement OAuth** → type *Externe* → nom de l'app + ton e-mail → dans **Utilisateurs test**, ajouter ton adresse Google.
-4. **Identifiants → Créer des identifiants → ID client OAuth** → type **Extension Chrome** → ID de l'élément : `npnhlblglinajejkkjcigeebgbogpbii`.
-5. Copier l'ID client dans `.env.local` :
-   ```
-   WXT_GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
-   ```
-6. `pnpm build` puis recharger l'extension. Chrome doit être connecté au compte Google ajouté en utilisateur test.
+[MIT](LICENSE)

@@ -1,0 +1,45 @@
+name: Release
+
+# Publie une Release GitHub (zip de l'extension) à chaque tag vX.Y.Z.
+# Les extensions installées la détectent et affichent « nouvelle version disponible ».
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Vérifier que le tag correspond à la version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
+            echo "Le tag $GITHUB_REF_NAME ne correspond pas à package.json ($VERSION)" && exit 1
+          fi
+
+      - run: pnpm typecheck
+
+      - name: Construire le zip
+        env:
+          # Optionnel : identifiant OAuth Google pour l'export Sheets (variable du dépôt).
+          WXT_GOOGLE_CLIENT_ID: ${{ vars.WXT_GOOGLE_CLIENT_ID }}
+        run: pnpm zip
+
+      - name: Créer la Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" .output/*-chrome.zip \
+            --title "Collection+ $GITHUB_REF_NAME" \
+            --generate-notes

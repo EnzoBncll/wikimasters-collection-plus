@@ -2,6 +2,7 @@ import { collectionCache } from '@/lib/cache';
 import { reviewedSnapshotItem } from '@/lib/store';
 import { openReviewTab } from '@/lib/tabs';
 import { newCardIds } from '@/lib/trade';
+import { availableUpdate, checkForUpdate, currentVersion } from '@/lib/updates';
 
 document.getElementById('open')!.addEventListener('click', async () => {
   await openReviewTab();
@@ -16,4 +17,13 @@ const cache = await collectionCache.getValue();
 if (cache) {
   const count = newCardIds(cache.cards, await reviewedSnapshotItem.getValue()).size;
   document.getElementById('count')!.textContent = count ? String(count) : '';
+}
+
+document.getElementById('version')!.textContent = currentVersion();
+const update = availableUpdate(await checkForUpdate());
+if (update) {
+  const link = document.getElementById('update') as HTMLAnchorElement;
+  link.href = update.url;
+  link.textContent = `⬆ Version ${update.latest} disponible — voir la mise à jour`;
+  link.hidden = false;
 }
