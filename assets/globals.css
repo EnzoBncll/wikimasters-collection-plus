@@ -4,7 +4,7 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * Thème « WM Tags » : base zinc neutre + accent violet.
+ * Thème « Collection+ » : base zinc neutre + accent violet.
  * Les couleurs de rareté reprennent celles du jeu (information du jeu, pas de la marque).
  */
 :root {

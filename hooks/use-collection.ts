@@ -113,7 +113,7 @@ export const useCollection = create<CollectionState>((set, get) => {
         await adopt(cache);
         if (force && mode === 'full') toast('Collection rechargée depuis le site');
       } catch (error) {
-        console.error('[WM Tags]', error);
+        console.error('[Collection+]', error);
         set({ error: errorText(error) });
         if (get().cards.length) toast(`Synchronisation impossible : ${errorText(error)}`, 'error');
       } finally {

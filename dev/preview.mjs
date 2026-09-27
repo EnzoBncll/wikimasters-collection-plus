@@ -29,4 +29,4 @@ createServer(async (req, res) => {
     // Un aperçu tourne déjà : il relit les fichiers à chaque requête, la nouvelle build est donc servie.
     console.log(`Aperçu déjà lancé sur http://localhost:${PORT}/ — recharge la page pour voir la nouvelle build.`);
   })
-  .listen(PORT, () => console.log(`Aperçu WM Tags : http://localhost:${PORT}/`));
+  .listen(PORT, () => console.log(`Aperçu Collection+ : http://localhost:${PORT}/`));

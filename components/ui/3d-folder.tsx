@@ -10,9 +10,9 @@ export interface Project {
   id: string;
   image: string;
   title: string;
-  /** Texte secondaire affiché dans la visionneuse (ajout WM Tags). */
+  /** Texte secondaire affiché dans la visionneuse (ajout Collection+). */
   subtitle?: string;
-  /** Lien ouvert par le bouton d'action de la visionneuse (ajout WM Tags). */
+  /** Lien ouvert par le bouton d'action de la visionneuse (ajout Collection+). */
   href?: string;
 }
 
@@ -227,7 +227,7 @@ export const ImageLightbox: React.FC<ImageLightboxProps> = ({
 
   const currentStyles = animationPhase === "initial" && !isClosing ? getInitialStyles() : getFinalStyles();
 
-  // Rendu au niveau du body : la visionneuse passe au-dessus de toute l'interface (ajout WM Tags).
+  // Rendu au niveau du body : la visionneuse passe au-dessus de toute l'interface (ajout Collection+).
   return createPortal(
     <div
       className={cn("fixed inset-0 z-[70] flex items-center justify-center p-4 md:p-8")}
@@ -369,14 +369,14 @@ export interface AnimatedFolderProps {
   projects: Project[];
   className?: string;
   gradient?: string;
-  /** Libellés du compteur [singulier, pluriel] (ajout WM Tags). */
+  /** Libellés du compteur [singulier, pluriel] (ajout Collection+). */
   countLabel?: [string, string];
-  /** Nombre total affiché si `projects` n'est qu'un aperçu (ajout WM Tags). */
+  /** Nombre total affiché si `projects` n'est qu'un aperçu (ajout Collection+). */
   count?: number;
   hint?: string;
   actionLabel?: string;
   onAction?: (project: Project) => void;
-  /** Contrôles affichés sous le titre (ajout WM Tags). */
+  /** Contrôles affichés sous le titre (ajout Collection+). */
   footer?: React.ReactNode;
 }
 

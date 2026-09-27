@@ -18,7 +18,7 @@ function Logo() {
       <div className="flex size-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
         <Tags className="size-4" />
       </div>
-      <span className="hidden text-sm font-bold tracking-tight sm:inline">WM Tags</span>
+      <span className="hidden text-sm font-bold tracking-tight sm:inline">Collection+</span>
     </div>
   );
 }

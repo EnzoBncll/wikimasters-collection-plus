@@ -16,8 +16,9 @@ export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   vite: () => ({ plugins: [tailwindcss()] }),
   manifest: {
-    name: 'WikiMasters Tags',
-    description: 'Revue Trade / Not Trade et tags automatiques pour WikiMasters, basés sur les étiquettes du site.',
+    name: 'WikiMasters Collection+',
+    short_name: 'Collection+',
+    description: 'Extension non officielle pour WikiMasters : tri Trade / Not Trade, étiquettes et export de ta collection.',
     // Clé publique : fige l'identifiant de l'extension (npnhlblglinajejkkjcigeebgbogpbii), requis par l'OAuth Google.
     key: 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyVdJwvQQHf1utmI8pjYwaEdPTWavycOnpkIN+HLguKDzrRVD0rGxSPPKmk/K+bwkaj2CQrDinwtD0Emjt8hcV+k4aCdRLmyWTaetnc1bvjsSz8n7FxyTa7svNK1UrojVGbisQCOFreBUvAuz8KfDNTJglf3VRr4KCZkH2Pj5MDDTprvF/4uLjK7q4fNe7XUKtVpiWfbwTKZqfadhMrHNN5PDA0VJJewomo6psyaXaVmbjNmVpzFgHqglU31YirzKpJ0ri3zo/Wr6YFx31959NXaa1Tho7yGo9J/nP9iaxfn18s4bu16H7gMH4f/n+wIqpOMNFiOBniIScIsiPJTqNwIDAQAB',
     permissions: ['storage', 'unlimitedStorage', 'cookies', ...(googleClientId ? ['identity'] : [])],

@@ -121,7 +121,7 @@ async function prepareSpreadsheet(token: string): Promise<string> {
       });
       return savedId;
     } catch (error) {
-      console.warn('[WM Tags] classeur précédent inaccessible, création d’un nouveau', error);
+      console.warn('[Collection+] classeur précédent inaccessible, création d’un nouveau', error);
     }
   }
   const created = await call(token, API, {

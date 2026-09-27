@@ -28,7 +28,7 @@ export async function runQueue<T>(
         await worker(item);
       } catch (error) {
         progress.failed += 1;
-        console.warn('[WM Tags] échec', error);
+        console.warn('[Collection+] échec', error);
       }
       progress.done += 1;
       onProgress?.({ ...progress });

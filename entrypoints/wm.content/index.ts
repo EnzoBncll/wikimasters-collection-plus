@@ -51,7 +51,7 @@ export default defineContentScript({
 
     const host = document.createElement('wmt-root');
     const root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = `<style>${FAB_CSS}</style><button type="button"><span class="logo">🏷</span>WM Tags<span class="count" hidden></span></button>`;
+    root.innerHTML = `<style>${FAB_CSS}</style><button type="button"><span class="logo">🏷</span>Collection+<span class="count" hidden></span></button>`;
     document.documentElement.append(host);
     const fab = root.querySelector('button')!;
     fab.addEventListener('click', () => browser.runtime.sendMessage({ type: OPEN_REVIEW_TAB, onlyNew: fab.dataset.new === '1' }));
@@ -68,7 +68,7 @@ export default defineContentScript({
       badge.hidden = !count;
       badge.textContent = String(count);
       fab.dataset.new = count ? '1' : '';
-      fab.title = count ? `${count} carte(s) nouvelle(s) à trier` : 'Ouvrir WM Tags';
+      fab.title = count ? `${count} carte(s) nouvelle(s) à trier` : 'Ouvrir Collection+';
     };
 
     collectionCache.watch(refresh);
