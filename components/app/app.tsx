@@ -1,8 +1,9 @@
 import { Download, LayoutGrid, Sparkles, Tags } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { NotchNav, type NotchItemData } from '@/components/ui/adaptive-notch-navigation-bar';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { useCollection } from '@/hooks/use-collection';
+import { useSuggestions } from '@/hooks/use-suggestions';
 import { ExportView } from './export-view';
 import { ReviewView } from './review-view';
 import { SuggestionsView } from './suggestions-view';
@@ -38,16 +39,31 @@ function useTheme() {
 export function App({ initialView = 'review' }: { initialView?: ViewId }) {
   const [view, setView] = useState<ViewId>(initialView);
   const newCount = useCollection((s) => s.newIds.size);
+  const version = useCollection((s) => s.version);
+  const { rules, facts } = useSuggestions();
+  const pendingCount = useMemo(
+    () => useSuggestions.getState().pending().reduce((n, p) => n + p.cards.length, 0),
+    [rules, facts, version],
+  );
   useTheme();
 
   useEffect(() => {
-    useCollection.getState().init();
+    // Après chaque synchro, les cartes déjà analysées une fois le sont aussi pour les nouvelles
+    // (seules les cartes inconnues sont envoyées à Wikidata), puis les règles automatiques s'appliquent.
+    const unsubscribe = useCollection.subscribe((state, prev) => {
+      if (prev.syncing && !state.syncing && state.cards.length) {
+        const suggestions = useSuggestions.getState();
+        if (Object.keys(suggestions.facts).length) suggestions.analyze();
+      }
+    });
+    useSuggestions.getState().load().then(() => useCollection.getState().init());
+    return unsubscribe;
   }, []);
 
   const items: NotchItemData[] = [
     { id: 'review', label: 'Revue', icon: LayoutGrid, badge: newCount ? String(newCount) : undefined },
     { id: 'tags', label: 'Étiquettes', icon: Tags },
-    { id: 'suggestions', label: 'Suggestions', icon: Sparkles, badge: 'Bientôt' },
+    { id: 'suggestions', label: 'Suggestions', icon: Sparkles, badge: pendingCount ? String(pendingCount) : undefined },
     { id: 'export', label: 'Export', icon: Download },
   ];
 

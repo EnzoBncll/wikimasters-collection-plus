@@ -18,10 +18,21 @@
   window.chrome = api; window.browser = api;
 
   const R = ['C', 'PC', 'R', 'SR', 'L', 'UR'];
-  const words = ['Paris', 'Zinédine Zidane', 'Pikachu', 'Tour Eiffel', 'Napoléon', 'Chat', 'Mars', 'Le Parrain', 'Brésil', 'Mozart', 'Photosynthèse', 'Zeus'];
-  const entries = Array.from({ length: 420 }, (_, i) => ({ id: `own-${i}`, card_id: `card-${i % 400}`, count: 1,
-    card: { id: `card-${i % 400}`, wikipedia_title: `${words[i % words.length]} ${Math.floor(i / 12) || ''}`.trim(), rarity: R[(i * 7) % 6],
-      image_url: i % 3 ? `https://picsum.photos/seed/wm${i % 400}/320/240` : null, wikipedia_url: 'https://fr.wikipedia.org' } }));
+  const real = ['Zinédine Zidane', 'Kylian Mbappé', 'Lionel Messi', 'Thierry Henry', 'Michel Platini', 'Zlatan Ibrahimović', 'Paris', 'Lyon', 'Marseille', 'Tokyo', 'New York',
+    'Berlin', 'France', 'Japon', 'Brésil', 'Italie', 'Pikachu', 'Dracaufeu', 'Mewtwo', 'Salamèche', 'Le Parrain (film)', 'Titanic (film, 1997)', 'Inception', 'Pulp Fiction',
+    'Tour Eiffel', 'Colisée', 'Napoléon Ier', 'Charles de Gaulle', 'Emmanuel Macron', 'Victor Hugo', 'Albert Camus', 'Molière', 'Wolfgang Amadeus Mozart', 'Ludwig van Beethoven',
+    'Daft Punk', 'Édith Piaf', 'Albert Einstein', 'Marie Curie', 'Isaac Newton', 'Chat', 'Chien', 'Lion', 'Éléphant', 'Loup gris', 'Mars (planète)', 'Jupiter (planète)',
+    'Zeus', 'Athéna', 'Odin', 'Super Mario Bros.', 'Minecraft', 'The Legend of Zelda', 'Tetris', 'Breaking Bad', 'Game of Thrones', 'Friends', 'Apple', 'Google', 'Renault',
+    'Real Madrid Club de Fútbol', 'Paris Saint-Germain Football Club', 'Olympique de Marseille', 'Bataille de Waterloo', 'Seconde Guerre mondiale', 'Jean-Paul Belmondo',
+    'Brad Pitt', 'Scarlett Johansson', 'Omar Sy', 'Roger Federer', 'Usain Bolt', 'Serena Williams', 'Tony Parker'];
+  const entries = Array.from({ length: 420 }, (_, i) => {
+    const n = i % 400;
+    const title = n < real.length ? real[n] : `Carte ${n}`;
+    return { id: `own-${i}`, card_id: `card-${n}`, count: 1,
+      card: { id: `card-${n}`, wikipedia_title: title, rarity: R[(n * 7) % 6],
+        image_url: n % 3 ? `https://picsum.photos/seed/wm${n}/320/240` : null,
+        wikipedia_url: n < real.length ? `https://fr.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}` : 'https://fr.wikipedia.org' } };
+  });
   const tags = [{ id: 't-trade', name: 'Trade', color: '#22c55e' }, { id: 't-nt', name: 'Not Trade', color: '#ef4444' },
     { id: 't-foot', name: 'Footballeurs', color: '#3b82f6' }, { id: 't-pays', name: 'Pays', color: '#f59e0b' }];
   const uct = [['own-3', 't-nt'], ['own-5', 't-nt'], ['own-1', 't-foot'], ['own-13', 't-foot'], ['own-8', 't-pays'], ['own-7', 't-trade']];
