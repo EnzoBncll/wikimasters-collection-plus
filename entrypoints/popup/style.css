@@ -1,0 +1,33 @@
+body {
+  width: 280px;
+  margin: 0;
+  padding: 14px;
+  font: 13px/1.4 system-ui, -apple-system, sans-serif;
+  background: #0f1115;
+  color: #e8eaef;
+}
+h1 { margin: 0 0 12px; font-size: 15px; }
+button {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 8px;
+  border: 1px solid #2b303b;
+  border-radius: 8px;
+  background: #1f232c;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+button.primary { background: #7c9cff; border-color: #7c9cff; color: #0b0d12; font-weight: 600; }
+fieldset { margin: 8px 0 0; border: 1px solid #2b303b; border-radius: 8px; }
+legend { color: #8f96a3; }
+label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; }
+input[type='text'] {
+  width: 110px;
+  padding: 4px 6px;
+  border: 1px solid #2b303b;
+  border-radius: 6px;
+  background: #1f232c;
+  color: inherit;
+}
