@@ -2,22 +2,14 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <title>WikiMasters Tags</title>
+    <title>WM Tags</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <h1>🏷️ WikiMasters Tags</h1>
-    <button id="openTab" class="primary">Ouvrir la revue dans un onglet</button>
-    <button id="openSite">Ouvrir la revue sur le site</button>
-    <button id="openNew">✨ Revoir seulement les nouvelles</button>
-    <fieldset>
-      <legend>Réglages</legend>
-      <label><input type="checkbox" id="defaultTrade" /> Tout Trade par défaut</label>
-      <label><input type="checkbox" id="showBadges" /> Pastilles sur les cartes du site</label>
-      <label><input type="checkbox" id="sheetImages" /> Miniatures dans Google Sheets</label>
-      <label>Étiquette Trade <input type="text" id="tradeTagName" /></label>
-      <label>Étiquette Not Trade <input type="text" id="notTradeTagName" /></label>
-    </fieldset>
+    <header><span class="logo">🏷</span> WM Tags</header>
+    <button id="open" class="primary">Ouvrir WM Tags</button>
+    <button id="openNew">✨ Trier les nouvelles <span id="count"></span></button>
+    <p class="hint">Réglages et export : onglet <b>Export</b> de l'application.</p>
     <script type="module" src="./main.ts"></script>
   </body>
 </html>

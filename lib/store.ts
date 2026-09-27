@@ -9,6 +9,7 @@ export interface Settings {
   showBadges: boolean;
   /** Miniatures des cartes dans l'export Google Sheets. */
   sheetImages: boolean;
+  theme: 'system' | 'light' | 'dark';
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -17,6 +18,7 @@ export const DEFAULT_SETTINGS: Settings = {
   notTradeTagName: 'Not Trade',
   showBadges: true,
   sheetImages: true,
+  theme: 'system',
 };
 
 export const settingsItem = storage.defineItem<Settings>('local:settings', {

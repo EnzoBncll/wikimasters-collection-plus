@@ -1,5 +1,6 @@
 import type { SiteTagsApi } from './api';
-import { runQueue, type QueueProgress } from './queue';
+import type { QueueProgress } from './queue';
+import { applyTagChanges } from './tagging';
 import type { Settings } from './store';
 import type { OwnedCard, SiteTag, TradeStatus } from './types';
 
@@ -39,62 +40,17 @@ export function explicitStatus(card: OwnedCard, tradeTags: TradeTags): TradeStat
   return 'unset';
 }
 
-/**
- * Pose le statut voulu sur tous les exemplaires des cartes : ajoute l'étiquette cible, retire l'autre.
- * Les appels sont groupés par lots (une requête pour des centaines d'exemplaires).
- */
-export async function applyTradeStatus(
+/** Pose le statut voulu : ajoute l'étiquette cible, retire l'autre. */
+export function applyTradeStatus(
   api: SiteTagsApi,
   cards: OwnedCard[],
   target: 'trade' | 'not_trade',
   tradeTags: TradeTags,
   onProgress?: (p: QueueProgress) => void,
 ): Promise<QueueProgress> {
-  const addTag = target === 'trade' ? tradeTags.trade.id : tradeTags.notTrade.id;
-  const removeTag = target === 'trade' ? tradeTags.notTrade.id : tradeTags.trade.id;
-
-  const toRemove: string[] = [];
-  const toAdd: string[] = [];
-  for (const card of cards) {
-    for (const ownedId of card.ownedIds) {
-      const tags = card.ownedTags[ownedId] ?? [];
-      if (tags.includes(removeTag)) toRemove.push(ownedId);
-      if (!tags.includes(addTag)) toAdd.push(ownedId);
-    }
-  }
-
-  const BATCH = 80;
-  const jobs = [
-    ...chunk(toRemove, BATCH).map((ids) => ({ ids: new Set(ids), run: () => api.removeMany(removeTag, ids), tag: removeTag, add: false })),
-    ...chunk(toAdd, BATCH).map((ids) => ({ ids: new Set(ids), run: () => api.addMany(addTag, ids), tag: addTag, add: true })),
-  ];
-  const touched = new Set<string>();
-
-  const progress = await runQueue(
-    jobs,
-    async (job) => {
-      await job.run();
-      for (const card of cards) {
-        for (const ownedId of card.ownedIds) {
-          if (!job.ids.has(ownedId)) continue;
-          const tags = card.ownedTags[ownedId] ?? [];
-          card.ownedTags[ownedId] = job.add ? [...new Set([...tags, job.tag])] : tags.filter((t) => t !== job.tag);
-          touched.add(card.cardId);
-        }
-      }
-    },
-    { concurrency: 2, minDelayMs: 150, onProgress },
-  );
-
-  for (const card of cards) {
-    if (!touched.has(card.cardId)) continue;
-    card.tagIds = [...new Set(Object.values(card.ownedTags).flat())];
-  }
-  return progress;
+  const [on, off] = target === 'trade' ? [tradeTags.trade, tradeTags.notTrade] : [tradeTags.notTrade, tradeTags.trade];
+  return applyTagChanges(api, cards, [{ tagId: off.id, on: false }, { tagId: on.id, on: true }], onProgress);
 }
-
-const chunk = <T,>(items: T[], size: number) =>
-  Array.from({ length: Math.ceil(items.length / size) }, (_, i) => items.slice(i * size, (i + 1) * size));
 
 /** Cartes nouvelles depuis la dernière revue : jamais vues, ou avec des exemplaires en plus. */
 export function newCardIds(cards: OwnedCard[], snapshot: Record<string, number> | null): Set<string> {

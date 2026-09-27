@@ -1,3 +1,4 @@
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'wxt';
 
 /**
@@ -12,6 +13,8 @@ try {
 const googleClientId = process.env.WXT_GOOGLE_CLIENT_ID;
 
 export default defineConfig({
+  modules: ['@wxt-dev/module-react'],
+  vite: () => ({ plugins: [tailwindcss()] }),
   manifest: {
     name: 'WikiMasters Tags',
     description: 'Revue Trade / Not Trade et tags automatiques pour WikiMasters, basés sur les étiquettes du site.',

@@ -18,23 +18,22 @@ pnpm build    # build de production dans .output/chrome-mv3
 
 ## Utilisation
 
-- Bouton **🏷️ Revue Trade** en bas à gauche du site (ou via l'icône de l'extension).
-- Clic sur une carte = sélection, Maj+clic = plage, glisser = peindre la sélection.
-- Pastille en haut de la carte = bascule Trade / Not Trade en un clic.
-- Raccourcis : flèches, `Espace` sélectionner, `T` Trade, `N` Not Trade, `A` tout sélectionner, `/` recherche, `Échap`.
-- **✓ Valider la revue** : les cartes actuelles ne sont plus marquées « nouvelles ».
+- **WM Tags** s'ouvre dans un onglet dédié : bouton flottant **WM Tags** en bas à gauche du site, ou icône de l'extension.
+- Navigation en encoche : **Revue** · **Étiquettes** · **Suggestions** (à venir) · **Export** (export + réglages + thème).
+- Revue : clic = sélection, Maj+clic = plage, glisser = peindre la sélection ; la pastille d'une carte bascule Trade / Not Trade.
+- Raccourcis : flèches, `Espace`, `T` Trade, `N` Not Trade, `E` étiqueter, `A` tout sélectionner, `/` recherche, `Échap`.
+- Garde un onglet WikiMasters ouvert : l'extension passe par lui pour parler au site.
+
+## Stack
+
+WXT (MV3) · React 19 · Tailwind v4 · shadcn/ui (`components/ui`) · framer-motion · lucide · zustand · TanStack Virtual.
 
 ## Cache et synchronisation
 
 - La collection est gardée en cache local (`chrome.storage.local`) : la revue s'affiche instantanément.
 - À chaque ouverture, une vérification légère compare `/api/my-collection/stats` et relit les étiquettes (1 requête Supabase).
 - Rechargement complet seulement si : le site a fait une action qui modifie la collection (paquet, échange, marché…, détectée automatiquement), les stats ont changé, le cache a plus de 6 h, ou clic sur ↻.
-- L'overlay du site et l'onglet de l'extension partagent le même cache et se mettent à jour mutuellement.
-
-## Onglet dédié
-
-Icône de l'extension → **Ouvrir la revue dans un onglet** (ou bouton ↗ Onglet dans l'overlay).
-Les requêtes passent par un onglet WikiMasters ouvert s'il y en a un (le plus fiable), sinon directement.
+- L'onglet WM Tags, les pastilles du site et le popup partagent le même cache et se mettent à jour mutuellement.
 
 ## Export Google Sheets (configuration unique, ~10 min)
 

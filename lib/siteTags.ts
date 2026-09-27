@@ -33,6 +33,15 @@ export const siteTagsApi: SiteTagsApi = {
     return { id: row.id, name: row.name, color: row.color ?? null };
   },
 
+  async update(tagId, patch) {
+    await rest(`tags?id=eq.${tagId}`, { method: 'PATCH', body: patch, prefer: 'return=minimal' });
+  },
+
+  async delete(tagId) {
+    await rest(`user_card_tags?tag_id=eq.${tagId}`, { method: 'DELETE', prefer: 'return=minimal' });
+    await rest(`tags?id=eq.${tagId}`, { method: 'DELETE', prefer: 'return=minimal' });
+  },
+
   async assignments(tagIds) {
     const map = new Map<string, string[]>();
     if (!tagIds.length) return map;

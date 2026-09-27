@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wm-tags-preview",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["preview:mock"],
+      "port": 5178
+    }
+  ]
+}

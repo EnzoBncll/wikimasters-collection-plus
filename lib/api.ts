@@ -75,6 +75,9 @@ function extractTagIds(entry: any): string[] {
 export interface SiteTagsApi {
   list(): Promise<SiteTag[]>;
   create(name: string, color: string): Promise<SiteTag>;
+  update(tagId: string, patch: { name?: string; color?: string }): Promise<void>;
+  /** Supprime l'étiquette et toutes ses poses. */
+  delete(tagId: string): Promise<void>;
   /** Étiquettes posées, par exemplaire (user_card_id → tag ids), limitées aux étiquettes données. */
   assignments(tagIds: string[]): Promise<Map<string, string[]>>;
   addMany(tagId: string, ownedIds: string[]): Promise<void>;

@@ -1,33 +1,36 @@
 body {
-  width: 280px;
+  width: 260px;
   margin: 0;
   padding: 14px;
-  font: 13px/1.4 system-ui, -apple-system, sans-serif;
-  background: #0f1115;
-  color: #e8eaef;
+  font: 13px/1.4 ui-sans-serif, system-ui, -apple-system, sans-serif;
+  background: #09090b;
+  color: #fafafa;
 }
-h1 { margin: 0 0 12px; font-size: 15px; }
+header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 700; font-size: 14px; }
+.logo {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: oklch(0.702 0.183 293.541);
+}
 button {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   width: 100%;
   margin-bottom: 8px;
-  padding: 8px;
-  border: 1px solid #2b303b;
-  border-radius: 8px;
-  background: #1f232c;
+  padding: 9px;
+  border: 1px solid #27272a;
+  border-radius: 999px;
+  background: #18181b;
   color: inherit;
   font: inherit;
   cursor: pointer;
 }
-button.primary { background: #7c9cff; border-color: #7c9cff; color: #0b0d12; font-weight: 600; }
-fieldset { margin: 8px 0 0; border: 1px solid #2b303b; border-radius: 8px; }
-legend { color: #8f96a3; }
-label { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 6px 0; }
-input[type='text'] {
-  width: 110px;
-  padding: 4px 6px;
-  border: 1px solid #2b303b;
-  border-radius: 6px;
-  background: #1f232c;
-  color: inherit;
-}
+button:hover { border-color: #3f3f46; }
+button.primary { background: oklch(0.702 0.183 293.541); border-color: transparent; color: #09090b; font-weight: 600; }
+#count:not(:empty) { padding: 1px 6px; border-radius: 999px; background: #27272a; font-size: 11px; }
+.hint { margin: 4px 0 0; color: #a1a1aa; font-size: 11px; text-align: center; }
