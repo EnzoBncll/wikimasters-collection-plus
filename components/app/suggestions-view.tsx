@@ -9,6 +9,7 @@ import { useSuggestions } from '@/hooks/use-suggestions';
 import { PROPS } from '@/lib/wikidata';
 import { computeSuggestions, pendingForRule, type Rule, type RuleMode, type Suggestion } from '@/lib/suggest';
 import type { OwnedCard } from '@/lib/types';
+import { systemTagIds } from '@/lib/trade';
 import { cn } from '@/lib/utils';
 import { ColorPicker, randomTagColor } from './color-picker';
 import { EmptyState } from './review-view';
@@ -199,7 +200,7 @@ export function SuggestionsView() {
     if (!loaded) load();
   }, [loaded, load]);
 
-  const systemIds = useMemo(() => new Set(tradeTags ? [tradeTags.trade.id, tradeTags.notTrade.id] : []), [tradeTags]);
+  const systemIds = useMemo(() => systemTagIds(tradeTags), [tradeTags]);
   const suggestions = useMemo(
     () => computeSuggestions({ cards, facts, labels, tags, systemTagIds: systemIds, dismissed, rules }),
     [cards, facts, labels, tags, systemIds, dismissed, rules, version],

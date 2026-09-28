@@ -1,3 +1,4 @@
+import { systemTagIds } from '@/lib/trade';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useCollection } from '@/hooks/use-collection';
@@ -61,7 +62,7 @@ export const CardGrid = forwardRef<CardGridHandle, CardGridProps>(function CardG
 
   const tagsById = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
   const systemTags = useMemo(
-    () => new Set(tradeTags ? [tradeTags.trade.id, tradeTags.notTrade.id] : []),
+    () => systemTagIds(tradeTags),
     [tradeTags],
   );
 

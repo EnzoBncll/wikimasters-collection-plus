@@ -6,7 +6,7 @@ import { getSettings, lastReviewAtItem, reviewedSnapshotItem, settingsItem, type
 import { syncCollection, type SyncProgress } from '@/lib/sync';
 import { groupPending, pendingItem, prunePending, stageChanges, withPending, type PendingChanges } from '@/lib/pending';
 import { applyTagChanges, type TagChange } from '@/lib/tagging';
-import { explicitStatus, newCardIds, tradeStatus, type TradeTags } from '@/lib/trade';
+import { explicitStatus, newCardIds, tradeStatus, type TradeTags, statusChanges, systemTagIds, type StatusTarget } from '@/lib/trade';
 import { DEFAULT_SETTINGS } from '@/lib/store';
 import type { OwnedCard, SiteTag, TradeStatus } from '@/lib/types';
 import { toast } from './use-toast';
@@ -44,7 +44,7 @@ interface CollectionState {
   /** Statut réellement posé (ou en attente), sans le « Trade par défaut ». */
   explicitOf(card: OwnedCard): TradeStatus;
   /** Met le statut en attente d'envoi. */
-  setTrade(cards: OwnedCard[], target: 'trade' | 'not_trade'): void;
+  setTrade(cards: OwnedCard[], target: StatusTarget): void;
   /** Sans statut → Trade → Not Trade → Trade… */
   cycleTrade(card: OwnedCard): void;
   /** Met des changements d'étiquettes en attente d'envoi. */
@@ -167,12 +167,13 @@ export const useCollection = create<CollectionState>((set, get) => {
     setTrade(cards, target) {
       const { tradeTags } = get();
       if (!tradeTags || !cards.length) return;
-      const [on, off] = target === 'trade' ? [tradeTags.trade, tradeTags.notTrade] : [tradeTags.notTrade, tradeTags.trade];
-      get().stageTags(cards, [{ tagId: off.id, on: false }, { tagId: on.id, on: true }]);
+      get().stageTags(cards, statusChanges(tradeTags, target));
     },
 
     cycleTrade(card) {
-      get().setTrade([card], get().explicitOf(card) === 'trade' ? 'not_trade' : 'trade');
+      // Trade → Not Trade → Discard → Trade (une carte sans statut passe en Trade).
+      const next: Record<string, StatusTarget> = { trade: 'not_trade', not_trade: 'discard', discard: 'trade', unset: 'trade' };
+      get().setTrade([card], next[get().explicitOf(card)]!);
     },
 
     stageTags(cards, changes) {
@@ -261,7 +262,7 @@ export const useCollection = create<CollectionState>((set, get) => {
 
     async deleteTag(tagId) {
       const { tradeTags } = get();
-      if (tradeTags && (tagId === tradeTags.trade.id || tagId === tradeTags.notTrade.id)) return;
+      if (systemTagIds(tradeTags).has(tagId)) return;
       try {
         await api.delete(tagId);
         const cards = get().remote;

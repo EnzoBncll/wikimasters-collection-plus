@@ -4,7 +4,7 @@ import type { OwnedCard, TradeStatus } from '@/lib/types';
 
 const BADGE_CLASS = 'wmt-trade-badge';
 const STYLE_ID = 'wmt-badge-style';
-const LABEL: Record<TradeStatus, string> = { trade: 'Trade', not_trade: 'Not Trade', unset: 'Sans statut' };
+const LABEL: Record<TradeStatus, string> = { trade: 'Trade', not_trade: 'Not Trade', discard: 'Discard', unset: 'Sans statut' };
 
 const normalize = (s: string | null | undefined) =>
   (s ?? '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -44,6 +44,7 @@ export class Badges {
         *:hover > .${BADGE_CLASS} { opacity: 1; }
         .${BADGE_CLASS}[data-s="trade"] { --wmt-dot: #22c55e; --wmt-ink: #fff; }
         .${BADGE_CLASS}[data-s="not_trade"] { --wmt-dot: #ef4444; --wmt-ink: #fff; }
+        .${BADGE_CLASS}[data-s="discard"] { --wmt-dot: #78716c; --wmt-ink: #fff; }
         .${BADGE_CLASS}[data-s="unset"] { --wmt-dot: #f4f4f5; --wmt-ink: #18181b; }
       `;
       document.head.append(style);

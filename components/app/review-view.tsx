@@ -75,6 +75,7 @@ export function ReviewView() {
         if (visible[state.focus]) useCardViewer.getState().open(visible, state.focus);
       } else if (key === 't') setTrade(targets, 'trade');
       else if (key === 'n') setTrade(targets, 'not_trade');
+      else if (key === 'd') setTrade(targets, 'discard');
       else if (key === 'e' && targets.length) {
         if (!state.selected.size && targets[0]) state.set({ selected: new Set([targets[0].cardId]) });
         state.set({ tagPickerOpen: true });

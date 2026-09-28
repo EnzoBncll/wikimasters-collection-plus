@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCheck, Tags, X } from 'lucide-react';
+import { CheckCheck, Tags, X, Trash2 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useCollection } from '@/hooks/use-collection';
 import { useReview } from '@/hooks/use-review';
@@ -58,6 +58,9 @@ export function SelectionBar({ targets, visible }: { targets: OwnedCard[]; visib
                 </button>
                 <button type="button" className={barButton} onClick={() => setTrade(targets, 'not_trade')}>
                   <span className="size-2 rounded-full bg-not-trade" /> Not Trade <Kbd>N</Kbd>
+                </button>
+                <button type="button" className={barButton} onClick={() => setTrade(targets, 'discard')} title="Défausser (D)">
+                  <Trash2 className="size-4 text-discard" /> Discard <Kbd>D</Kbd>
                 </button>
                 <Popover open={tagPickerOpen} onOpenChange={setTagsOpen}>
                   <PopoverTrigger asChild>

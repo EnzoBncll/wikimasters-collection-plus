@@ -1,3 +1,4 @@
+import { systemTagIds } from '@/lib/trade';
 import { useMemo } from 'react';
 import { create } from 'zustand';
 import { latestAcquisition } from '@/lib/acquisitions';
@@ -75,7 +76,7 @@ export function useVisibleCards(): OwnedCard[] {
 
   return useMemo(() => {
     const q = query.trim().toLowerCase();
-    const systemTags = new Set(tradeTags ? [tradeTags.trade.id, tradeTags.notTrade.id] : []);
+    const systemTags = systemTagIds(tradeTags);
     return cards
       .filter((c) => !onlyNew || newIds.has(c.cardId))
       .filter((c) => status === 'all' || explicitOf(c) === status)

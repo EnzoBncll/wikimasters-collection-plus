@@ -6,6 +6,8 @@ export interface Settings {
   defaultTrade: boolean;
   tradeTagName: string;
   notTradeTagName: string;
+  /** Étiquette des cartes à défausser. */
+  discardTagName: string;
   /** Pastilles Trade / Not Trade sur les cartes du site. */
   showBadges: boolean;
   /** Miniatures des cartes dans l'export Google Sheets. */
@@ -23,6 +25,7 @@ export const DEFAULT_SETTINGS: Settings = {
   defaultTrade: true,
   tradeTagName: '🟢 Trade',
   notTradeTagName: '🔴 Not Trade',
+  discardTagName: '🗑️ Discard',
   showBadges: true,
   sheetImages: true,
   theme: 'system',

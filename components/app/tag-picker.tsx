@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { useCollection } from '@/hooks/use-collection';
 import type { OwnedCard } from '@/lib/types';
+import { systemTagIds } from '@/lib/trade';
 import { cn } from '@/lib/utils';
 import { randomTagColor } from './color-picker';
 
@@ -15,7 +16,7 @@ export function TagPicker({ cards, onDone }: { cards: OwnedCard[]; onDone?: () =
   const { tags, tradeTags, stageTags, createTag, job } = useCollection();
   const [query, setQuery] = useState('');
 
-  const systemIds = new Set(tradeTags ? [tradeTags.trade.id, tradeTags.notTrade.id] : []);
+  const systemIds = systemTagIds(tradeTags);
   const ownTags = tags.filter((t) => !systemIds.has(t.id));
   const q = query.trim().toLowerCase();
   const filtered = ownTags.filter((t) => !q || t.name.toLowerCase().includes(q));

@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, Folder, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowRight, BookOpen, Folder, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, Trash2, type LucideIcon } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatedFolder, type Project } from '@/components/ui/3d-folder';
@@ -17,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { useCollection } from '@/hooks/use-collection';
 import { useReview } from '@/hooks/use-review';
 import { RARITY_LABEL, type OwnedCard, type SiteTag } from '@/lib/types';
+import { systemTagIds } from '@/lib/trade';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Album } from './album';
@@ -65,6 +66,7 @@ function TagRow({
   muted,
   onOpen,
   controls,
+  icon: Icon = Folder,
 }: {
   name: string;
   color: string | null;
@@ -72,6 +74,8 @@ function TagRow({
   muted?: boolean;
   onOpen: () => void;
   controls: React.ReactNode;
+  /** Icône du dossier (poubelle pour Discard). */
+  icon?: LucideIcon;
 }) {
   const preview = cards.slice(0, 5);
   return (
@@ -86,7 +90,7 @@ function TagRow({
         className="relative flex size-11 shrink-0 items-center justify-center rounded-xl text-white shadow-sm"
         style={{ background: color ? folderGradient(color) : UNTAGGED_GRADIENT }}
       >
-        <Folder className="size-5 drop-shadow" />
+        <Icon className="size-5 drop-shadow" />
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold">{name}</p>
@@ -152,7 +156,7 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
     setAlbumLink(null);
   }, [albumLink, tags]);
 
-  const systemIds = new Set(tradeTags ? [tradeTags.trade.id, tradeTags.notTrade.id] : []);
+  const systemIds = systemTagIds(tradeTags);
   const own = tags.filter((t) => !systemIds.has(t.id));
 
   // Cartes par étiquette ; Trade inclut les cartes « Trade par défaut ».
@@ -181,6 +185,7 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
     review.resetFilters();
     if (tag === 'none') review.set({ tagFilters: new Set(['none']) });
     else if (tradeTags && tag.id === tradeTags.notTrade.id) review.set({ status: 'not_trade' });
+    else if (tradeTags?.discard && tag.id === tradeTags.discard.id) review.set({ status: 'discard' });
     else if (tradeTags && tag.id === tradeTags.trade.id) review.set({ status: 'trade' });
     else review.set({ tagFilters: new Set([tag.id]) });
     onOpenReview();
@@ -350,7 +355,15 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
             {tags
               .filter((t) => systemIds.has(t.id))
               .map((tag) => (
-                <TagRow key={tag.id} name={tag.name} color={tag.color} cards={byTag.get(tag.id) ?? []} onOpen={() => openAlbum(tag)} controls={tagControls(tag, true)} />
+                <TagRow
+                  key={tag.id}
+                  name={tag.name}
+                  color={tag.color}
+                  cards={byTag.get(tag.id) ?? []}
+                  onOpen={() => openAlbum(tag)}
+                  controls={tagControls(tag, true)}
+                  icon={tag.id === tradeTags?.discard?.id ? Trash2 : Folder}
+                />
               ))}
           </div>
         ) : (

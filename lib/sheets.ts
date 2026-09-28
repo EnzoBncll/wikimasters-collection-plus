@@ -38,7 +38,7 @@ const RARITY_COLORS: Record<Rarity, string> = {
   L: '#fde68a',
   UR: '#fbcfe8',
 };
-const STATUS_LABEL: Record<TradeStatus, string> = { trade: 'Trade', not_trade: 'Not Trade', unset: '' };
+const STATUS_LABEL: Record<TradeStatus, string> = { trade: 'Trade', not_trade: 'Not Trade', discard: 'Discard', unset: '' };
 
 // ---------------------------------------------------------------------------
 
@@ -268,11 +268,11 @@ function collectionSheet(sheetId: number, title: string, rows: SheetRow[], withI
 }
 
 function statsSheet(sheetId: number, rows: SheetRow[]): object[] {
-  const statuses: TradeStatus[] = ['trade', 'not_trade', 'unset'];
+  const statuses: TradeStatus[] = ['trade', 'not_trade', 'discard', 'unset'];
   const count = (pred: (r: SheetRow) => boolean) => rows.filter(pred).length;
   const copies = (pred: (r: SheetRow) => boolean) => rows.filter(pred).reduce((n, r) => n + r.count, 0);
 
-  const headers = ['Rareté', 'Cartes', 'Exemplaires', 'Trade', 'Not Trade', 'Sans statut'];
+  const headers = ['Rareté', 'Cartes', 'Exemplaires', 'Trade', 'Not Trade', 'Discard', 'Sans statut'];
   const line = (label: string, pred: (r: SheetRow) => boolean, bg?: string) => ({
     values: [
       text(label, { textFormat: { bold: true }, ...(bg ? { backgroundColor: rgb(bg) } : {}) }),

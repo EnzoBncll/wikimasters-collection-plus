@@ -1,3 +1,4 @@
+import { systemTagIds } from '@/lib/trade';
 import { create } from 'zustand';
 import {
   computeSuggestions,
@@ -42,7 +43,7 @@ interface SuggestionsState {
 
 const systemIds = () => {
   const { tradeTags } = useCollection.getState();
-  return new Set(tradeTags ? [tradeTags.trade.id, tradeTags.notTrade.id] : []);
+  return systemTagIds(tradeTags);
 };
 
 export const useSuggestions = create<SuggestionsState>((set, get) => {

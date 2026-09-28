@@ -12,7 +12,7 @@ function toCells({ card, status }: Row, tagsById: Map<string, SiteTag>): string[
     card.title,
     card.rarity ?? '',
     String(card.count),
-    status === 'trade' ? 'Trade' : status === 'not_trade' ? 'Not Trade' : '',
+    status === 'trade' ? 'Trade' : status === 'not_trade' ? 'Not Trade' : status === 'discard' ? 'Discard' : '',
     card.tagIds.map((id) => tagsById.get(id)?.name ?? id).join(', '),
     card.wikipediaUrl ?? '',
   ];

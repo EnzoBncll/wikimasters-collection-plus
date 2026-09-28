@@ -7,6 +7,7 @@ import { create } from 'zustand';
 import { useCollection } from '@/hooks/use-collection';
 import { formatAcquiredAt, fullDate, SOURCE_LABEL } from '@/lib/acquisitions';
 import { RARITY_LABEL, type OwnedCard } from '@/lib/types';
+import { systemTagIds } from '@/lib/trade';
 import { cn } from '@/lib/utils';
 import { TagPicker } from './tag-picker';
 import { TRADE_LABEL, TradeCart, tradeDotClass } from './trade-cart';
@@ -73,7 +74,7 @@ export function CardViewer() {
     return () => window.removeEventListener('keydown', onKey, true);
   }, [card, close, go]);
 
-  const systemIds = new Set(tradeTags ? [tradeTags.trade.id, tradeTags.notTrade.id] : []);
+  const systemIds = systemTagIds(tradeTags);
   const cardTags = card ? tags.filter((t) => card.tagIds.includes(t.id) && !systemIds.has(t.id)) : [];
   const status = card ? explicitOf(card) : 'unset';
   // Exemplaires du plus récent au plus ancien ; les exemplaires sans date sont regroupés en un seul.

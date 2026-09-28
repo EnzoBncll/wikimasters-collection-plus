@@ -1,6 +1,7 @@
 import { Loader2, Send, Undo2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useCollection } from '@/hooks/use-collection';
+import { systemTagIds } from '@/lib/trade';
 import { cn } from '@/lib/utils';
 
 /** Modifications en attente et bouton d'envoi au site (une requête à la fois). */
@@ -9,7 +10,7 @@ export function PendingPanel({ className, compact }: { className?: string; compa
   const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const entries = Object.values(pending);
-  const systemIds = new Set(tradeTags ? [tradeTags.trade.id, tradeTags.notTrade.id] : []);
+  const systemIds = systemTagIds(tradeTags);
   const statusCards = entries.filter((e) => Object.keys(e).some((id) => systemIds.has(id))).length;
   const tagCards = entries.filter((e) => Object.keys(e).some((id) => !systemIds.has(id))).length;
   const sending = job?.label === 'Envoi sur WikiMasters';

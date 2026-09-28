@@ -4,10 +4,11 @@ import { Switch } from '@/components/ui/switch';
 import { tagCounts, useCollection } from '@/hooks/use-collection';
 import { hasActiveFilters, useReview, useVisibleCards, type StatusFilter } from '@/hooks/use-review';
 import { RARITY_LABEL, RARITY_ORDER } from '@/lib/types';
+import { systemTagIds } from '@/lib/trade';
 import { cn } from '@/lib/utils';
 import { PendingPanel } from './pending-panel';
 import { RARITY_VAR } from './rarity';
-import { TRADE_LABEL, TradeCart } from './trade-cart';
+import { TRADE_LABEL, TradeCart, tradeTextClass } from './trade-cart';
 
 const COLLAPSED_KEY = 'collectionPlus.sidebarCollapsed';
 
@@ -137,7 +138,7 @@ export function FilterSidebar({ className }: { className?: string }) {
   const [collapsed, toggle] = useCollapsed();
 
   const counts = useMemo(() => {
-    const status = { trade: 0, not_trade: 0, unset: 0 };
+    const status = { trade: 0, not_trade: 0, discard: 0, unset: 0 };
     const rarity = new Map<string, number>();
     let duplicates = 0;
     for (const c of cards) {
@@ -148,7 +149,7 @@ export function FilterSidebar({ className }: { className?: string }) {
     return { status, rarity, duplicates, tags: tagCounts(cards) };
   }, [cards, explicitOf, version]);
 
-  const systemIds = new Set(tradeTags ? [tradeTags.trade.id, tradeTags.notTrade.id] : []);
+  const systemIds = systemTagIds(tradeTags);
   const ownTags = tags.filter((t) => !systemIds.has(t.id));
   const untagged = cards.filter((c) => !c.tagIds.some((t) => !systemIds.has(t))).length;
 
@@ -156,6 +157,7 @@ export function FilterSidebar({ className }: { className?: string }) {
     { value: 'all', count: cards.length },
     { value: 'trade', count: counts.status.trade },
     { value: 'not_trade', count: counts.status.not_trade },
+    { value: 'discard', count: counts.status.discard },
     { value: 'unset', count: counts.status.unset },
   ];
   const sectionProps = (id: string) => ({ id, collapsed: collapsed.has(id), onToggle: toggle });
@@ -173,7 +175,7 @@ export function FilterSidebar({ className }: { className?: string }) {
               ) : (
                 <TradeCart
                   status={row.value}
-                  className={cn('size-3.5', row.value === 'trade' ? 'text-trade' : row.value === 'not_trade' ? 'text-not-trade' : 'text-muted-foreground')}
+                  className={cn('size-3.5', tradeTextClass[row.value])}
                 />
               )}
               {row.value === 'all' ? 'Toutes les cartes' : TRADE_LABEL[row.value]}

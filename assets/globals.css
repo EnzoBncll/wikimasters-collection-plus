@@ -14,6 +14,7 @@
   --radius: 0.75rem;
   --trade: oklch(0.696 0.17 162.48);
   --not-trade: oklch(0.637 0.237 25.331);
+  --discard: oklch(0.52 0.02 60);
 
   --rarity-c: #b8f2d5;
   --rarity-pc: #b1cff2;
@@ -55,6 +56,7 @@
   --color-frame-glow: var(--frame-glow);
   --color-trade: var(--trade);
   --color-not-trade: var(--not-trade);
+  --color-discard: var(--discard);
   --color-rarity-c: var(--rarity-c);
   --color-rarity-pc: var(--rarity-pc);
   --color-rarity-r: var(--rarity-r);

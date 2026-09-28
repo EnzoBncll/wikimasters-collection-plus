@@ -52,4 +52,5 @@ export interface SiteTag {
   color: string | null;
 }
 
-export type TradeStatus = 'trade' | 'not_trade' | 'unset';
+/** Statut d'une carte : à échanger, à garder, à défausser, ou pas encore décidé. */
+export type TradeStatus = 'trade' | 'not_trade' | 'discard' | 'unset';
