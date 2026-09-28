@@ -1,7 +1,7 @@
 {
   "name": "wikimasters-collection-plus",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Extension Chrome non officielle pour WikiMasters : tri Trade / Not Trade, étiquettes, suggestions et export.",
   "license": "MIT",
   "repository": {
