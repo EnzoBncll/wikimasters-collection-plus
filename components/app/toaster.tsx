@@ -13,8 +13,10 @@ export function Toaster() {
         {items.map((t) => {
           const Icon = ICONS[t.kind];
           return (
-            <motion.button
+            <motion.div
               key={t.id}
+              role="button"
+              tabIndex={0}
               layout
               initial={{ opacity: 0, y: -8, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -30,8 +32,21 @@ export function Toaster() {
                   t.kind === 'info' && 'text-primary',
                 )}
               />
-              <span>{t.text}</span>
-            </motion.button>
+              <span className="flex-1">{t.text}</span>
+              {t.action && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    t.action!.onClick();
+                    dismiss(t.id);
+                  }}
+                  className="-my-1 shrink-0 cursor-pointer rounded-lg bg-primary px-2.5 py-1 text-xs font-semibold text-primary-foreground transition hover:brightness-110"
+                >
+                  {t.action.label}
+                </button>
+              )}
+            </motion.div>
           );
         })}
       </AnimatePresence>

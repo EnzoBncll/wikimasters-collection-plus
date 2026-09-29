@@ -1,6 +1,6 @@
 import { storage } from '#imports';
 import type { TagChange } from './tagging';
-import type { OwnedCard } from './types';
+import type { OwnedCard, SiteTag } from './types';
 
 /**
  * Modifications d'étiquettes pas encore envoyées au site : carte → étiquette → posée (true) / retirée (false).
@@ -73,4 +73,38 @@ export function groupPending(pending: PendingChanges): { tagId: string; on: bool
 
 export function pendingCount(pending: PendingChanges) {
   return Object.keys(pending).length;
+}
+
+/**
+ * Renommages et changements de couleur d'étiquettes pas encore envoyés : étiquette → champs modifiés.
+ * Envoyés en premier au clic sur « Envoyer », avant les poses / retraits sur les cartes.
+ */
+export type TagEdits = Record<string, { name?: string; color?: string }>;
+
+export const tagEditsItem = storage.defineItem<TagEdits>('local:pendingTagEdits', { fallback: {} });
+
+/** Ajoute une modification ; un champ qui revient à sa valeur sur le site sort de l'attente. */
+export function stageTagEdit(edits: TagEdits, remoteTags: SiteTag[], tagId: string, patch: { name?: string; color?: string }): TagEdits {
+  const remote = remoteTags.find((t) => t.id === tagId);
+  if (!remote) return edits;
+  const entry = { ...edits[tagId], ...patch };
+  if (entry.name !== undefined && entry.name === remote.name) delete entry.name;
+  if (entry.color !== undefined && entry.color === remote.color) delete entry.color;
+  const next = { ...edits };
+  if (Object.keys(entry).length) next[tagId] = entry;
+  else delete next[tagId];
+  return next;
+}
+
+/** Retire les modifications déjà vraies sur le site et celles des étiquettes disparues. */
+export function pruneTagEdits(edits: TagEdits, remoteTags: SiteTag[]): TagEdits {
+  let next: TagEdits = {};
+  for (const [tagId, patch] of Object.entries(edits)) next = { ...next, ...stageTagEdit({}, remoteTags, tagId, patch) };
+  return next;
+}
+
+/** Étiquettes telles qu'elles seront après envoi, triées par nom. */
+export function withTagEdits(tags: SiteTag[], edits: TagEdits): SiteTag[] {
+  const merged = Object.keys(edits).length ? tags.map((t) => (edits[t.id] ? { ...t, ...edits[t.id] } : t)) : tags;
+  return [...merged].sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 }

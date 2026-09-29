@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 
 /** Modifications en attente et bouton d'envoi au site (une requête à la fois). */
 export function PendingPanel({ className, compact }: { className?: string; compact?: boolean }) {
-  const { pending, tradeTags, job, pushPending, discardPending } = useCollection();
+  const { pending, tagEdits, remoteTags, tradeTags, job, pushPending, discardPending } = useCollection();
   const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   const entries = Object.values(pending);
@@ -14,6 +14,11 @@ export function PendingPanel({ className, compact }: { className?: string; compa
   const statusCards = entries.filter((e) => Object.keys(e).some((id) => systemIds.has(id))).length;
   const tagCards = entries.filter((e) => Object.keys(e).some((id) => !systemIds.has(id))).length;
   const sending = job?.label === 'Envoi sur WikiMasters';
+  const edits = Object.entries(tagEdits);
+  const renames = edits.filter(([, e]) => e.name !== undefined).length;
+  const recolors = edits.filter(([, e]) => e.color !== undefined && e.name === undefined).length;
+  const total = entries.length + edits.length;
+  const remoteName = (id: string) => remoteTags.find((t) => t.id === id)?.name ?? '?';
 
   useEffect(() => {
     if (!confirmDiscard) return;
@@ -21,7 +26,7 @@ export function PendingPanel({ className, compact }: { className?: string; compa
     return () => clearTimeout(t);
   }, [confirmDiscard]);
 
-  if (!entries.length && !sending) return null;
+  if (!total && !sending) return null;
 
   if (compact) {
     return (
@@ -32,7 +37,7 @@ export function PendingPanel({ className, compact }: { className?: string; compa
         className={cn('flex h-9 cursor-pointer items-center gap-2 rounded-full bg-amber-400 px-3.5 text-sm font-semibold text-zinc-900 shadow transition hover:bg-amber-300 disabled:opacity-60', className)}
       >
         {sending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-        {sending ? `${job!.done}/${job!.total}` : `Envoyer · ${entries.length}`}
+        {sending ? `${job!.done}/${job!.total}` : `Envoyer · ${total}`}
       </button>
     );
   }
@@ -42,12 +47,37 @@ export function PendingPanel({ className, compact }: { className?: string; compa
       <div>
         <p className="flex items-center gap-2 text-sm font-semibold">
           <span className="size-2 rounded-full bg-amber-400" />
-          {entries.length} carte{entries.length > 1 ? 's' : ''} modifiée{entries.length > 1 ? 's' : ''}
+          {[
+            entries.length && `${entries.length} carte${entries.length > 1 ? 's' : ''} modifiée${entries.length > 1 ? 's' : ''}`,
+            edits.length && `${edits.length} étiquette${edits.length > 1 ? 's' : ''}`,
+          ]
+            .filter(Boolean)
+            .join(' · ') || 'Envoi en cours'}
         </p>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {[statusCards && `${statusCards} statut${statusCards > 1 ? 's' : ''}`, tagCards && `${tagCards} avec étiquettes`].filter(Boolean).join(' · ') || 'Envoi en cours'}
+          {[
+            renames && `${renames} renommage${renames > 1 ? 's' : ''}`,
+            recolors && `${recolors} couleur${recolors > 1 ? 's' : ''}`,
+            statusCards && `${statusCards} statut${statusCards > 1 ? 's' : ''}`,
+            tagCards && `${tagCards} avec étiquettes`,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
           {' · pas encore sur WikiMasters'}
         </p>
+        {renames > 0 && !sending && (
+          <ul className="mt-1.5 space-y-0.5 text-xs">
+            {edits
+              .filter(([, e]) => e.name !== undefined)
+              .slice(0, 4)
+              .map(([id, e]) => (
+                <li key={id} className="truncate">
+                  <span className="text-muted-foreground line-through">{remoteName(id)}</span> → <span className="font-medium">{e.name}</span>
+                </li>
+              ))}
+            {renames > 4 && <li className="text-muted-foreground">et {renames - 4} autre(s)…</li>}
+          </ul>
+        )}
       </div>
       {sending ? (
         <div className="space-y-1.5">

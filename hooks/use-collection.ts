@@ -4,11 +4,24 @@ import type { QueueProgress } from '@/lib/queue';
 import { siteTagsApi } from '@/lib/siteTags';
 import { getSettings, lastReviewAtItem, reviewedSnapshotItem, settingsItem, type Settings } from '@/lib/store';
 import { syncCollection, type SyncProgress } from '@/lib/sync';
-import { groupPending, pendingItem, prunePending, stageChanges, withPending, type PendingChanges } from '@/lib/pending';
+import {
+  groupPending,
+  pendingItem,
+  prunePending,
+  pruneTagEdits,
+  stageChanges,
+  stageTagEdit,
+  tagEditsItem,
+  withPending,
+  withTagEdits,
+  type PendingChanges,
+  type TagEdits,
+} from '@/lib/pending';
 import { applyTagChanges, type TagChange } from '@/lib/tagging';
 import { explicitStatus, newCardIds, tradeStatus, type TradeTags, statusChanges, systemTagIds, type StatusTarget } from '@/lib/trade';
 import { DEFAULT_SETTINGS } from '@/lib/store';
 import type { OwnedCard, SiteTag, TradeStatus } from '@/lib/types';
+import { sleep } from '@/lib/queue';
 import { toast } from './use-toast';
 
 const api = siteTagsApi;
@@ -21,7 +34,12 @@ interface CollectionState {
   remote: OwnedCard[];
   /** Modifications d'étiquettes (dont Trade / Not Trade) pas encore envoyées. */
   pending: PendingChanges;
+  /** Étiquettes telles qu'affichées : état du site + renommages / couleurs en attente. */
   tags: SiteTag[];
+  /** Étiquettes telles que sur le site. */
+  remoteTags: SiteTag[];
+  /** Renommages et couleurs d'étiquettes pas encore envoyés. */
+  tagEdits: TagEdits;
   tradeTags: TradeTags | null;
   settings: Settings;
   newIds: Set<string>;
@@ -55,10 +73,21 @@ interface CollectionState {
   /** Applique tout de suite sur le site (règles automatiques…). */
   changeTags(cards: OwnedCard[], changes: TagChange[], label: string): Promise<void>;
   createTag(name: string, color: string): Promise<SiteTag | null>;
-  updateTag(tagId: string, patch: { name?: string; color?: string }): Promise<void>;
+  /** Met un renommage / changement de couleur en attente d'envoi (renvoie false si le nom est déjà pris). */
+  updateTag(tagId: string, patch: { name?: string; color?: string }): Promise<boolean>;
   deleteTag(tagId: string): Promise<void>;
   validateReview(): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
+}
+
+/** Le site garde ses étiquettes en mémoire : propose de recharger l'onglet WikiMasters ouvert pour voir les nouveaux noms. */
+async function suggestSiteReload() {
+  const tabs = await browser.tabs.query({ url: 'https://www.wiki-masters.com/*' }).catch(() => []);
+  if (!tabs.length) return;
+  toast('Recharge WikiMasters pour y voir les nouveaux noms', 'info', {
+    label: 'Recharger',
+    onClick: () => tabs.forEach((tab) => tab.id && browser.tabs.reload(tab.id)),
+  });
 }
 
 const errorText = (error: unknown) => (error instanceof Error ? error.message : String(error));
@@ -69,7 +98,7 @@ export const useCollection = create<CollectionState>((set, get) => {
     const syncedAt = Date.now();
     set({ syncedAt });
     const cache = await collectionCache.getValue();
-    if (cache) await collectionCache.setValue({ ...cache, cards: get().remote, tags: get().tags, ...patch, syncedAt });
+    if (cache) await collectionCache.setValue({ ...cache, cards: get().remote, tags: get().remoteTags, ...patch, syncedAt });
     else await saveCards(get().remote, syncedAt);
   };
 
@@ -81,6 +110,18 @@ export const useCollection = create<CollectionState>((set, get) => {
     pendingItem.setValue(pending);
   };
 
+  /** Étiquettes du site (le cache) ; l'affichage y ajoute les modifications en attente. */
+  const setRemoteTags = (remoteTags: SiteTag[]) => {
+    const tagEdits = pruneTagEdits(get().tagEdits, remoteTags);
+    tagEditsItem.setValue(tagEdits);
+    set({ remoteTags, tagEdits, tags: withTagEdits(remoteTags, tagEdits) });
+  };
+
+  const setTagEdits = (tagEdits: TagEdits) => {
+    tagEditsItem.setValue(tagEdits);
+    set({ tagEdits, tags: withTagEdits(get().remoteTags, tagEdits) });
+  };
+
   const adopt = async (cache: CollectionCache) => {
     const byId = new Map(cache.cards.map((c) => [c.cardId, c]));
     const pending = prunePending(get().pending, byId, new Set(cache.tags.map((t) => t.id)));
@@ -89,13 +130,13 @@ export const useCollection = create<CollectionState>((set, get) => {
       remote: cache.cards,
       pending,
       cards: withPending(cache.cards, pending),
-      tags: cache.tags,
       tradeTags: cache.tradeTags,
       syncedAt: cache.syncedAt,
       newIds: newCardIds(cache.cards, await reviewedSnapshotItem.getValue()),
       version: get().version + 1,
       ready: true,
     });
+    setRemoteTags(cache.tags);
   };
 
   return {
@@ -104,6 +145,8 @@ export const useCollection = create<CollectionState>((set, get) => {
     remote: [],
     pending: {},
     tags: [],
+    remoteTags: [],
+    tagEdits: {},
     tradeTags: null,
     settings: DEFAULT_SETTINGS,
     newIds: new Set(),
@@ -116,13 +159,14 @@ export const useCollection = create<CollectionState>((set, get) => {
     version: 0,
 
     async init() {
-      const [settings, cache, lastReviewAt, pending] = await Promise.all([
+      const [settings, cache, lastReviewAt, pending, tagEdits] = await Promise.all([
         getSettings(),
         collectionCache.getValue(),
         lastReviewAtItem.getValue(),
         pendingItem.getValue(),
+        tagEditsItem.getValue(),
       ]);
-      set({ settings, lastReviewAt, pending });
+      set({ settings, lastReviewAt, pending, tagEdits });
       if (cache?.version === 2) await adopt(cache);
 
       // Mises à jour venant d'autres vues (site, autre onglet).
@@ -184,25 +228,52 @@ export const useCollection = create<CollectionState>((set, get) => {
     async pushPending() {
       if (get().job) return;
       const groups = groupPending(get().pending);
-      if (!groups.length) return;
+      const edits = Object.entries(get().tagEdits);
+      if (!groups.length && !edits.length) return;
       const byId = remoteById();
       const label = 'Envoi sur WikiMasters';
+      const total = edits.length + groups.length;
+      let done = 0;
       let failed = 0;
-      set({ job: { done: 0, total: groups.length, failed: 0, label } });
+      let renamed = 0;
+      set({ job: { done: 0, total, failed: 0, label } });
       try {
-        for (const [i, group] of groups.entries()) {
+        // 1. Renommages et couleurs, un par un, vérifiés (voir siteTagsApi.update).
+        for (const [tagId, patch] of edits) {
+          try {
+            await api.update(tagId, patch);
+            renamed++;
+            setRemoteTags(get().remoteTags.map((t) => (t.id === tagId ? { ...t, ...patch } : t)));
+            const { tradeTags } = get();
+            if (tradeTags) {
+              const fix = (tag?: SiteTag) => (tag?.id === tagId ? { ...tag, ...patch } : tag);
+              set({ tradeTags: { trade: fix(tradeTags.trade)!, notTrade: fix(tradeTags.notTrade)!, discard: fix(tradeTags.discard) } });
+            }
+          } catch (error) {
+            failed++;
+            console.error('[Collection+]', error);
+          }
+          set({ job: { done: ++done, total, failed, label } });
+          await sleep(350);
+        }
+
+        // 2. Poses et retraits sur les cartes, une requête à la fois, espacées : pas de rafale sur l'API du site.
+        for (const group of groups) {
           const cards = group.cardIds.map((id) => byId.get(id)).filter((c): c is OwnedCard => Boolean(c));
-          // Une requête à la fois, espacées : pas de rafale sur l'API du site.
           const result = await applyTagChanges(api, cards, [{ tagId: group.tagId, on: group.on }], undefined, { concurrency: 1, minDelayMs: 350 });
           failed += result.failed;
-          set({ job: { done: i + 1, total: groups.length, failed, label } });
+          set({ job: { done: ++done, total, failed, label } });
         }
         // applyTagChanges a mis à jour les cartes du site en mémoire : ce qui est passé sort de l'attente.
         set({ remote: [...get().remote] });
         setPending(prunePending(get().pending, remoteById()));
         await persist();
-        const left = Object.keys(get().pending).length;
-        toast(left ? `Envoi partiel : ${left} carte(s) encore en attente` : 'Modifications envoyées sur WikiMasters', left ? 'error' : 'success');
+
+        const leftCards = Object.keys(get().pending).length;
+        const leftTags = Object.keys(get().tagEdits).length;
+        const left = [leftTags && `${leftTags} étiquette(s)`, leftCards && `${leftCards} carte(s)`].filter(Boolean).join(' et ');
+        toast(left ? `Envoi partiel : ${left} encore en attente` : 'Modifications envoyées sur WikiMasters', left ? 'error' : 'success');
+        if (renamed) await suggestSiteReload();
       } catch (error) {
         toast(errorText(error), 'error');
       } finally {
@@ -212,6 +283,7 @@ export const useCollection = create<CollectionState>((set, get) => {
 
     discardPending() {
       setPending({});
+      setTagEdits({});
     },
 
     async changeTags(cards, changes, label) {
@@ -241,7 +313,7 @@ export const useCollection = create<CollectionState>((set, get) => {
       }
       try {
         const tag = await api.create(trimmed, color);
-        set({ tags: [...get().tags, tag].sort((a, b) => a.name.localeCompare(b.name, 'fr')) });
+        setRemoteTags([...get().remoteTags, tag]);
         await persist();
         return tag;
       } catch (error) {
@@ -251,13 +323,16 @@ export const useCollection = create<CollectionState>((set, get) => {
     },
 
     async updateTag(tagId, patch) {
-      try {
-        await api.update(tagId, patch);
-        set({ tags: get().tags.map((t) => (t.id === tagId ? { ...t, ...patch } : t)) });
-        await persist();
-      } catch (error) {
-        toast(errorText(error), 'error');
+      const name = patch.name?.trim();
+      if (name !== undefined) {
+        if (!name) return false;
+        if (get().tags.some((t) => t.id !== tagId && t.name.toLowerCase() === name.toLowerCase())) {
+          toast(`L'étiquette « ${name} » existe déjà`, 'error');
+          return false;
+        }
       }
+      setTagEdits(stageTagEdit(get().tagEdits, get().remoteTags, tagId, name !== undefined ? { ...patch, name } : patch));
+      return true;
     },
 
     async deleteTag(tagId) {
@@ -271,8 +346,9 @@ export const useCollection = create<CollectionState>((set, get) => {
           for (const ownedId of card.ownedIds) card.ownedTags[ownedId] = (card.ownedTags[ownedId] ?? []).filter((t) => t !== tagId);
           card.tagIds = card.tagIds.filter((t) => t !== tagId);
         }
-        set({ tags: get().tags.filter((t) => t.id !== tagId), remote: [...cards] });
-        setPending(prunePending(get().pending, remoteById(), new Set(get().tags.map((t) => t.id))));
+        set({ remote: [...cards] });
+        setRemoteTags(get().remoteTags.filter((t) => t.id !== tagId));
+        setPending(prunePending(get().pending, remoteById(), new Set(get().remoteTags.map((t) => t.id))));
         await persist();
         toast('Étiquette supprimée', 'success');
       } catch (error) {

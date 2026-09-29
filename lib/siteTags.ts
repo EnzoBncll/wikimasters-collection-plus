@@ -34,7 +34,12 @@ export const siteTagsApi: SiteTagsApi = {
   },
 
   async update(tagId, patch) {
-    await rest(`tags?id=eq.${tagId}`, { method: 'PATCH', body: patch, prefer: 'return=minimal' });
+    // La base renvoie un succès même quand rien n'a été modifié (droits, étiquette disparue) :
+    // on demande la ligne modifiée et on vérifie qu'elle porte bien les nouvelles valeurs.
+    const rows = await rest<any[]>(`tags?id=eq.${tagId}`, { method: 'PATCH', body: patch, prefer: 'return=representation' });
+    const row = rows?.[0];
+    const applied = row && (patch.name === undefined || row.name === patch.name) && (patch.color === undefined || row.color === patch.color);
+    if (!applied) throw new Error("WikiMasters n'a pas appliqué la modification (étiquette introuvable ou modification refusée)");
   },
 
   async delete(tagId) {

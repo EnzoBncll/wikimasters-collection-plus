@@ -98,7 +98,7 @@
       const path = url.pathname.replace('/rest/v1/', '');
       if (path === 'tags' && method === 'GET') return json(tags);
       if (path === 'tags' && method === 'POST') { const b = JSON.parse(init.body); const t = { id: 't-' + Date.now(), ...b }; tags.push(t); return json([t], 201); }
-      if (path === 'tags' && method === 'PATCH') { const id = url.searchParams.get('id').slice(3); Object.assign(tags.find((t) => t.id === id), JSON.parse(init.body)); return new Response(null, { status: 204 }); }
+      if (path === 'tags' && method === 'PATCH') { const id = url.searchParams.get('id').slice(3); const tag = tags.find((t) => t.id === id); if (tag) Object.assign(tag, JSON.parse(init.body)); return json(tag ? [tag] : []); }
       if (path === 'user_card_tags' && method === 'GET') { const rows = uct.map(([user_card_id, tag_id]) => ({ user_card_id, tag_id })); const from = Number((init.headers?.range || '0-999').split('-')[0]); return json(rows.slice(from, from + 1000)); }
       if (path === 'user_card_tags' && method === 'POST') { [].concat(JSON.parse(init.body)).forEach((r) => uct.push([r.user_card_id, r.tag_id])); return new Response(null, { status: 201 }); }
       if (path === 'user_card_tags' && method === 'DELETE') { const tag = url.searchParams.get('tag_id').slice(3); const ids = (url.searchParams.get('user_card_id') || '').replace(/^in\.\(|\)$/g, '').split(','); for (let i = uct.length - 1; i >= 0; i--) if (uct[i][1] === tag && ids.includes(uct[i][0])) uct.splice(i, 1); return new Response(null, { status: 204 }); }
