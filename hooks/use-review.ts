@@ -1,3 +1,4 @@
+import { matchesQuery } from '@/lib/text';
 import { systemTagIds } from '@/lib/trade';
 import { useMemo } from 'react';
 import { create } from 'zustand';
@@ -75,7 +76,7 @@ export function useVisibleCards(): OwnedCard[] {
   const { query, onlyNew, status, rarities, tagFilters, duplicates, sort } = useReview();
 
   return useMemo(() => {
-    const q = query.trim().toLowerCase();
+    const q = query.trim();
     const systemTags = systemTagIds(tradeTags);
     return cards
       .filter((c) => !onlyNew || newIds.has(c.cardId))
@@ -87,7 +88,7 @@ export function useVisibleCards(): OwnedCard[] {
         const own = c.tagIds.filter((t) => !systemTags.has(t));
         return [...tagFilters].some((f) => (f === 'none' ? own.length === 0 : c.tagIds.includes(f)));
       })
-      .filter((c) => !q || c.title.toLowerCase().includes(q))
+      .filter((c) => !q || matchesQuery(c, q))
       .sort((a, b) => {
         // Plus récentes d'abord ; les cartes sans date connue (déjà là à l'installation) à la fin.
         if (sort === 'date') return (latestAcquisition(b)?.at ?? 0) - (latestAcquisition(a)?.at ?? 0) || rank(a.rarity) - rank(b.rarity) || a.title.localeCompare(b.title, 'fr');

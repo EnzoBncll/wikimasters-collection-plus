@@ -109,7 +109,7 @@ export function ReviewView() {
               ref={searchRef}
               value={review.query}
               onChange={(e) => review.set({ query: e.target.value })}
-              placeholder="Rechercher une carte…"
+              placeholder="Rechercher (titre, description)…"
               className="h-9 rounded-full pr-9 pl-9"
             />
             <kbd className="pointer-events-none absolute top-1/2 right-3 -translate-y-1/2 rounded border px-1.5 text-[10px] text-muted-foreground">/</kbd>

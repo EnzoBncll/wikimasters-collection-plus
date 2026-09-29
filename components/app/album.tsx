@@ -1,11 +1,13 @@
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion';
-import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Pencil, X } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Pencil, Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCollection } from '@/hooks/use-collection';
 import { albumDescriptionsItem, albumLayoutsItem, pageCount, reconcileSlots, SLOTS_PER_PAGE, swapSlots } from '@/lib/album';
 import { RARITY_LABEL, type OwnedCard } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { AlbumAddDialog } from './album-add-dialog';
+import { AlbumRecommendations } from './album-recommendations';
 import { AlbumWishes } from './album-wishes';
 import { ALBUM_STYLE_IDS, ALBUM_STYLES, type AlbumStyle } from './album-styles';
 import { BrandIcon } from './brand-icon';
@@ -414,13 +416,15 @@ export interface AlbumProps {
   cards: OwnedCard[];
   /** Clé de rangement : identifiant de l'étiquette, ou « none ». */
   layoutKey: string;
+  /** Étiquette de l'album quand on peut y ajouter des cartes (absent pour « Sans étiquette » et les statuts) : active les recommandations. */
+  tagId?: string;
   /** Renomme l'étiquette ; absent quand le nom ne peut pas changer. */
   onRename?: (name: string) => Promise<void>;
   onClose: () => void;
 }
 
 /** Album à feuilleter façon Panini : doubles pages, pages qui se tournent, vignettes à ranger par glisser-déposer. */
-export function Album({ title, gradient, cards, layoutKey, onRename, onClose }: AlbumProps) {
+export function Album({ title, gradient, cards, layoutKey, tagId, onRename, onClose }: AlbumProps) {
   const palette = useCollection((s) => s.settings.palette);
   const albumStyle = useCollection((s) => s.settings.albumStyle);
   const updateSettings = useCollection((s) => s.updateSettings);
@@ -434,6 +438,7 @@ export function Album({ title, gradient, cards, layoutKey, onRename, onClose }: 
   const [drag, setDrag] = useState<Drag | null>(null);
   const [over, setOver] = useState<number | null>(null);
   const [pageW, setPageW] = useState(380);
+  const [picking, setPicking] = useState(false);
 
   const progress = useMotionValue(0);
   const dirRef = useRef<1 | -1>(1);
@@ -554,14 +559,14 @@ export function Album({ title, gradient, cards, layoutKey, onRename, onClose }: 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
-      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') return;
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || picking) return;
       if (e.key === 'Escape') onClose();
       else if (e.key === 'ArrowRight') flip(1);
       else if (e.key === 'ArrowLeft') flip(-1);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [flip, onClose]);
+  }, [flip, onClose, picking]);
 
   /**
    * Un seul geste au pointeur :
@@ -719,6 +724,15 @@ export function Album({ title, gradient, cards, layoutKey, onRename, onClose }: 
               </button>
             ))}
           </div>
+          {tagId && (
+            <button
+              type="button"
+              onClick={() => setPicking(true)}
+              className="flex cursor-pointer items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1.5 text-xs font-semibold transition hover:bg-emerald-400"
+            >
+              <Plus className="size-3.5" /> Ajouter
+            </button>
+          )}
           <button
             type="button"
             onClick={() => (closed ? toggleCover(true) : toggleCover(false))}
@@ -838,12 +852,14 @@ export function Album({ title, gradient, cards, layoutKey, onRename, onClose }: 
           onClick={() => wishesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
           className="mt-1 flex cursor-pointer items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-white/80 transition hover:bg-white/20"
         >
-          <ChevronDown className="size-3.5" /> Liste de souhaits et suggestions
+          <ChevronDown className="size-3.5" /> {tagId ? 'Cartes à ajouter, souhaits et suggestions' : 'Liste de souhaits et suggestions'}
         </button>
       </div>
       </div>
 
-      <div ref={wishesRef} data-backdrop data-wishes className="mx-auto w-full px-6 pb-12" style={{ maxWidth: pageW * 2 + 40 }}>
+      <div ref={wishesRef} data-backdrop data-wishes className="mx-auto w-full space-y-6 px-6 pb-12" style={{ maxWidth: pageW * 2 + 40 }}>
+        {tagId && <AlbumRecommendations tagId={tagId} name={title} description={description} cards={cards} onBrowse={() => setPicking(true)} />}
+        {tagId && picking && <AlbumAddDialog tagId={tagId} name={title} onClose={() => setPicking(false)} />}
         <AlbumWishes albumKey={layoutKey} cards={cards} />
       </div>
 

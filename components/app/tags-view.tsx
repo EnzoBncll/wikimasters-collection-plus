@@ -21,6 +21,7 @@ import { systemTagIds } from '@/lib/trade';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Album } from './album';
+import { PendingPanel } from './pending-panel';
 import { useCardViewer } from './card-viewer';
 import { ColorPicker, randomTagColor } from './color-picker';
 import { cardImage } from './card-image';
@@ -273,6 +274,7 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
             <Plus className="size-4" /> Créer
           </Button>
         </form>
+          <PendingPanel compact />
           <div className="flex shrink-0 rounded-full border bg-card p-1" role="radiogroup" aria-label="Affichage">
             {(
               [
@@ -380,6 +382,7 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
             title={album.key === 'none' ? album.title : (tags.find((t) => t.id === album.key)?.name ?? album.title)}
             gradient={album.gradient}
             layoutKey={album.key}
+            tagId={album.key !== 'none' && !systemIds.has(album.key) ? album.key : undefined}
             cards={album.key === 'none' ? untagged : (byTag.get(album.key) ?? [])}
             onRename={
               album.key !== 'none' && !systemIds.has(album.key)
