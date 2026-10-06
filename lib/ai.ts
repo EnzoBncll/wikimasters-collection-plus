@@ -32,44 +32,87 @@ const LANGUAGE_OPTIONS = ['fr', 'en'].map((lang) => ({
   expectedOutputs: [{ type: 'text', languages: [lang] }],
 }));
 
-async function pickOptions(): Promise<{ options: object; availability: AiAvailability }> {
+/** Options de langue que ce Chrome accepte, dans l'ordre de préférence. */
+async function usableOptions(): Promise<{ options: object; availability: AiAvailability }[]> {
   const lm = api();
-  if (!lm) return { options: {}, availability: 'unavailable' };
+  if (!lm) return [];
+  const usable: { options: object; availability: AiAvailability }[] = [];
   for (const options of LANGUAGE_OPTIONS) {
     try {
       const availability = await lm.availability(options);
-      if (availability !== 'unavailable') return { options, availability };
+      if (availability !== 'unavailable') usable.push({ options, availability });
     } catch {
       /* option de langue refusée : on essaie la suivante */
     }
   }
-  return { options: {}, availability: 'unavailable' };
+  return usable;
 }
+
+/** Schéma sans bornes de taille (maxItems, maxLength…), que le modèle de Chrome refuse parfois. */
+function looseSchema(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map(looseSchema);
+  if (!schema || typeof schema !== 'object') return schema;
+  const BOUNDS = new Set(['maxItems', 'minItems', 'maxLength', 'minLength', 'maximum', 'minimum']);
+  return Object.fromEntries(Object.entries(schema).filter(([k]) => !BOUNDS.has(k)).map(([k, v]) => [k, looseSchema(v)]));
+}
+
+/** Objet JSON trouvé dans une réponse libre (avec ou sans bloc ```json). */
+function extractJson(raw: string): unknown {
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start < 0 || end < start) throw new Error("Réponse de l'IA illisible");
+  return JSON.parse(raw.slice(start, end + 1));
+}
+
+/** Requête refusée par le modèle (« The request is invalid… ») : on peut retenter autrement. */
+const isRejected = (error: unknown) =>
+  error instanceof DOMException ? error.name === 'NotSupportedError' || /invalid|could not be processed/i.test(error.message) : error instanceof SyntaxError;
 
 export const chromeAi: AiProvider = {
   name: 'IA intégrée de Chrome',
 
   async availability() {
-    return (await pickOptions()).availability;
+    return (await usableOptions())[0]?.availability ?? 'unavailable';
   },
 
+  /**
+   * Le modèle refuse certaines requêtes selon la version de Chrome : on retente avec un schéma sans bornes,
+   * puis sans contrainte de format (JSON demandé dans la consigne), puis dans l'autre langue annoncée.
+   */
   async generateJson<T>({ system, prompt, schema, onDownload }: { system: string; prompt: string; schema: object; onDownload?: (p: number) => void }) {
     const lm = api();
-    const { options, availability } = await pickOptions();
-    if (!lm || availability === 'unavailable') throw new Error("L'IA intégrée de Chrome n'est pas disponible sur cet ordinateur");
-    const session = await lm.create({
-      ...options,
-      initialPrompts: [{ role: 'system', content: system }],
-      monitor(m: EventTarget) {
-        m.addEventListener('downloadprogress', (e) => onDownload?.((e as ProgressEvent).loaded));
-      },
-    });
-    try {
-      const raw = await session.prompt(prompt, { responseConstraint: schema });
-      return JSON.parse(raw) as T;
-    } finally {
-      session.destroy();
+    const usable = await usableOptions();
+    if (!lm || !usable.length) throw new Error("L'IA intégrée de Chrome n'est pas disponible sur cet ordinateur");
+    const attempts: { constraint?: unknown; text: string }[] = [
+      { constraint: schema, text: prompt },
+      { constraint: looseSchema(schema), text: prompt },
+      { text: `${prompt}\n\nRéponds uniquement avec un objet JSON valide, sans texte autour, de la forme : ${JSON.stringify(looseSchema(schema))}` },
+    ];
+    let lastError: unknown;
+    for (const { options } of usable) {
+      for (const attempt of attempts) {
+        let session: Awaited<ReturnType<LanguageModelApi['create']>> | undefined;
+        try {
+          session = await lm.create({
+            ...options,
+            initialPrompts: [{ role: 'system', content: system }],
+            monitor(m: EventTarget) {
+              m.addEventListener('downloadprogress', (e) => onDownload?.((e as ProgressEvent).loaded));
+            },
+          });
+          const raw = await session.prompt(attempt.text, attempt.constraint ? { responseConstraint: attempt.constraint as object } : undefined);
+          return (attempt.constraint ? JSON.parse(raw) : extractJson(raw)) as T;
+        } catch (error) {
+          lastError = error;
+          console.warn('[Collection+] IA : requête refusée, nouvel essai', error);
+          if (!isRejected(error)) throw error;
+        } finally {
+          session?.destroy();
+        }
+      }
     }
+    if (isRejected(lastError)) throw new Error("L'IA de Chrome a refusé la requête, même simplifiée (détails dans la console)");
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
   },
 };
 
