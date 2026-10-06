@@ -1,5 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Check, CheckSquare, Loader2, Plus, Search, Square, X } from 'lucide-react';
+import { Check, CheckSquare, Plus, Search, Square, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCollection } from '@/hooks/use-collection';
@@ -39,7 +39,7 @@ export function AlbumAddDialog({ tagId, name, onClose }: { tagId: string; name: 
   const tags = useCollection((s) => s.tags);
   const tradeTags = useCollection((s) => s.tradeTags);
   const explicitOf = useCollection((s) => s.explicitOf);
-  const changeTags = useCollection((s) => s.changeTags);
+  const stageIntoAlbum = useCollection((s) => s.stageIntoAlbum);
 
   const [query, setQuery] = useState('');
   const [rarities, setRarities] = useState<Set<Rarity>>(new Set());
@@ -48,7 +48,6 @@ export function AlbumAddDialog({ tagId, name, onClose }: { tagId: string; name: 
   const [duplicates, setDuplicates] = useState(false);
   const [sort, setSort] = useState<SortKey>('rarity');
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [busy, setBusy] = useState(false);
 
   const systemIds = useMemo(() => systemTagIds(tradeTags), [tradeTags]);
   const ownTags = useMemo(() => tags.filter((t) => !systemIds.has(t.id) && t.id !== tagId).sort((a, b) => a.name.localeCompare(b.name, 'fr')), [tags, systemIds, tagId]);
@@ -152,16 +151,11 @@ export function AlbumAddDialog({ tagId, name, onClose }: { tagId: string; name: 
     setDuplicates(false);
   };
 
-  const add = async () => {
+  const add = () => {
     const targets: OwnedCard[] = candidates.filter((c) => selected.has(c.cardId));
     if (!targets.length) return;
-    setBusy(true);
-    try {
-      await changeTags(targets, [{ tagId, on: true }], `« ${name} » · ${targets.length} carte(s)`);
-      onClose();
-    } finally {
-      setBusy(false);
-    }
+    stageIntoAlbum(targets, { id: tagId, name });
+    onClose();
   };
 
   return createPortal(
@@ -311,10 +305,10 @@ export function AlbumAddDialog({ tagId, name, onClose }: { tagId: string; name: 
           <button
             type="button"
             onClick={add}
-            disabled={!selected.size || busy}
+            disabled={!selected.size}
             className="ml-auto flex cursor-pointer items-center gap-1.5 rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold transition hover:bg-emerald-400 disabled:cursor-default disabled:opacity-40"
           >
-            {busy ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />}
+            <Plus className="size-4" />
             {selected.size ? `Ajouter ${selected.size} carte${selected.size > 1 ? 's' : ''}` : 'Ajouter'}
           </button>
         </footer>

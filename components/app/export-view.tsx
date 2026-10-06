@@ -1,5 +1,5 @@
 import { ClipboardCopy, FileSpreadsheet, FileText, Loader2, Monitor, Moon, Sun } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useCollection } from '@/hooks/use-collection';
@@ -9,8 +9,12 @@ import { downloadText, toCsv, toTsv } from '@/lib/csv';
 import { EXPORT_SHEETS, type SheetExport } from '@/lib/sheets';
 import { PALETTES, holoGradient, type PaletteId } from '@/lib/palettes';
 import type { Settings } from '@/lib/store';
+import { systemTagIds } from '@/lib/trade';
+import type { OwnedCard } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { BrandIcon } from './brand-icon';
+import { CARD_TAG_STYLES } from './card-tags';
+import { WmCard } from './wm-card';
 
 function Card({ icon, title, text, children }: { icon: React.ReactNode; title: string; text: string; children: React.ReactNode }) {
   return (
@@ -59,6 +63,53 @@ function PalettePicker({ value, onChange }: { value: PaletteId; onChange: (id: P
             <span className="leading-tight">{p.name}</span>
             <span className="h-1 w-full rounded-full" style={{ backgroundImage: holoGradient(p, 90) }} />
           </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Choix de l'affichage des étiquettes, avec un aperçu sur la carte la plus étiquetée de la collection. */
+function CardTagStylePicker({ value, onChange }: { value: Settings['cardTagStyle']; onChange: (id: Settings['cardTagStyle']) => void }) {
+  const cards = useCollection((s) => s.cards);
+  const tags = useCollection((s) => s.tags);
+  const tradeTags = useCollection((s) => s.tradeTags);
+  const sample = useMemo((): OwnedCard | undefined => {
+    const system = systemTagIds(tradeTags);
+    let best: OwnedCard | undefined;
+    let most = -1;
+    for (const card of cards) {
+      const n = card.tagIds.filter((id) => !system.has(id)).length;
+      if (n > most) [best, most] = [card, n];
+    }
+    if (!best) return undefined;
+    // Aperçu parlant : la carte la plus étiquetée, complétée par d'autres de tes étiquettes jusqu'à 5.
+    const ids = new Set(best.tagIds.filter((id) => !system.has(id)));
+    for (const t of tags) if (ids.size < 5 && !system.has(t.id)) ids.add(t.id);
+    return { ...best, tagIds: [...ids] };
+  }, [cards, tags, tradeTags]);
+
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {CARD_TAG_STYLES.map((s) => {
+        const active = s.id === value;
+        return (
+          <div
+            key={s.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => onChange(s.id)}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onChange(s.id)}
+            aria-pressed={active}
+            className={cn(
+              'flex cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 text-xs transition',
+              active ? 'border-primary bg-accent ring-1 ring-primary' : 'hover:border-foreground/20 hover:bg-muted',
+            )}
+          >
+            {sample && <WmCard card={sample} tilt={false} tagStyle={s.id} className="w-full max-w-36" />}
+            <span className={cn('leading-tight', active && 'font-semibold')}>{s.name}</span>
+            <span className="text-center leading-tight text-muted-foreground">{s.text}</span>
+          </div>
         );
       })}
     </div>
@@ -169,6 +220,12 @@ export function ExportView() {
           <SettingRow title="Pastilles sur le site" text="Affiche Trade / Not Trade sur les cartes de WikiMasters.">
             <Switch checked={settings.showBadges} onCheckedChange={(showBadges) => updateSettings({ showBadges })} />
           </SettingRow>
+          <SettingRow
+            title="Albums de collection et de rangement"
+            text="Choisis pour chaque étiquette si c'est un album que tu collectionnes (emoji, couleur vive) ou un simple rangement (« · Nom », gris)."
+          >
+            <Switch checked={settings.albumKinds} onCheckedChange={(albumKinds) => updateSettings({ albumKinds })} />
+          </SettingRow>
           <SettingRow title="Mode" text="Clair, sombre ou selon le système.">
             <div className="flex rounded-full border p-1">
               {themes.map((t) => (
@@ -186,6 +243,13 @@ export function ExportView() {
               ))}
             </div>
           </SettingRow>
+          <div className="space-y-3 px-5 py-4">
+            <div>
+              <p className="text-sm font-medium">Étiquettes sur les cartes</p>
+              <p className="text-xs text-muted-foreground">Partout dans l'app : collection, albums, recommandations. Survole une étiquette pour voir son nom.</p>
+            </div>
+            <CardTagStylePicker value={settings.cardTagStyle} onChange={(cardTagStyle) => updateSettings({ cardTagStyle })} />
+          </div>
           <div className="space-y-3 px-5 py-4">
             <div>
               <p className="text-sm font-medium">Palette</p>

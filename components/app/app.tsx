@@ -7,9 +7,9 @@ import { rememberAppearance, watchAppearance } from '@/lib/appearance';
 import { useSuggestions } from '@/hooks/use-suggestions';
 import { BrandIcon } from './brand-icon';
 import { CardViewer } from './card-viewer';
+import { EnhanceView } from './enhance-view';
 import { ExportView } from './export-view';
 import { ReviewView } from './review-view';
-import { SuggestionsView } from './suggestions-view';
 import { SyncStatus } from './sync-status';
 import { ThemeToggle } from './theme-toggle';
 import { TagsView } from './tags-view';
@@ -89,7 +89,7 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
         <div className="h-full w-full overflow-y-auto">
           {view === 'review' && <ReviewView />}
           {view === 'tags' && <TagsView onOpenReview={() => setView('review')} />}
-          {view === 'suggestions' && <SuggestionsView />}
+          {view === 'suggestions' && <EnhanceView />}
           {view === 'settings' && <ExportView />}
         </div>
       </NotchNav>

@@ -1,17 +1,20 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, ChevronDown, Loader2, RefreshCw, Sparkles, Trash2, Wand2, X, Zap } from 'lucide-react';
+import { Bot, Check, ChevronDown, Loader2, RefreshCw, Sparkles, Trash2, Wand2, X, Zap } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { useCollection } from '@/hooks/use-collection';
 import { useSuggestions } from '@/hooks/use-suggestions';
-import { PROPS } from '@/lib/wikidata';
-import { computeSuggestions, pendingForRule, type Rule, type RuleMode, type Suggestion } from '@/lib/suggest';
+import { isStale } from '@/lib/wikidata';
+import { computeSuggestions, criterionText, pendingForRule, type Rule, type RuleMode, type Suggestion } from '@/lib/suggest';
 import type { OwnedCard } from '@/lib/types';
 import { systemTagIds } from '@/lib/trade';
 import { cn } from '@/lib/utils';
 import { ColorPicker, randomTagColor } from './color-picker';
+import { useAiAvailability } from './sheets-view';
+import { nameTheme } from '@/lib/album-sheet';
+import { toast } from '@/hooks/use-toast';
 import { EmptyState } from './review-view';
 
 /** Petites vignettes empilées des cartes d'un groupe. */
@@ -59,6 +62,9 @@ function ModeToggle({ value, onChange }: { value: RuleMode; onChange: (mode: Rul
 function SuggestionCard({ suggestion }: { suggestion: Suggestion }) {
   const { accept, dismiss } = useSuggestions();
   const job = useCollection((s) => s.job);
+  const albumKinds = useCollection((s) => s.settings.albumKinds);
+  const availability = useAiAvailability();
+  const [naming, setNaming] = useState(false);
   const [name, setName] = useState(suggestion.name);
   const [color, setColor] = useState(randomTagColor);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
@@ -69,6 +75,19 @@ function SuggestionCard({ suggestion }: { suggestion: Suggestion }) {
 
   const selected = suggestion.cards.filter((c) => !excluded.has(c.cardId));
   const target = suggestion.existingTag;
+
+  /** Nom (et emoji, pour un album de collection) proposés par l'IA. */
+  const proposeName = async () => {
+    setNaming(true);
+    try {
+      const out = await nameTheme({ cards: suggestion.cards, reason: suggestion.reason });
+      if (out.name) setName(albumKinds && out.emoji ? `${out.emoji} ${out.name}` : out.name);
+    } catch (error) {
+      toast(`Nom IA : ${error instanceof Error ? error.message : String(error)}`, 'error');
+    } finally {
+      setNaming(false);
+    }
+  };
 
   const submit = async () => {
     setBusy(true);
@@ -100,7 +119,20 @@ function SuggestionCard({ suggestion }: { suggestion: Suggestion }) {
               Ajouter à « {target.name} »
             </p>
           ) : (
-            <Input value={name} onChange={(e) => setName(e.target.value)} className="h-8 border-transparent px-1.5 text-base font-semibold shadow-none hover:border-input focus-visible:border-input" />
+            <div className="flex items-center gap-1">
+              <Input value={name} onChange={(e) => setName(e.target.value)} className="h-8 border-transparent px-1.5 text-base font-semibold shadow-none hover:border-input focus-visible:border-input" />
+              {availability && availability !== 'unavailable' && (
+                <button
+                  type="button"
+                  onClick={proposeName}
+                  disabled={naming}
+                  title="Proposer un nom avec l'IA"
+                  className="shrink-0 cursor-pointer rounded-full p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+                >
+                  {naming ? <Loader2 className="size-4 animate-spin" /> : <Bot className="size-4" />}
+                </button>
+              )}
+            </div>
           )}
           <p className="px-1.5 text-xs text-muted-foreground">{suggestion.reason}</p>
         </div>
@@ -176,7 +208,7 @@ function PendingRule({ rule, cards }: { rule: Rule; cards: OwnedCard[] }) {
           {cards.length} nouvelle{cards.length > 1 ? 's' : ''} carte{cards.length > 1 ? 's' : ''} pour « {tag.name} »
         </p>
         <p className="text-xs text-muted-foreground">
-          {PROPS[rule.criterion.prop]} : {rule.criterion.values.filter((q) => labels[q]).map((q) => labels[q]).slice(0, 3).join(', ') || 'renseigné'}
+          {criterionText(rule.criterion, labels)}
         </p>
       </div>
       <Thumbs cards={cards} max={5} />
@@ -215,9 +247,11 @@ export function SuggestionsView() {
 
   const analyzed = cards.filter((c) => facts[c.cardId]).length;
   const recognized = cards.filter((c) => facts[c.cardId]?.qid).length;
-  const notAnalyzed = cards.length - analyzed;
+  // Cartes jamais analysées, ou analysées avant l'ajout de nouvelles propriétés Wikidata.
+  const notAnalyzed = cards.filter((c) => isStale(facts[c.cardId])).length;
   const catalogue = suggestions.filter((s) => s.source === 'catalogue');
   const discovery = suggestions.filter((s) => s.source === 'discovery');
+  const combos = suggestions.filter((s) => s.source === 'combo');
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8 px-4 py-6 sm:px-6">
@@ -269,6 +303,7 @@ export function SuggestionsView() {
 
           {[
             { title: 'Catalogue', items: catalogue },
+            { title: 'Thèmes croisés', items: combos },
             { title: 'Découvertes', items: discovery },
           ].map(
             (group) =>
@@ -306,7 +341,7 @@ export function SuggestionsView() {
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{tag?.name ?? 'Étiquette supprimée'}</p>
                         <p className="truncate text-xs text-muted-foreground">
-                          Si {PROPS[rule.criterion.prop].toLowerCase()} = {rule.criterion.values.filter((q) => labels[q]).map((q) => labels[q]).slice(0, 3).join(', ') || 'renseigné'}
+                          Si {criterionText(rule.criterion, labels)}
                           {rule.ignored.length > 0 && ` · ${rule.ignored.length} exclue(s)`}
                         </p>
                       </div>

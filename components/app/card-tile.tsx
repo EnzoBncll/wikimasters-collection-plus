@@ -1,7 +1,7 @@
 import { ArrowLeftRight, Maximize2 } from 'lucide-react';
 import { memo } from 'react';
 import { describeAcquisition, fullDate, latestAcquisition } from '@/lib/acquisitions';
-import { RARITY_LABEL, type OwnedCard, type SiteTag, type TradeStatus } from '@/lib/types';
+import { RARITY_LABEL, type OwnedCard, type TradeStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { TRADE_LABEL, TradeCart, tradeDotClass } from './trade-cart';
 import { WmCard } from './wm-card';
@@ -16,7 +16,6 @@ interface CardTileProps {
   isNew: boolean;
   selected: boolean;
   focused: boolean;
-  tags: SiteTag[];
   onToggleStatus: (index: number) => void;
   /** Affiche la carte en grand. */
   onOpen: (index: number) => void;
@@ -30,7 +29,6 @@ export const CardTile = memo(function CardTile({
   isNew,
   selected,
   focused,
-  tags,
   onToggleStatus,
   onOpen,
 }: CardTileProps) {
@@ -63,19 +61,6 @@ export const CardTile = memo(function CardTile({
               >
                 New
                 {acquired?.source === 'trade' && <ArrowLeftRight className="ml-[1.5cqw] inline size-[5cqw] align-[-0.6cqw]" strokeWidth={3} aria-label="obtenue par échange" />}
-              </span>
-            )}
-            {tags.length > 0 && (
-              <span className="absolute right-[4.5cqw] bottom-[3.5cqw] flex items-center -space-x-[1.5cqw]">
-                {tags.slice(0, 4).map((t) => (
-                  <span
-                    key={t.id}
-                    title={t.name}
-                    className="size-[5.5cqw] rounded-full ring-[1.2cqw] ring-white/90"
-                    style={{ backgroundColor: t.color ?? 'var(--muted-foreground)' }}
-                  />
-                ))}
-                {tags.length > 4 && <span className="pl-[2.5cqw] text-[5cqw] font-bold text-white">+{tags.length - 4}</span>}
               </span>
             )}
             <button

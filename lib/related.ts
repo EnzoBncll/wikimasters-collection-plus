@@ -32,12 +32,24 @@ const TOO_BROAD = new Set(['w:P31:Q5']);
 
 type Feature = string;
 
+/** Indices déjà calculés, par carte : seules les cartes dont le texte ou les faits ont changé sont recalculées. */
+const cache = new Map<string, { title: string; description: string | null | undefined; facts: CardFacts | undefined; set: Set<Feature> }>();
+
 function features(card: OwnedCard, facts: Record<string, CardFacts>): Set<Feature> {
+  const hit = cache.get(card.cardId);
+  const f = facts[card.cardId];
+  if (hit && hit.title === card.title && hit.description === card.description && hit.facts === f) return hit.set;
+  const set = computeFeatures(card, f);
+  cache.set(card.cardId, { title: card.title, description: card.description, facts: f, set });
+  return set;
+}
+
+function computeFeatures(card: OwnedCard, facts: CardFacts | undefined): Set<Feature> {
   const tokens = [...words(card.title), ...words(card.description)];
   const out = new Set<Feature>();
   for (const t of tokens) out.add(`t:${t}`);
   for (const f of fieldsOf(tokens)) out.add(`f:${f}`);
-  const props = facts[card.cardId]?.props ?? {};
+  const props = facts?.props ?? {};
   for (const prop of Object.keys(props) as PropId[]) for (const q of props[prop] ?? []) out.add(`w:${prop}:${q}`);
   for (const f of TOO_BROAD) out.delete(f);
   return out;

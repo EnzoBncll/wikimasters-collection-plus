@@ -8,7 +8,7 @@ const ICONS = { info: Info, success: CircleCheck, error: CircleAlert };
 export function Toaster() {
   const { items, dismiss } = useToasts();
   return (
-    <div className="pointer-events-none fixed top-16 right-4 z-[60] flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
+    <div className="pointer-events-none fixed top-16 right-4 z-[100] flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2">
       <AnimatePresence initial={false}>
         {items.map((t) => {
           const Icon = ICONS[t.kind];

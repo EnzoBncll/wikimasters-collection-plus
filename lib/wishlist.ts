@@ -54,7 +54,7 @@ export function detectTheme(cards: OwnedCard[], facts: Record<string, CardFacts>
       for (const value of new Set(f.props[prop] ?? [])) counts.set(`${prop}:${value}`, (counts.get(`${prop}:${value}`) ?? 0) + 1);
     }
   }
-  const specificity: Record<PropId, number> = { P106: 5, P641: 5, P136: 4, P27: 3, P17: 3, P495: 3, P31: 2 };
+  const specificity: Record<PropId, number> = { P39: 6, P106: 5, P641: 5, P136: 4, P27: 3, P17: 3, P495: 3, P31: 2 };
   const ranked = [...counts.entries()]
     .map(([key, n]) => {
       const [prop, value] = key.split(':') as [PropId, string];
@@ -187,4 +187,57 @@ export function wishAsCard(item: WishItem): OwnedCard {
     tagIds: [],
     ownedTags: {},
   };
+}
+
+/**
+ * Recherche libre d'un article Wikipédia en français à mettre dans la liste de souhaits
+ * (vignette, description courte, élément Wikidata et nombre d'éditions linguistiques).
+ */
+export async function searchWishes(query: string, signal?: AbortSignal): Promise<WishItem[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const params = new URLSearchParams({
+    format: 'json',
+    origin: '*',
+    action: 'query',
+    generator: 'prefixsearch',
+    gpssearch: q,
+    gpslimit: '8',
+    gpsnamespace: '0',
+    prop: 'pageimages|description|pageprops',
+    piprop: 'thumbnail',
+    pithumbsize: '320',
+    pilimit: '8',
+    ppprop: 'wikibase_item',
+    redirects: '1',
+  });
+  const response = await fetch(`${FRWIKI}?${params}`, { signal });
+  if (!response.ok) throw new Error(`Wikipédia : HTTP ${response.status}`);
+  const pages = Object.values<any>((await response.json()).query?.pages ?? {})
+    // Les pages d'homonymie ne sont pas des cartes.
+    .filter((p) => p.pageprops?.wikibase_item && !/homonymie/i.test(p.description ?? ''))
+    .sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+  if (!pages.length) return [];
+
+  const qids = pages.map((p) => p.pageprops.wikibase_item as string);
+  const links = new Map<string, number>();
+  try {
+    const params2 = new URLSearchParams({ format: 'json', origin: '*', action: 'wbgetentities', ids: qids.join('|'), props: 'sitelinks' });
+    const json = await (await fetch(`${WIKIDATA}?${params2}`, { signal })).json();
+    for (const entity of Object.values<any>(json.entities ?? {})) {
+      links.set(entity.id, Object.keys(entity.sitelinks ?? {}).filter((k) => k.endsWith('wiki') && k !== 'commonswiki').length);
+    }
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    /* notoriété inconnue : 0 */
+  }
+
+  return pages.map((p) => ({
+    qid: p.pageprops.wikibase_item,
+    title: p.title,
+    description: p.description ?? null,
+    imageUrl: p.thumbnail?.source ?? null,
+    wikipediaUrl: `https://fr.wikipedia.org/wiki/${encodeURIComponent(String(p.title).replace(/ /g, '_'))}`,
+    sitelinks: links.get(p.pageprops.wikibase_item) ?? 0,
+  }));
 }

@@ -72,6 +72,10 @@ interface CollectionState {
   discardPending(): void;
   /** Applique tout de suite sur le site (règles automatiques…). */
   changeTags(cards: OwnedCard[], changes: TagChange[], label: string): Promise<void>;
+  /** Met des cartes dans un album (pose de l'étiquette en attente d'envoi, visible dans la boîte d'envoi de l'album). */
+  stageIntoAlbum(cards: OwnedCard[], tag: { id: string; name: string }): void;
+  /** Retire des cartes d'un album (retrait de l'étiquette en attente d'envoi). */
+  stageOutOfAlbum(cards: OwnedCard[], tagId: string): void;
   createTag(name: string, color: string): Promise<SiteTag | null>;
   /** Met un renommage / changement de couleur en attente d'envoi (renvoie false si le nom est déjà pris). */
   updateTag(tagId: string, patch: { name?: string; color?: string }): Promise<boolean>;
@@ -284,6 +288,14 @@ export const useCollection = create<CollectionState>((set, get) => {
     discardPending() {
       setPending({});
       setTagEdits({});
+    },
+
+    stageIntoAlbum(cards, tag) {
+      get().stageTags(cards, [{ tagId: tag.id, on: true }]);
+    },
+
+    stageOutOfAlbum(cards, tagId) {
+      get().stageTags(cards, [{ tagId, on: false }]);
     },
 
     async changeTags(cards, changes, label) {

@@ -1,8 +1,11 @@
 import { Shield, Swords } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useCollection } from '@/hooks/use-collection';
+import type { CardTagStyle } from '@/lib/store';
 import type { OwnedCard } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { cardImage } from './card-image';
+import { CardTagsFooter, CardTagsOverlay, useCardTags } from './card-tags';
 
 const nf = new Intl.NumberFormat('fr-FR');
 
@@ -43,10 +46,17 @@ export interface WmCardProps {
   fallbackFooter?: ReactNode;
   /** Pastilles à côté de la rareté (nombre d'exemplaires…). */
   badges?: ReactNode;
+  /** Affiche les étiquettes de la carte (style choisi dans les réglages). */
+  showTags?: boolean;
+  /** Force un style d'étiquettes (aperçus des réglages). */
+  tagStyle?: CardTagStyle;
 }
 
 /** Carte au style WikiMasters : image en haut, fond pastel de la rareté, titre, description, attaque / défense. */
-export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFooter, badges }: WmCardProps) {
+export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFooter, badges, showTags = true, tagStyle: forcedStyle }: WmCardProps) {
+  const tagStyle = useCollection((s) => forcedStyle ?? s.settings.cardTagStyle);
+  const allTags = useCardTags(card);
+  const tags = showTags ? allTags : [];
   const hasStats = card.attack != null || card.defense != null;
   return (
     <div
@@ -79,7 +89,13 @@ export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFoo
           {card.title}
         </h3>
         {card.description && <p className="mt-[1.5cqw] line-clamp-2 shrink-0 text-[5.8cqw] leading-snug text-neutral-900/85">{card.description}</p>}
-        <div className="mt-auto flex items-center justify-between border-t border-black/20 pt-[3cqw] text-[5.8cqw] font-bold text-black/90">
+        {tagStyle === 'footer' && <CardTagsFooter tags={tags} />}
+        <div
+          className={cn(
+            'flex items-center justify-between border-t border-black/20 pt-[3cqw] text-[5.8cqw] font-bold text-black/90',
+            !(tagStyle === 'footer' && tags.length) && 'mt-auto',
+          )}
+        >
           {hasStats ? (
             <>
               <span className="flex items-center gap-[2cqw]">
@@ -103,6 +119,7 @@ export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFoo
       <div className="wm-glitter" />
       <div className="wm-glare" />
       <div className="wm-rim" />
+      <CardTagsOverlay tags={tags} style={tagStyle} />
     </div>
   );
 }

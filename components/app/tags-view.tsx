@@ -1,4 +1,4 @@
-import { ArrowRight, BookOpen, Folder, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, Trash2, type LucideIcon } from 'lucide-react';
+import { Archive, ArrowRight, BookOpen, Folder, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, Sparkles, Trash2, type LucideIcon } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatedFolder, type Project } from '@/components/ui/3d-folder';
@@ -18,6 +18,7 @@ import { useCollection } from '@/hooks/use-collection';
 import { useReview } from '@/hooks/use-review';
 import { RARITY_LABEL, type OwnedCard, type SiteTag } from '@/lib/types';
 import { systemTagIds } from '@/lib/trade';
+import { kindOf, switchKind } from '@/lib/album-kind';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Album } from './album';
@@ -159,6 +160,16 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
 
   const systemIds = systemTagIds(tradeTags);
   const own = tags.filter((t) => !systemIds.has(t.id));
+  const kinds = settings.albumKinds;
+  const collections = kinds ? own.filter((t) => kindOf(t) === 'collection') : own;
+  const storages = kinds ? own.filter((t) => kindOf(t) === 'storage') : [];
+
+  const toggleKind = async (tag: SiteTag) => {
+    const next = await switchKind(tag, randomTagColor);
+    if (await updateTag(tag.id, next)) {
+      toast(kindOf(tag) === 'collection' ? `« ${next.name} » passe en rangement` : `« ${next.name} » passe en collection`, 'success');
+    }
+  };
 
   // Cartes par étiquette ; Trade inclut les cartes « Trade par défaut ».
   const byTag = useMemo(() => {
@@ -222,6 +233,19 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
             >
               <Pencil className="size-4" /> Renommer
             </DropdownMenuItem>
+            {kinds && (
+              <DropdownMenuItem onSelect={() => toggleKind(tag)}>
+                {kindOf(tag) === 'collection' ? (
+                  <>
+                    <Archive className="size-4" /> Passer en rangement
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="size-4" /> Passer en collection
+                  </>
+                )}
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={() => setToDelete(tag)}>
               <Trash2 className="size-4" /> Supprimer
@@ -302,10 +326,12 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
       </header>
 
       <section className="space-y-4">
-        <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Mes étiquettes · {own.length}</h2>
+        <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+          {kinds ? 'Collections' : 'Mes étiquettes'} · {collections.length}
+        </h2>
         {layout === 'list' ? (
           <div className="divide-y overflow-hidden rounded-2xl border bg-card">
-            {own.map((tag) => (
+            {collections.map((tag) => (
               <TagRow key={tag.id} name={tag.name} color={tag.color} cards={byTag.get(tag.id) ?? []} onOpen={() => openAlbum(tag)} controls={tagControls(tag, false)} />
             ))}
             <TagRow
@@ -323,12 +349,12 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
           </div>
         ) : (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-8">
-          {own.map((tag, i) => (
+          {collections.map((tag, i) => (
             <div key={tag.id} className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both duration-700" style={{ animationDelay: `${i * 60}ms` }}>
               {folder(tag)}
             </div>
           ))}
-          <div className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both duration-700" style={{ animationDelay: `${own.length * 60}ms` }}>
+          <div className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both duration-700" style={{ animationDelay: `${collections.length * 60}ms` }}>
             <AnimatedFolder
               title="Sans étiquette"
               projects={toProjects(untagged)}
@@ -349,6 +375,36 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
         </div>
         )}
       </section>
+
+      {storages.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Rangement · {storages.length}</h2>
+          {layout === 'list' ? (
+            <div className="divide-y overflow-hidden rounded-2xl border bg-card">
+              {storages.map((tag) => (
+                <TagRow
+                  key={tag.id}
+                  name={tag.name}
+                  color={tag.color}
+                  muted
+                  cards={byTag.get(tag.id) ?? []}
+                  onOpen={() => openAlbum(tag)}
+                  controls={tagControls(tag, false)}
+                  icon={Archive}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-8">
+              {storages.map((tag) => (
+                <div key={tag.id} className="opacity-85">
+                  {folder(tag)}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="space-y-4 pb-10">
         <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Statut d'échange</h2>
@@ -383,6 +439,7 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
             gradient={album.gradient}
             layoutKey={album.key}
             tagId={album.key !== 'none' && !systemIds.has(album.key) ? album.key : undefined}
+            storage={kinds && storages.some((t) => t.id === album.key)}
             cards={album.key === 'none' ? untagged : (byTag.get(album.key) ?? [])}
             onRename={
               album.key !== 'none' && !systemIds.has(album.key)

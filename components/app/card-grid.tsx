@@ -1,9 +1,8 @@
-import { systemTagIds } from '@/lib/trade';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useCollection } from '@/hooks/use-collection';
 import { useReview } from '@/hooks/use-review';
-import type { OwnedCard, SiteTag } from '@/lib/types';
+import type { OwnedCard } from '@/lib/types';
 import { CardTile } from './card-tile';
 import { useCardViewer } from './card-viewer';
 
@@ -25,7 +24,7 @@ export const CardGrid = forwardRef<CardGridHandle, CardGridProps>(function CardG
   const [width, setWidth] = useState(0);
   const painting = useRef<boolean | null>(null);
 
-  const { tags, tradeTags, newIds, explicitOf, cycleTrade, pending } = useCollection();
+  const { newIds, explicitOf, cycleTrade, pending } = useCollection();
   const { selected, focus } = useReview();
 
   useEffect(() => {
@@ -58,12 +57,6 @@ export const CardGrid = forwardRef<CardGridHandle, CardGridProps>(function CardG
       scrollToIndex: (index) => virtualizer.scrollToIndex(Math.floor(index / columns), { align: 'auto' }),
     }),
     [columns, virtualizer],
-  );
-
-  const tagsById = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
-  const systemTags = useMemo(
-    () => systemTagIds(tradeTags),
-    [tradeTags],
   );
 
   const setSelected = useCallback((index: number, on: boolean) => {
@@ -146,10 +139,6 @@ export const CardGrid = forwardRef<CardGridHandle, CardGridProps>(function CardG
               {cards.slice(start, start + columns).map((card, i) => {
                 const index = start + i;
                 const status = explicitOf(card);
-                const cardTags = card.tagIds
-                  .filter((id) => !systemTags.has(id))
-                  .map((id) => tagsById.get(id))
-                  .filter((t): t is SiteTag => Boolean(t));
                 return (
                   <CardTile
                     key={card.cardId}
@@ -160,7 +149,6 @@ export const CardGrid = forwardRef<CardGridHandle, CardGridProps>(function CardG
                     isNew={newIds.has(card.cardId)}
                     selected={selected.has(card.cardId)}
                     focused={index === focus}
-                    tags={cardTags}
                     onToggleStatus={toggleStatus}
                     onOpen={openCard}
                   />

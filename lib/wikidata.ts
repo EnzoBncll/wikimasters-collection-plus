@@ -10,6 +10,8 @@ import type { OwnedCard } from './types';
 const API = 'https://www.wikidata.org/w/api.php';
 const BATCH = 50;
 const FACTS_TTL = 30 * 24 * 60 * 60 * 1000;
+/** À augmenter quand PROPS change : les faits enregistrés avec une version plus ancienne sont redemandés. */
+const FACTS_VERSION = 2;
 
 export const PROPS = {
   P31: 'Nature',
@@ -19,6 +21,7 @@ export const PROPS = {
   P641: 'Sport',
   P136: 'Genre',
   P495: "Pays d'origine",
+  P39: 'Fonction',
 } as const;
 export type PropId = keyof typeof PROPS;
 
@@ -26,6 +29,13 @@ export interface CardFacts {
   qid: string | null;
   props: Partial<Record<PropId, string[]>>;
   at: number;
+  /** Version de PROPS au moment de l'analyse (absente = 1). */
+  v?: number;
+}
+
+/** Faits absents, trop anciens ou demandés avec une liste de propriétés dépassée. */
+export function isStale(facts: CardFacts | undefined, now = Date.now()): boolean {
+  return !facts || now - facts.at > FACTS_TTL || (facts.v ?? 1) < FACTS_VERSION;
 }
 
 export const factsItem = storage.defineItem<Record<string, CardFacts>>('local:wikidataFacts', { fallback: {} });
@@ -72,7 +82,7 @@ export async function enrichCards(
   const facts = { ...(await factsItem.getValue()) };
   const labels = { ...(await labelsItem.getValue()) };
   const now = Date.now();
-  const todo = cards.filter((c) => !facts[c.cardId] || now - facts[c.cardId]!.at > FACTS_TTL);
+  const todo = cards.filter((c) => isStale(facts[c.cardId], now));
 
   for (let i = 0; i < todo.length; i += BATCH) {
     const batch = todo.slice(i, i + BATCH);
@@ -105,10 +115,10 @@ export async function enrichCards(
           .filter((id: unknown): id is string => typeof id === 'string');
         if (values.length) props[pid] = [...new Set<string>(values)].slice(0, 6);
       }
-      facts[card.cardId] = { qid: entity.id, props, at: now };
+      facts[card.cardId] = { qid: entity.id, props, at: now, v: FACTS_VERSION };
       found.add(card.cardId);
     }
-    for (const card of batch) if (!found.has(card.cardId)) facts[card.cardId] = { qid: null, props: {}, at: now };
+    for (const card of batch) if (!found.has(card.cardId)) facts[card.cardId] = { qid: null, props: {}, at: now, v: FACTS_VERSION };
 
     onProgress?.({ done: Math.min(i + BATCH, todo.length), total: todo.length });
     await sleep(150);

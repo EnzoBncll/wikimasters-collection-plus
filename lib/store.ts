@@ -1,6 +1,9 @@
 import { storage } from '#imports';
 import { DEFAULT_PALETTE, type PaletteId } from './palettes';
 
+/** Affichage des étiquettes sur les cartes. */
+export type CardTagStyle = 'dots' | 'ribbon' | 'footer' | 'bookmarks';
+
 export interface Settings {
   /** Une carte sans étiquette Trade ni Not Trade est considérée Trade. */
   defaultTrade: boolean;
@@ -19,6 +22,10 @@ export interface Settings {
   albumStyle: 'relie' | 'classeur';
   /** Page Étiquettes : dossiers animés ou liste. */
   tagsLayout: 'folders' | 'list';
+  /** Distingue les albums de collection (emoji, couleur vive) des albums de rangement (« · Nom », gris). */
+  albumKinds: boolean;
+  /** Affichage des étiquettes sur les cartes, partout dans l'app. */
+  cardTagStyle: CardTagStyle;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -32,6 +39,8 @@ export const DEFAULT_SETTINGS: Settings = {
   palette: DEFAULT_PALETTE,
   albumStyle: 'relie',
   tagsLayout: 'folders',
+  albumKinds: false,
+  cardTagStyle: 'dots',
 };
 
 export const settingsItem = storage.defineItem<Settings>('local:settings', {

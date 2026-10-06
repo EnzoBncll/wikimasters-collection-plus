@@ -1,5 +1,5 @@
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion';
-import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Pencil, Plus, X } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Minus, Pencil, Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCollection } from '@/hooks/use-collection';
@@ -12,6 +12,7 @@ import { AlbumWishes } from './album-wishes';
 import { ALBUM_STYLE_IDS, ALBUM_STYLES, type AlbumStyle } from './album-styles';
 import { BrandIcon } from './brand-icon';
 import { useCardViewer } from './card-viewer';
+import { PendingPanel } from './pending-panel';
 import { WmCard } from './wm-card';
 
 /** Contenu d'une face : une page de l'album, la couverture, une page blanche ou rien (livre fermé). */
@@ -195,6 +196,8 @@ function Page({
   palette,
   look,
   cover,
+  unsent,
+  onRemove,
 }: {
   face: Face;
   side: 'left' | 'right';
@@ -208,6 +211,10 @@ function Page({
   palette: ReturnType<typeof useCollection.getState>['settings']['palette'];
   look: AlbumStyle;
   cover: CoverProps;
+  /** Cartes de l'album dont l'ajout n'est pas encore envoyé. */
+  unsent: Set<string>;
+  /** Retire la carte de l'album (en attente d'envoi) ; absent quand l'album n'est pas une étiquette modifiable. */
+  onRemove?: (card: OwnedCard) => void;
 }) {
   if (face === 'none') return null;
 
@@ -271,7 +278,24 @@ function Page({
                     >
                       <div className={cn('relative h-full rounded-[calc(var(--u)*2)]', look.sticker)}>
                         <Sticker card={card} />
+                        {unsent.has(card.cardId) && (
+                          <span
+                            title="Pas encore envoyé"
+                            className="absolute -top-[calc(var(--u)*0.8)] -left-[calc(var(--u)*0.8)] z-50 size-[calc(var(--u)*3)] rounded-full bg-amber-400 ring-[calc(var(--u)*0.6)] ring-white"
+                          />
+                        )}
                       </div>
+                      {onRemove && (
+                        <button
+                          type="button"
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={() => onRemove(card)}
+                          title="Retirer de l'album (en attente d'envoi)"
+                          className="absolute top-[calc(var(--u)*1.8)] left-[calc(var(--u)*1.8)] z-50 flex size-[calc(var(--u)*6)] cursor-pointer items-center justify-center rounded-full bg-rose-500 text-white opacity-0 shadow transition group-hover/sticker:opacity-100 hover:scale-110"
+                        >
+                          <Minus className="size-[calc(var(--u)*3.2)]" />
+                        </button>
+                      )}
                       {card.wikipediaUrl && (
                         <a
                           href={card.wikipediaUrl}
@@ -418,16 +442,20 @@ export interface AlbumProps {
   layoutKey: string;
   /** Étiquette de l'album quand on peut y ajouter des cartes (absent pour « Sans étiquette » et les statuts) : active les recommandations. */
   tagId?: string;
+  /** Album de rangement : on y range sans chercher à le compléter, donc pas de souhaits. */
+  storage?: boolean;
   /** Renomme l'étiquette ; absent quand le nom ne peut pas changer. */
   onRename?: (name: string) => Promise<void>;
   onClose: () => void;
 }
 
 /** Album à feuilleter façon Panini : doubles pages, pages qui se tournent, vignettes à ranger par glisser-déposer. */
-export function Album({ title, gradient, cards, layoutKey, tagId, onRename, onClose }: AlbumProps) {
+export function Album({ title, gradient, cards, layoutKey, tagId, storage, onRename, onClose }: AlbumProps) {
   const palette = useCollection((s) => s.settings.palette);
   const albumStyle = useCollection((s) => s.settings.albumStyle);
   const updateSettings = useCollection((s) => s.updateSettings);
+  const pending = useCollection((s) => s.pending);
+  const stageOutOfAlbum = useCollection((s) => s.stageOutOfAlbum);
   const look = ALBUM_STYLES[albumStyle] ?? ALBUM_STYLES.relie;
   const [slots, setSlots] = useState<(string | null)[] | null>(null);
   const [spread, setSpread] = useState(0);
@@ -685,7 +713,9 @@ export function Album({ title, gradient, cards, layoutKey, tagId, onRename, onCl
     onSave: saveCover,
     onOpen: () => toggleCover(true),
   };
-  const pageProps = { slots: slots ?? [], cards: byId, title, gradient, total, drag, over, palette, look, cover };
+  const unsent = useMemo(() => new Set(tagId ? Object.keys(pending).filter((id) => pending[id]![tagId] === true) : []), [pending, tagId]);
+  const onRemove = useCallback((card: OwnedCard) => tagId && stageOutOfAlbum([card], tagId), [tagId, stageOutOfAlbum]);
+  const pageProps = { slots: slots ?? [], cards: byId, title, gradient, total, drag, over, palette, look, cover, unsent, onRemove: tagId ? onRemove : undefined };
   const draggedCard = drag ? byId.get(drag.cardId) : undefined;
   const u = pageW / 100;
   const pageH = Math.round(pageW / 0.75);
@@ -852,7 +882,7 @@ export function Album({ title, gradient, cards, layoutKey, tagId, onRename, onCl
           onClick={() => wishesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
           className="mt-1 flex cursor-pointer items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-white/80 transition hover:bg-white/20"
         >
-          <ChevronDown className="size-3.5" /> {tagId ? 'Cartes à ajouter, souhaits et suggestions' : 'Liste de souhaits et suggestions'}
+          <ChevronDown className="size-3.5" /> {storage ? 'Cartes à ajouter' : tagId ? 'Cartes à ajouter, souhaits et suggestions' : 'Liste de souhaits et suggestions'}
         </button>
       </div>
       </div>
@@ -860,8 +890,11 @@ export function Album({ title, gradient, cards, layoutKey, tagId, onRename, onCl
       <div ref={wishesRef} data-backdrop data-wishes className="mx-auto w-full space-y-6 px-6 pb-12" style={{ maxWidth: pageW * 2 + 40 }}>
         {tagId && <AlbumRecommendations tagId={tagId} name={title} description={description} cards={cards} onBrowse={() => setPicking(true)} />}
         {tagId && picking && <AlbumAddDialog tagId={tagId} name={title} onClose={() => setPicking(false)} />}
-        <AlbumWishes albumKey={layoutKey} cards={cards} />
+        {!storage && <AlbumWishes albumKey={layoutKey} cards={cards} tagId={tagId} albumName={title} />}
       </div>
+
+      {/* Boîte d'envoi : ajouts et retraits s'accumulent ici, envoyés d'un coup sur WikiMasters. */}
+      <PendingPanel className="fixed bottom-4 left-4 z-[75] w-72 bg-popover text-popover-foreground shadow-2xl select-text" />
 
       {drag &&
         draggedCard &&
