@@ -7,6 +7,7 @@ import { rememberAppearance, watchAppearance } from '@/lib/appearance';
 import { useSuggestions } from '@/hooks/use-suggestions';
 import { BrandIcon } from './brand-icon';
 import { CardViewer } from './card-viewer';
+import { Outbox } from './outbox';
 import { EnhanceView, type EnhanceSection } from './enhance-view';
 import { ExportView } from './export-view';
 import { ReviewView } from './review-view';
@@ -104,6 +105,7 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
       </NotchNav>
       <Toaster />
       <CardViewer />
+      <Outbox />
       <UpdateBanner />
     </TooltipProvider>
   );

@@ -8,6 +8,7 @@ import { useCollection } from '@/hooks/use-collection';
 import { formatAcquiredAt, fullDate, SOURCE_LABEL } from '@/lib/acquisitions';
 import { RARITY_LABEL, type OwnedCard } from '@/lib/types';
 import { systemTagIds } from '@/lib/trade';
+import { condense, wikiIntro } from '@/lib/wiki-intro';
 import { cn } from '@/lib/utils';
 import { TagPicker } from './tag-picker';
 import { TRADE_LABEL, TradeCart, tradeDotClass } from './trade-cart';
@@ -36,6 +37,111 @@ export const useCardViewer = create<ViewerState>((set, get) => ({
 
 const nf = new Intl.NumberFormat('fr-FR');
 
+const WIKI_PANEL_KEY = 'collectionPlus.wikiPanel';
+
+function WikiMark({ className }: { className?: string }) {
+  return (
+    <span className={cn('grid size-4.5 shrink-0 place-items-center rounded-[5px] bg-white font-serif text-xs font-bold text-black', className)} aria-hidden="true">
+      W
+    </span>
+  );
+}
+
+/** À gauche de la carte : condensé de l'introduction Wikipédia, dépliable, et lien vers l'article. Repliable en languette. */
+function WikiPanel({ url }: { url: string }) {
+  const [intro, setIntro] = useState<string | null | undefined>(undefined);
+  const [full, setFull] = useState(false);
+  const [closed, setClosed] = useState(() => {
+    try {
+      return localStorage.getItem(WIKI_PANEL_KEY) === 'closed';
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    let alive = true;
+    setIntro(undefined);
+    setFull(false);
+    wikiIntro(url)
+      .then((text) => alive && setIntro(text))
+      .catch(() => alive && setIntro(null));
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+
+  const fold = (next: boolean) => {
+    setClosed(next);
+    try {
+      localStorage.setItem(WIKI_PANEL_KEY, next ? 'closed' : 'open');
+    } catch {}
+  };
+
+  if (closed) {
+    return (
+      <button
+        type="button"
+        onClick={() => fold(false)}
+        aria-label="Déplier l'encart Wikipédia"
+        title="Déplier l'encart Wikipédia"
+        className="hidden shrink-0 cursor-pointer flex-col items-center gap-2 rounded-xl bg-white/[0.07] px-1.5 py-2.5 text-white/60 transition hover:bg-white/15 hover:text-white lg:flex"
+      >
+        <WikiMark />
+        <span className="rotate-180 text-[10.5px] font-semibold tracking-[0.14em] uppercase [writing-mode:vertical-rl]">Wikipédia</span>
+      </button>
+    );
+  }
+
+  const short = intro ? condense(intro) : '';
+  const more = Boolean(intro && intro.length > short.length + 20);
+  return (
+    <div className="hidden w-49 shrink-0 flex-col text-white lg:flex">
+      <div className="mb-2 flex items-center gap-2">
+        <WikiMark />
+        <span className="text-[10px] font-semibold tracking-[0.14em] text-white/50 uppercase">Wikipédia</span>
+        <button
+          type="button"
+          onClick={() => fold(true)}
+          aria-label="Replier l'encart"
+          title="Replier"
+          className="ml-auto grid size-5.5 cursor-pointer place-items-center rounded-md text-white/50 transition hover:bg-white/10 hover:text-white"
+        >
+          <ChevronLeft className="size-3.5" />
+        </button>
+      </div>
+      {intro === undefined ? (
+        <div className="space-y-1.5 border-l-2 border-white/10 pl-2.5" aria-label="Chargement">
+          {[100, 92, 97, 60].map((w) => (
+            <div key={w} className="h-2.5 animate-pulse rounded bg-white/10" style={{ width: `${w}%` }} />
+          ))}
+        </div>
+      ) : (
+        intro && (
+          <div className={cn('space-y-1.5 border-l-2 border-white/10 pl-2.5 text-[11.5px] leading-relaxed text-white/80 select-text', full && 'max-h-[min(340px,45vh)] overflow-y-auto pr-1')}>
+            {(full ? intro.split('\n') : [short]).map((p, i) => (
+              <p key={i}>{p}</p>
+            ))}
+          </div>
+        )
+      )}
+      {more && (
+        <button type="button" onClick={() => setFull((f) => !f)} className="mt-2 cursor-pointer self-start pl-3 text-[11px] font-semibold text-primary hover:underline">
+          {full ? 'Réduire' : "Toute l'intro"}
+        </button>
+      )}
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener"
+        className="mt-3 flex w-fit items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-zinc-900 transition hover:bg-white/90"
+      >
+        Lire sur Wikipédia <ExternalLink className="size-3.5" />
+      </a>
+    </div>
+  );
+}
+
 /** Carte affichée en grand, avec ses informations ; ← → pour parcourir, Échap pour fermer. */
 export function CardViewer() {
   const { cards, index, close, go } = useCardViewer();
@@ -48,7 +154,12 @@ export function CardViewer() {
   const [size, setSize] = useState(360);
 
   useEffect(() => {
-    const fit = () => setSize(Math.round(Math.max(220, Math.min(460, ((window.innerHeight - 140) * 5) / 7, window.innerWidth - 80))));
+    // Place des colonnes : infos (dès md), encart Wikipédia (dès lg).
+    const fit = () => {
+      const w = window.innerWidth;
+      const side = (w >= 768 ? 330 : 0) + (w >= 1024 ? 236 : 0);
+      setSize(Math.round(Math.max(220, Math.min(460, ((window.innerHeight - 140) * 5) / 7, w - 140 - side))));
+    };
     fit();
     window.addEventListener('resize', fit);
     return () => window.removeEventListener('resize', fit);
@@ -102,6 +213,8 @@ export function CardViewer() {
           >
             <ChevronLeft className="size-6" />
           </button>
+
+          {card.wikipediaUrl && <WikiPanel url={card.wikipediaUrl} />}
 
           <AnimatePresence mode="popLayout" custom={dir}>
             <motion.div
@@ -208,7 +321,7 @@ export function CardViewer() {
                 href={card.wikipediaUrl}
                 target="_blank"
                 rel="noopener"
-                className="flex w-fit items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-white/90"
+                className="flex w-fit items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold text-zinc-900 transition hover:bg-white/90 lg:hidden"
               >
                 Lire sur Wikipédia <ExternalLink className="size-4" />
               </a>

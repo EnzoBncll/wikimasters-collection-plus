@@ -1,21 +1,21 @@
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion';
-import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Minus, Pencil, Plus, X } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Gem, Hand, Loader2, Pencil, Plus, Sparkles, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCollection } from '@/hooks/use-collection';
-import { albumDescriptionsItem, albumLayoutsItem, pageCount, reconcileSlots, SLOTS_PER_PAGE, swapSlots } from '@/lib/album';
+import { albumDescriptionsItem, albumLayoutsItem, albumOrdersItem, pageCount, raritySlots, reconcileSlots, SLOTS_PER_PAGE, swapSlots, type AlbumOrder } from '@/lib/album';
 import { RARITY_LABEL, type OwnedCard } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { AlbumAddDialog } from './album-add-dialog';
 import { AlbumRecommendations } from './album-recommendations';
+import { AlbumRemoved, setRemovedFromAlbum } from './album-removed';
 import { AlbumSheetPanel } from './album-sheet-panel';
-import { useAlbumSheets } from './sheets-view';
+import { useAiAvailability, useAlbumSheets, useWriteSheet } from './sheets-view';
 import { updateSheet } from '@/lib/album-sheet';
 import { AlbumWishes } from './album-wishes';
 import { ALBUM_STYLE_IDS, ALBUM_STYLES, type AlbumStyle } from './album-styles';
 import { BrandIcon } from './brand-icon';
 import { useCardViewer } from './card-viewer';
-import { PendingPanel } from './pending-panel';
 import { WmCard } from './wm-card';
 
 /** Contenu d'une face : une page de l'album, la couverture, une page blanche ou rien (livre fermé). */
@@ -74,6 +74,26 @@ interface CoverProps {
   canRename: boolean;
   onSave: (name: string, description: string) => Promise<void>;
   onOpen: () => void;
+  /** Fait rédiger la description par l'IA ; absent quand l'IA n'est pas disponible ou que l'album n'est pas une étiquette. */
+  onGenerate?: () => void;
+  generating?: boolean;
+}
+
+/** Petite étoile discrète : rédiger (ou réécrire) la description avec l'IA. */
+function GenerateButton({ cover }: { cover: CoverProps }) {
+  if (!cover.editable || !cover.onGenerate) return null;
+  return (
+    <button
+      type="button"
+      onClick={cover.onGenerate}
+      disabled={cover.generating}
+      title={cover.description ? "Réécrire la description avec l'IA" : "Rédiger la description avec l'IA"}
+      aria-label={cover.description ? "Réécrire la description avec l'IA" : "Rédiger la description avec l'IA"}
+      className="inline-grid size-[calc(var(--u)*5)] shrink-0 cursor-pointer place-items-center rounded-full opacity-55 transition hover:bg-white/15 hover:opacity-100 disabled:cursor-progress disabled:opacity-80"
+    >
+      {cover.generating ? <Loader2 className="size-[calc(var(--u)*2.8)] animate-spin" /> : <Sparkles className="size-[calc(var(--u)*2.8)]" />}
+    </button>
+  );
 }
 
 /** Titre et description de la couverture ; double-clic pour les modifier. */
@@ -166,25 +186,31 @@ function CoverText({ title, look, cover }: { title: string; look: AlbumStyle; co
         {title}
       </h2>
       {cover.description ? (
-        <p
-          onDoubleClick={edit}
-          title={cover.editable ? 'Double-clic pour modifier' : undefined}
-          className={cn('line-clamp-4 max-w-full text-[calc(var(--u)*3.4)] leading-snug whitespace-pre-line opacity-90', cover.editable && 'cursor-text')}
-        >
-          {cover.description}
-          {cover.aiWritten && (
-            <span className="mt-[calc(var(--u)*1)] block text-[calc(var(--u)*2.4)] tracking-wide uppercase opacity-60">✦ Rédigée par l'IA · double-clic pour modifier</span>
-          )}
-        </p>
+        <div className="flex max-w-full items-end gap-[calc(var(--u)*0.5)]">
+          <p
+            onDoubleClick={edit}
+            title={cover.editable ? 'Double-clic pour modifier' : undefined}
+            className={cn('line-clamp-4 min-w-0 text-[calc(var(--u)*3.4)] leading-snug whitespace-pre-line opacity-90', cover.editable && 'cursor-text', cover.generating && 'animate-pulse')}
+          >
+            {cover.description}
+            {cover.aiWritten && (
+              <span className="mt-[calc(var(--u)*1)] block text-[calc(var(--u)*2.4)] tracking-wide uppercase opacity-60">✦ Rédigée par l'IA · double-clic pour modifier</span>
+            )}
+          </p>
+          <GenerateButton cover={cover} />
+        </div>
       ) : (
         cover.editable && (
-          <button
-            type="button"
-            onClick={edit}
-            className="flex cursor-pointer items-center gap-[calc(var(--u)*1.5)] rounded-full px-[calc(var(--u)*3)] py-[calc(var(--u)*1)] text-[calc(var(--u)*3)] opacity-70 transition hover:bg-white/15 hover:opacity-100"
-          >
-            <Pencil className="size-[calc(var(--u)*3)]" /> Ajouter une description
-          </button>
+          <div className="flex items-center gap-[calc(var(--u)*0.5)]">
+            <button
+              type="button"
+              onClick={edit}
+              className="flex cursor-pointer items-center gap-[calc(var(--u)*1.5)] rounded-full px-[calc(var(--u)*3)] py-[calc(var(--u)*1)] text-[calc(var(--u)*3)] opacity-70 transition hover:bg-white/15 hover:opacity-100"
+            >
+              <Pencil className="size-[calc(var(--u)*3)]" /> {cover.generating ? 'Rédaction…' : 'Ajouter une description'}
+            </button>
+            <GenerateButton cover={cover} />
+          </div>
         )
       )}
     </>
@@ -206,6 +232,7 @@ function Page({
   cover,
   unsent,
   onRemove,
+  locked,
 }: {
   face: Face;
   side: 'left' | 'right';
@@ -223,6 +250,8 @@ function Page({
   unsent: Set<string>;
   /** Retire la carte de l'album (en attente d'envoi) ; absent quand l'album n'est pas une étiquette modifiable. */
   onRemove?: (card: OwnedCard) => void;
+  /** Vue triée par rareté : les vignettes ne se déplacent pas. */
+  locked?: boolean;
 }) {
   if (face === 'none') return null;
 
@@ -281,7 +310,10 @@ function Page({
                   {card && !dragged && (
                     <div
                       data-album-sticker={slot}
-                      className="group/sticker absolute inset-0 flex cursor-grab touch-none items-center justify-center transition-transform duration-200 hover:z-10 hover:scale-[1.04] active:cursor-grabbing"
+                      className={cn(
+                        'group/sticker absolute inset-0 flex touch-none items-center justify-center transition-transform duration-200 hover:z-10 hover:scale-[1.04]',
+                        locked ? 'cursor-zoom-in' : 'cursor-grab active:cursor-grabbing',
+                      )}
                       style={{ rotate: `${tilt(card.cardId) * look.tilt}deg` }}
                     >
                       <div className={cn('relative h-full rounded-[calc(var(--u)*2)]', look.sticker)}>
@@ -299,9 +331,10 @@ function Page({
                           onPointerDown={(e) => e.stopPropagation()}
                           onClick={() => onRemove(card)}
                           title="Retirer de l'album (en attente d'envoi)"
-                          className="absolute top-[calc(var(--u)*1.8)] left-[calc(var(--u)*1.8)] z-50 flex size-[calc(var(--u)*6)] cursor-pointer items-center justify-center rounded-full bg-rose-500 text-white opacity-0 shadow transition group-hover/sticker:opacity-100 hover:scale-110"
+                          aria-label={`Retirer ${card.title} de l'album`}
+                          className="absolute -top-[calc(var(--u)*1.2)] -right-[calc(var(--u)*1.2)] z-50 flex size-[calc(var(--u)*5.5)] cursor-pointer items-center justify-center rounded-full bg-zinc-900 text-white opacity-0 shadow-lg ring-[calc(var(--u)*0.4)] ring-white/80 transition group-hover/sticker:opacity-100 hover:scale-110 hover:bg-rose-500 focus-visible:opacity-100"
                         >
-                          <Minus className="size-[calc(var(--u)*3.2)]" />
+                          <X className="size-[calc(var(--u)*3)]" strokeWidth={3} />
                         </button>
                       )}
                       {card.wikipediaUrl && (
@@ -311,7 +344,7 @@ function Page({
                           rel="noopener"
                           onPointerDown={(e) => e.stopPropagation()}
                           title="Ouvrir sur Wikipédia"
-                          className="absolute top-[calc(var(--u)*1.8)] right-[calc(var(--u)*1.8)] z-50 flex size-[calc(var(--u)*6)] items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition group-hover/sticker:opacity-100"
+                          className="absolute right-[calc(var(--u)*1.8)] bottom-[calc(var(--u)*1.8)] z-50 flex size-[calc(var(--u)*6)] items-center justify-center rounded-full bg-black/60 text-white opacity-0 transition group-hover/sticker:opacity-100"
                         >
                           <ExternalLink className="size-[calc(var(--u)*3.2)]" />
                         </a>
@@ -479,6 +512,10 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
   const [over, setOver] = useState<number | null>(null);
   const [pageW, setPageW] = useState(380);
   const [picking, setPicking] = useState(false);
+  const [order, setOrder] = useState<AlbumOrder>('manual');
+  const albumTag = useCollection((s) => (tagId ? s.tags.find((t) => t.id === tagId) : undefined));
+  const availability = useAiAvailability();
+  const { write, busy } = useWriteSheet();
 
   const progress = useMotionValue(0);
   const dirRef = useRef<1 | -1>(1);
@@ -489,12 +526,14 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
   const wishesRef = useRef<HTMLDivElement>(null);
 
   const byId = useMemo(() => new Map(cards.map((c) => [c.cardId, c])), [cards]);
-  const total = pageCount(slots?.length ?? 0);
+  // Vue par rareté : calculée à l'affichage, le rangement manuel enregistré n'est pas modifié.
+  const shown = useMemo(() => (order === 'rarity' && slots ? raritySlots(cards) : slots), [order, slots, cards]);
+  const total = pageCount(shown?.length ?? 0);
   const spreads = total / 2;
 
   // Refs lues par les gestionnaires de pointeur (évite les valeurs figées).
-  const state = useRef({ spread, spreads, leaf, slots, closed });
-  state.current = { spread, spreads, leaf, slots, closed };
+  const state = useRef({ spread, spreads, leaf, slots: shown, closed, order });
+  state.current = { spread, spreads, leaf, slots: shown, closed, order };
   dirRef.current = leaf?.dir ?? 1;
 
   // Chargement et rangement enregistré
@@ -527,7 +566,32 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
 
   useEffect(() => {
     albumDescriptionsItem.getValue().then((all) => setDescription(all[layoutKey] ?? ''));
+    albumOrdersItem.getValue().then((all) => setOrder(all[layoutKey] ?? 'manual'));
   }, [layoutKey]);
+
+  const changeOrder = async (next: AlbumOrder) => {
+    setOrder(next);
+    const all = await albumOrdersItem.getValue();
+    await albumOrdersItem.setValue({ ...all, [layoutKey]: next });
+  };
+
+  // Moins de pages dans l'autre vue : on reste dans l'album.
+  useEffect(() => {
+    if (spread > spreads - 1) setSpread(Math.max(0, spreads - 1));
+  }, [spread, spreads]);
+
+  /** Description rédigée par l'IA (fiche de l'album) ; elle remplace la note écrite à la main. */
+  const generate = async () => {
+    if (!albumTag) return;
+    const sheet = await write(albumTag, cards);
+    if (!sheet) return;
+    const all = await albumDescriptionsItem.getValue();
+    if (all[layoutKey] !== undefined) {
+      const { [layoutKey]: _, ...rest } = all;
+      await albumDescriptionsItem.setValue(rest);
+    }
+    setDescription('');
+  };
 
   const saveCover = async (name: string, desc: string) => {
     if (onRename && name !== title) await onRename(name);
@@ -638,7 +702,8 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
       let edgeTimer: ReturnType<typeof setTimeout> | undefined;
 
       const move = (ev: PointerEvent) => {
-        if (!started && Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
+        // Vue par rareté : pas de rangement, un clic ouvre la carte.
+      if (state.current.order === 'rarity' || (!started && Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5)) return;
         started = true;
         setDrag({ slot, cardId, x: ev.clientX, y: ev.clientY });
         const under = document.elementFromPoint(ev.clientX, ev.clientY)?.closest<HTMLElement>('[data-album-slot]');
@@ -733,10 +798,19 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
     canRename: Boolean(onRename),
     onSave: saveCover,
     onOpen: () => toggleCover(true),
+    onGenerate: albumTag && availability && availability !== 'unavailable' && cards.length ? generate : undefined,
+    generating: Boolean(tagId && busy.has(tagId)),
   };
   const unsent = useMemo(() => new Set(tagId ? Object.keys(pending).filter((id) => pending[id]![tagId] === true) : []), [pending, tagId]);
-  const onRemove = useCallback((card: OwnedCard) => tagId && stageOutOfAlbum([card], tagId), [tagId, stageOutOfAlbum]);
-  const pageProps = { slots: slots ?? [], cards: byId, title, gradient, total, drag, over, palette, look, cover, unsent, onRemove: tagId ? onRemove : undefined };
+  const onRemove = useCallback(
+    (card: OwnedCard) => {
+      if (!tagId) return;
+      stageOutOfAlbum([card], tagId);
+      setRemovedFromAlbum(tagId, (ids) => [...ids, card.cardId]);
+    },
+    [tagId, stageOutOfAlbum],
+  );
+  const pageProps = { slots: shown ?? [], cards: byId, title, gradient, total, drag, over, palette, look, cover, unsent, onRemove: tagId ? onRemove : undefined, locked: order === 'rarity' };
   const draggedCard = drag ? byId.get(drag.cardId) : undefined;
   const u = pageW / 100;
   const pageH = Math.round(pageW / 0.75);
@@ -758,6 +832,29 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
           <h2 className="truncate text-xl font-bold">{title}</h2>
         </div>
         <div className="flex items-center gap-3 text-sm">
+          <div className="flex rounded-full bg-white/10 p-1" role="radiogroup" aria-label="Ordre des cartes">
+            {(
+              [
+                ['manual', Hand, 'Mon ordre', 'Ton rangement, case par case'],
+                ['rarity', Gem, 'Par rareté', 'Des plus rares aux plus communes ; ton rangement est conservé'],
+              ] as const
+            ).map(([id, Icon, label, hint]) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={order === id}
+                title={hint}
+                onClick={() => changeOrder(id)}
+                className={cn(
+                  'flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition',
+                  order === id ? 'bg-white text-zinc-900' : 'text-white/70 hover:text-white',
+                )}
+              >
+                <Icon className="size-3.5" /> {label}
+              </button>
+            ))}
+          </div>
           <div className="flex rounded-full bg-white/10 p-1" role="radiogroup" aria-label="Style de l'album">
             {ALBUM_STYLE_IDS.map((id) => (
               <button
@@ -897,7 +994,10 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
             className="w-full max-w-md cursor-pointer accent-[var(--primary)]"
           />
         )}
-        <p>Clique une carte pour l'afficher en grand · fais glisser une page pour la tourner · glisse une vignette vers une autre case pour la ranger</p>
+        <p>
+          Clique une carte pour l'afficher en grand · fais glisser une page pour la tourner ·{' '}
+          {order === 'rarity' ? 'vue triée par rareté, ton rangement est conservé (« Mon ordre » pour ranger)' : 'glisse une vignette vers une autre case pour la ranger'}
+        </p>
         <button
           type="button"
           onClick={() => wishesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
@@ -911,12 +1011,10 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
       <div ref={wishesRef} data-backdrop data-wishes className="mx-auto w-full space-y-6 px-6 pb-12" style={{ maxWidth: pageW * 2 + 40 }}>
         {tagId && !storage && <AlbumSheetPanel tagId={tagId} cards={cards} />}
         {tagId && <AlbumRecommendations tagId={tagId} name={title} description={description} cards={cards} onBrowse={() => setPicking(true)} />}
+        {tagId && <AlbumRemoved tagId={tagId} name={title} cards={cards} />}
         {tagId && picking && <AlbumAddDialog tagId={tagId} name={title} onClose={() => setPicking(false)} />}
         {!storage && <AlbumWishes albumKey={layoutKey} cards={cards} tagId={tagId} albumName={title} />}
       </div>
-
-      {/* Boîte d'envoi : ajouts et retraits s'accumulent ici, envoyés d'un coup sur WikiMasters. */}
-      <PendingPanel className="fixed bottom-4 left-4 z-[75] w-72 bg-popover text-popover-foreground shadow-2xl select-text" />
 
       {drag &&
         draggedCard &&

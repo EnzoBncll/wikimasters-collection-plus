@@ -53,3 +53,18 @@ export function pageCount(slotCount: number): number {
 export const albumDescriptionsItem = storage.defineItem<Record<string, string>>('local:albumDescriptions', {
   fallback: {},
 });
+
+/** Vue de l'album : rangement manuel (enregistré) ou tri par rareté, sans toucher au rangement. Par album. */
+export type AlbumOrder = 'manual' | 'rarity';
+export const albumOrdersItem = storage.defineItem<Record<string, AlbumOrder>>('local:albumOrders', { fallback: {} });
+
+/** Cases de la vue par rareté : de la plus rare à la plus commune, puis par titre, sans case vide. */
+export function raritySlots(cards: OwnedCard[]): string[] {
+  return [...cards].sort((a, b) => rank(a) - rank(b) || a.title.localeCompare(b.title, 'fr')).map((c) => c.cardId);
+}
+
+/**
+ * Cartes écartées d'un album à la main (croix sur la vignette), par étiquette.
+ * Listées sous les suggestions pour pouvoir les remettre, et plus jamais proposées pour cet album.
+ */
+export const albumRemovedItem = storage.defineItem<Record<string, string[]>>('local:albumRemoved', { fallback: {} });

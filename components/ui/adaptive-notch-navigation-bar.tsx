@@ -443,7 +443,7 @@ export function NotchNav({
       )}
       {...props}
     >
-      <div className="relative flex h-full w-full flex-col rounded-none md:rounded-2xl bg-background text-foreground antialiased transition-colors duration-200">
+      <div data-notch-content className="relative flex h-full w-full flex-col rounded-none md:rounded-2xl bg-background text-foreground antialiased transition-colors duration-200">
         <div
           aria-hidden="true"
           onClick={handleCloseDropdown}
@@ -458,6 +458,7 @@ export function NotchNav({
         {/* 1. Desktop Left Logo Notch */}
         {showLogo && logo && (
           <aside
+            data-notch="left"
             aria-label="Brand logo notch"
             className={cn(
               "hidden xl:flex absolute left-0 z-50 h-10 px-5 select-none transition-colors duration-200 bg-frame text-frame-foreground",
@@ -478,6 +479,7 @@ export function NotchNav({
 
         {/* 2. Desktop Center Menu Notch */}
         <header
+          data-notch="center"
           role="tablist"
           aria-orientation="horizontal"
           className={cn(
@@ -513,6 +515,7 @@ export function NotchNav({
         {/* 3. Desktop Right Action Notch */}
         {showRightContent && rightContent && (
           <aside
+            data-notch="right"
             aria-label="User actions notch"
             className={cn(
               "hidden xl:flex absolute right-0 z-50 h-10 px-5 select-none transition-colors duration-200 bg-frame text-frame-foreground",
@@ -536,6 +539,7 @@ export function NotchNav({
         {/* ========================================================================= */}
         <div
           ref={containerRef}
+          data-notch="center"
           className={cn(
             "xl:hidden absolute z-50 flex flex-col bg-frame text-frame-foreground select-none transition-colors duration-200",
             "w-auto left-1/2 -translate-x-1/2 px-4",

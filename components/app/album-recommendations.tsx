@@ -4,6 +4,7 @@ import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useCollection } from '@/hooks/use-collection';
 import { useSuggestions } from '@/hooks/use-suggestions';
 import { sheetText } from '@/lib/album-sheet';
+import { useRemovedFromAlbum } from './album-removed';
 import { useAlbumSheets } from './sheets-view';
 import { recoDismissedItem, recommendForAlbum, type Recommendation } from '@/lib/related';
 import type { OwnedCard } from '@/lib/types';
@@ -118,7 +119,9 @@ export function AlbumRecommendations({
   }, [name, description, sheet, facts, labels, refresh, all.length, tagId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const inAlbum = useMemo(() => new Set(cards.map((c) => c.cardId)), [cards]);
-  const dismissedSet = useMemo(() => new Set(dismissed), [dismissed]);
+  const removed = useRemovedFromAlbum(tagId);
+  // « Ne plus proposer » et cartes écartées de l'album à la main.
+  const dismissedSet = useMemo(() => new Set([...dismissed, ...removed]), [dismissed, removed]);
   const available = snapshot.filter((r) => !inAlbum.has(r.card.cardId) && !dismissedSet.has(r.card.cardId));
   const remaining = available.filter((r) => !leaving.has(r.card.cardId));
   const shown = remaining.slice(0, SHOWN);
@@ -215,12 +218,12 @@ export function AlbumRecommendations({
       </div>
       <p className="text-xs text-white/50">
         D'après les mots du titre et de la description des cartes, leur thème (roi, reine et pharaon vont ensemble) et Wikidata (métier, nature, pays…). Les ajouts
-        vont dans la boîte d'envoi, en bas à gauche : clique autant de cartes que tu veux, puis envoie tout d'un coup.
+        vont dans la boîte d'envoi, à droite : clique autant de cartes que tu veux, puis envoie tout d'un coup.
         {dismissed.length > 0 && (
           <>
             {' '}
             <button type="button" onClick={resetDismissed} className="cursor-pointer underline underline-offset-2 hover:text-white">
-              Revoir les {dismissed.length} carte(s) écartée(s)
+              Revoir les {dismissed.length} carte(s) masquée(s)
             </button>
           </>
         )}

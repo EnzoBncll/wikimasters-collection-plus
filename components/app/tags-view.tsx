@@ -27,7 +27,6 @@ import { useAiAvailability, useAlbumSheets, useCollectionAlbums } from './sheets
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Album } from './album';
-import { PendingPanel } from './pending-panel';
 import { useCardViewer } from './card-viewer';
 import { ColorPicker, randomTagColor } from './color-picker';
 import { cardImage } from './card-image';
@@ -338,7 +337,6 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
             <Plus className="size-4" /> Créer
           </Button>
         </form>
-          <PendingPanel compact />
           <div className="flex shrink-0 rounded-full border bg-card p-1" role="radiogroup" aria-label="Affichage">
             {(
               [

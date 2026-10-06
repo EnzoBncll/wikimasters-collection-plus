@@ -14,7 +14,6 @@ import type { OwnedCard, SiteTag } from '@/lib/types';
 import type { CardFacts } from '@/lib/wikidata';
 import { cn } from '@/lib/utils';
 import { useCardViewer } from './card-viewer';
-import { PendingPanel } from './pending-panel';
 import { useAlbumSheets } from './sheets-view';
 import { WmCard } from './wm-card';
 
@@ -156,7 +155,6 @@ export function ConsolidateView() {
           {settings.albumKinds && ' · albums de rangement exclus'}
         </p>
         <div className="flex items-center gap-2">
-          <PendingPanel compact />
           <Button variant="outline" size="sm" className="rounded-full" onClick={() => setRefresh((n) => n + 1)}>
             <RefreshCw className="size-4" /> Actualiser
           </Button>
