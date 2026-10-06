@@ -4,6 +4,9 @@ import { DEFAULT_PALETTE, type PaletteId } from './palettes';
 /** Affichage des étiquettes sur les cartes. */
 export type CardTagStyle = 'dots' | 'ribbon' | 'footer' | 'bookmarks';
 
+/** Habillage des cartes (la disposition intérieure ne change pas). */
+export type CardStyle = 'classic' | 'printed' | 'foil' | 'material';
+
 export interface Settings {
   /** Une carte sans étiquette Trade ni Not Trade est considérée Trade. */
   defaultTrade: boolean;
@@ -26,6 +29,8 @@ export interface Settings {
   albumKinds: boolean;
   /** Affichage des étiquettes sur les cartes, partout dans l'app. */
   cardTagStyle: CardTagStyle;
+  /** Habillage des cartes, partout dans l'app. */
+  cardStyle: CardStyle;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -41,6 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tagsLayout: 'folders',
   albumKinds: false,
   cardTagStyle: 'dots',
+  cardStyle: 'classic',
 };
 
 export const settingsItem = storage.defineItem<Settings>('local:settings', {

@@ -1,7 +1,7 @@
 import { Shield, Swords } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCollection } from '@/hooks/use-collection';
-import type { CardTagStyle } from '@/lib/store';
+import type { CardStyle, CardTagStyle } from '@/lib/store';
 import type { OwnedCard } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { cardImage } from './card-image';
@@ -50,11 +50,14 @@ export interface WmCardProps {
   showTags?: boolean;
   /** Force un style d'étiquettes (aperçus des réglages). */
   tagStyle?: CardTagStyle;
+  /** Force un habillage (aperçus des réglages). */
+  cardStyle?: CardStyle;
 }
 
 /** Carte au style WikiMasters : image en haut, fond pastel de la rareté, titre, description, attaque / défense. */
-export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFooter, badges, showTags = true, tagStyle: forcedStyle }: WmCardProps) {
+export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFooter, badges, showTags = true, tagStyle: forcedStyle, cardStyle: forcedCardStyle }: WmCardProps) {
   const tagStyle = useCollection((s) => forcedStyle ?? s.settings.cardTagStyle);
+  const cardStyle = useCollection((s) => forcedCardStyle ?? s.settings.cardStyle);
   const allTags = useCardTags(card);
   const tags = showTags ? allTags : [];
   const hasStats = card.attack != null || card.defense != null;
@@ -62,11 +65,14 @@ export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFoo
     <div
       className={cn('wm-card select-none', className)}
       data-rarity={card.rarity ?? undefined}
+      data-style={cardStyle}
       onPointerMove={(e) => track(e, tilt)}
       onPointerLeave={reset}
     >
+      {/* Face imprimée : toute la carte en « Actuel », à l'intérieur de la bordure pour les autres habillages. */}
+      <div className="wm-face">
       <div className="wm-paper" />
-      <div className="absolute inset-x-0 top-0 z-20 h-[45%] bg-black/20">
+      <div className="wm-art absolute inset-x-0 top-0 z-20 h-[45%] bg-black/20">
         <img src={cardImage(card)} alt="" loading="lazy" draggable={false} className="pointer-events-none absolute inset-0 size-full object-cover" />
         <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-black/50 to-transparent" />
         {imageOverlay}
@@ -85,14 +91,14 @@ export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFoo
       </div>
 
       <div className="absolute inset-x-0 top-[45%] bottom-0 z-30 flex flex-col p-[6.5cqw]">
-        <h3 className="line-clamp-2 shrink-0 text-[7.5cqw] leading-tight font-bold text-black" title={card.title}>
+        <h3 className="wm-title line-clamp-2 shrink-0 text-[7.5cqw] leading-tight font-bold text-black" title={card.title}>
           {card.title}
         </h3>
-        {card.description && <p className="mt-[1.5cqw] line-clamp-2 shrink-0 text-[5.8cqw] leading-snug text-neutral-900/85">{card.description}</p>}
+        {card.description && <p className="wm-desc mt-[1.5cqw] line-clamp-2 shrink-0 text-[5.8cqw] leading-snug text-neutral-900/85">{card.description}</p>}
         {tagStyle === 'footer' && <CardTagsFooter tags={tags} />}
         <div
           className={cn(
-            'flex items-center justify-between border-t border-black/20 pt-[3cqw] text-[5.8cqw] font-bold text-black/90',
+            'wm-stats flex items-center justify-between border-t border-black/20 pt-[3cqw] text-[5.8cqw] font-bold text-black/90',
             !(tagStyle === 'footer' && tags.length) && 'mt-auto',
           )}
         >
@@ -112,6 +118,8 @@ export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFoo
           )}
         </div>
       </div>
+      <CardTagsOverlay tags={tags} style={tagStyle} />
+      </div>
 
       <div className="wm-shine" />
       <div className="wm-holo" />
@@ -119,7 +127,6 @@ export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFoo
       <div className="wm-glitter" />
       <div className="wm-glare" />
       <div className="wm-rim" />
-      <CardTagsOverlay tags={tags} style={tagStyle} />
     </div>
   );
 }
