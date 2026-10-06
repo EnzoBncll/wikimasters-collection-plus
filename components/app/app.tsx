@@ -7,7 +7,7 @@ import { rememberAppearance, watchAppearance } from '@/lib/appearance';
 import { useSuggestions } from '@/hooks/use-suggestions';
 import { BrandIcon } from './brand-icon';
 import { CardViewer } from './card-viewer';
-import { EnhanceView } from './enhance-view';
+import { EnhanceView, type EnhanceSection } from './enhance-view';
 import { ExportView } from './export-view';
 import { ReviewView } from './review-view';
 import { SyncStatus } from './sync-status';
@@ -42,6 +42,7 @@ function useAppearance() {
 
 export function App({ initialView = 'review' }: { initialView?: ViewId }) {
   const [view, setView] = useState<ViewId>(initialView);
+  const [enhanceSection, setEnhanceSection] = useState<EnhanceSection>('consolidate');
   const newCount = useCollection((s) => s.newIds.size);
   const version = useCollection((s) => s.version);
   const { rules, facts } = useSuggestions();
@@ -88,8 +89,16 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
       >
         <div className="h-full w-full overflow-y-auto">
           {view === 'review' && <ReviewView />}
-          {view === 'tags' && <TagsView onOpenReview={() => setView('review')} />}
-          {view === 'suggestions' && <EnhanceView />}
+          {view === 'tags' && (
+            <TagsView
+              onOpenReview={() => setView('review')}
+              onOpenEnhance={(section) => {
+                setEnhanceSection(section);
+                setView('suggestions');
+              }}
+            />
+          )}
+          {view === 'suggestions' && <EnhanceView section={enhanceSection} onSection={setEnhanceSection} />}
           {view === 'settings' && <ExportView />}
         </div>
       </NotchNav>

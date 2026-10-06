@@ -3,7 +3,8 @@ import { Loader2, Plus, RefreshCw, Wand2, X } from 'lucide-react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useCollection } from '@/hooks/use-collection';
 import { useSuggestions } from '@/hooks/use-suggestions';
-import { albumSheetsItem, sheetText } from '@/lib/album-sheet';
+import { sheetText } from '@/lib/album-sheet';
+import { useAlbumSheets } from './sheets-view';
 import { recoDismissedItem, recommendForAlbum, type Recommendation } from '@/lib/related';
 import type { OwnedCard } from '@/lib/types';
 import { useCardViewer } from './card-viewer';
@@ -99,10 +100,7 @@ export function AlbumRecommendations({
   }, [tagId]);
 
   // Fiche IA de l'album : ses mots-clés comptent comme la description.
-  const [sheet, setSheet] = useState('');
-  useEffect(() => {
-    albumSheetsItem.getValue().then((all) => setSheet(sheetText(all[tagId])));
-  }, [tagId]);
+  const sheet = sheetText(useAlbumSheets()[tagId]);
 
   // Liste figée pendant qu'on ajoute : pas de recalcul (ni de cartes qui changent de place) à chaque clic.
   // Elle se recalcule au changement de nom, de description, de faits Wikidata, ou sur « Actualiser ».

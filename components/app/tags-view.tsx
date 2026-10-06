@@ -1,4 +1,4 @@
-import { Archive, ArrowRight, BookOpen, Folder, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, Sparkles, Trash2, type LucideIcon } from 'lucide-react';
+import { Archive, ArrowRight, Bot, BookOpen, Layers, Folder, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, Sparkles, Trash2, type LucideIcon } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatedFolder, type Project } from '@/components/ui/3d-folder';
@@ -19,6 +19,11 @@ import { useReview } from '@/hooks/use-review';
 import { RARITY_LABEL, type OwnedCard, type SiteTag } from '@/lib/types';
 import { systemTagIds } from '@/lib/trade';
 import { kindOf, switchKind } from '@/lib/album-kind';
+import { sheetOutdated } from '@/lib/album-sheet';
+import { useSuggestions } from '@/hooks/use-suggestions';
+import { useImproveCounts } from './consolidate-view';
+import type { EnhanceSection } from './enhance-view';
+import { useAiAvailability, useAlbumSheets, useCollectionAlbums } from './sheets-view';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Album } from './album';
@@ -135,7 +140,20 @@ function TagRow({
   );
 }
 
-export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
+/** Pastille « Améliorer » de la page Albums, qui mène à une section de l'onglet Enhance. */
+function ImprovePill({ icon: Icon, text, onClick }: { icon: LucideIcon; text: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex cursor-pointer items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
+    >
+      <Icon className="size-3.5 text-primary" /> {text} <ArrowRight className="size-3" />
+    </button>
+  );
+}
+
+export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => void; onOpenEnhance: (section: EnhanceSection) => void }) {
   const { tags, cards, tradeTags, createTag, updateTag, deleteTag, statusOf, version, settings, updateSettings } = useCollection();
   const layout = settings.tagsLayout;
   const [name, setName] = useState('');
@@ -143,7 +161,19 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
   const [toDelete, setToDelete] = useState<SiteTag | null>(null);
   const [toRename, setToRename] = useState<SiteTag | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
-  const [album, setAlbum] = useState<{ key: string; title: string; gradient: string } | null>(null);
+  const [album, setAlbum] = useState<{ key: string; title: string; gradient: string; focus?: boolean } | null>(null);
+
+  // Pistes d'amélioration : cartes à ranger (par album), nouveaux albums possibles, fiches IA à rédiger.
+  const improve = useImproveCounts();
+  const { facts, rules, dismissed: dismissedThemes } = useSuggestions();
+  const themeCount = useMemo(
+    () => useSuggestions.getState().suggestions().filter((s) => !s.existingTag).length,
+    [facts, rules, dismissedThemes, tags, version], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const aiAvailability = useAiAvailability();
+  const sheets = useAlbumSheets();
+  const collectionAlbums = useCollectionAlbums();
+  const sheetsToWrite = collectionAlbums.filter((a) => !sheets[a.tag.id] || sheetOutdated(sheets[a.tag.id]!, a.cards.length)).length;
 
   // Lien direct : review.html#album=<id> ouvre l'album dès que les étiquettes sont chargées.
   const [albumLink, setAlbumLink] = useState(() => (location.hash.startsWith('#album=') ? decodeURIComponent(location.hash.slice(7)) : null));
@@ -203,13 +233,23 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
     onOpenReview();
   };
 
-  const openAlbum = (tag: SiteTag | 'none') =>
-    setAlbum(tag === 'none' ? { key: 'none', title: 'Sans étiquette', gradient: UNTAGGED_GRADIENT } : { key: tag.id, title: tag.name, gradient: folderGradient(tag.color) });
+  const openAlbum = (tag: SiteTag | 'none', focus = false) =>
+    setAlbum(tag === 'none' ? { key: 'none', title: 'Sans étiquette', gradient: UNTAGGED_GRADIENT } : { key: tag.id, title: tag.name, gradient: folderGradient(tag.color), focus });
 
   /** Couleur, « Voir » dans la Revue et menu (renommer / supprimer) : communs aux dossiers et à la liste. */
   const tagControls = (tag: SiteTag, system: boolean) => (
     <div className="flex items-center gap-1.5">
       <ColorPicker value={tag.color ?? FALLBACK_COLOR} onChange={(c) => updateTag(tag.id, { color: c })} className="size-5" />
+      {!system && (improve?.byTag.get(tag.id) ?? 0) > 0 && (
+        <button
+          type="button"
+          onClick={() => openAlbum(tag, true)}
+          title={`${improve!.byTag.get(tag.id)} carte(s) que tu possèdes iraient bien dans cet album`}
+          className="flex h-6 cursor-pointer items-center rounded-full bg-emerald-500/15 px-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-500/25 dark:text-emerald-300"
+        >
+          +{improve!.byTag.get(tag.id)}
+        </button>
+      )}
       <Button variant="ghost" size="sm" className="h-7 rounded-full px-2.5 text-xs" onClick={() => showInReview(tag)}>
         Voir <ArrowRight className="size-3" />
       </Button>
@@ -325,6 +365,19 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
         </div>
       </header>
 
+      {(Boolean(improve?.total) || themeCount > 0 || (sheetsToWrite > 0 && aiAvailability && aiAvailability !== 'unavailable')) && (
+        <div className="-mt-4 flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Améliorer</span>
+          {Boolean(improve?.total) && (
+            <ImprovePill icon={Layers} text={`${improve!.total} carte${improve!.total > 1 ? 's' : ''} à ranger dans tes albums`} onClick={() => onOpenEnhance('consolidate')} />
+          )}
+          {themeCount > 0 && <ImprovePill icon={Sparkles} text={`${themeCount} nouvel${themeCount > 1 ? 's' : ''} album${themeCount > 1 ? 's' : ''} possible${themeCount > 1 ? 's' : ''}`} onClick={() => onOpenEnhance('themes')} />}
+          {sheetsToWrite > 0 && aiAvailability && aiAvailability !== 'unavailable' && (
+            <ImprovePill icon={Bot} text={`${sheetsToWrite} fiche${sheetsToWrite > 1 ? 's' : ''} IA à rédiger`} onClick={() => onOpenEnhance('sheets')} />
+          )}
+        </div>
+      )}
+
       <section className="space-y-4">
         <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
           {kinds ? 'Collections' : 'Mes étiquettes'} · {collections.length}
@@ -439,6 +492,7 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
             gradient={album.gradient}
             layoutKey={album.key}
             tagId={album.key !== 'none' && !systemIds.has(album.key) ? album.key : undefined}
+            focusImprove={album.focus}
             storage={kinds && storages.some((t) => t.id === album.key)}
             cards={album.key === 'none' ? untagged : (byTag.get(album.key) ?? [])}
             onRename={

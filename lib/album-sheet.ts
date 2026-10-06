@@ -21,6 +21,8 @@ export interface AlbumSheet {
   at: number;
   /** Nombre de cartes de l'album au moment de la rédaction. */
   cardCount: number;
+  /** Retouchée à la main après la rédaction. */
+  edited?: boolean;
 }
 
 export const albumSheetsItem = storage.defineItem<Record<string, AlbumSheet>>('local:albumSheets', { fallback: {} });
@@ -85,7 +87,7 @@ export async function writeSheet({
 }): Promise<AlbumSheet> {
   const shown = cards.slice(0, MAX_CARDS);
   const prompt = [
-    `Album « ${name} »${description ? ` — note du collectionneur : ${description}` : ''}.`,
+    `Album « ${name} »${description ? ` — description actuelle (écrite ou validée par le collectionneur, à respecter) : ${description}` : ''}.`,
     `Il contient ${cards.length} carte(s), dont :`,
     ...shown.map(cardLine),
     cards.length > shown.length ? `… et ${cards.length - shown.length} autres.` : '',
@@ -109,6 +111,14 @@ export async function writeSheet({
   const all = await albumSheetsItem.getValue();
   await albumSheetsItem.setValue({ ...all, [tag.id]: sheet });
   return sheet;
+}
+
+/** Retouche à la main (résumé, listes, mots-clés, emoji). */
+export async function updateSheet(tagId: string, patch: Partial<Omit<AlbumSheet, 'at' | 'cardCount'>>) {
+  const all = await albumSheetsItem.getValue();
+  const sheet = all[tagId];
+  if (!sheet) return;
+  await albumSheetsItem.setValue({ ...all, [tagId]: { ...sheet, ...patch, edited: true } });
 }
 
 export async function deleteSheet(tagId: string) {

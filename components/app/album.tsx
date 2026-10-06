@@ -8,6 +8,9 @@ import { RARITY_LABEL, type OwnedCard } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { AlbumAddDialog } from './album-add-dialog';
 import { AlbumRecommendations } from './album-recommendations';
+import { AlbumSheetPanel } from './album-sheet-panel';
+import { useAlbumSheets } from './sheets-view';
+import { updateSheet } from '@/lib/album-sheet';
 import { AlbumWishes } from './album-wishes';
 import { ALBUM_STYLE_IDS, ALBUM_STYLES, type AlbumStyle } from './album-styles';
 import { BrandIcon } from './brand-icon';
@@ -63,6 +66,8 @@ function Sticker({ card, lifted }: { card: OwnedCard; lifted?: boolean }) {
 
 interface CoverProps {
   description: string;
+  /** La description vient de la fiche IA, sans retouche. */
+  aiWritten: boolean;
   /** Couverture interactive (livre fermé, rien ne tourne). */
   editable: boolean;
   /** Le nom de l'étiquette peut être changé (pas pour « Sans étiquette » ni Trade / Not Trade). */
@@ -167,6 +172,9 @@ function CoverText({ title, look, cover }: { title: string; look: AlbumStyle; co
           className={cn('line-clamp-4 max-w-full text-[calc(var(--u)*3.4)] leading-snug whitespace-pre-line opacity-90', cover.editable && 'cursor-text')}
         >
           {cover.description}
+          {cover.aiWritten && (
+            <span className="mt-[calc(var(--u)*1)] block text-[calc(var(--u)*2.4)] tracking-wide uppercase opacity-60">✦ Rédigée par l'IA · double-clic pour modifier</span>
+          )}
         </p>
       ) : (
         cover.editable && (
@@ -442,6 +450,8 @@ export interface AlbumProps {
   layoutKey: string;
   /** Étiquette de l'album quand on peut y ajouter des cartes (absent pour « Sans étiquette » et les statuts) : active les recommandations. */
   tagId?: string;
+  /** Ouvre l'album directement sur les cartes à ajouter (badge « +N » de la page Albums). */
+  focusImprove?: boolean;
   /** Album de rangement : on y range sans chercher à le compléter, donc pas de souhaits. */
   storage?: boolean;
   /** Renomme l'étiquette ; absent quand le nom ne peut pas changer. */
@@ -450,7 +460,9 @@ export interface AlbumProps {
 }
 
 /** Album à feuilleter façon Panini : doubles pages, pages qui se tournent, vignettes à ranger par glisser-déposer. */
-export function Album({ title, gradient, cards, layoutKey, tagId, storage, onRename, onClose }: AlbumProps) {
+export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, storage, onRename, onClose }: AlbumProps) {
+  const sheets = useAlbumSheets();
+  const sheet = tagId ? sheets[tagId] : undefined;
   const palette = useCollection((s) => s.settings.palette);
   const albumStyle = useCollection((s) => s.settings.albumStyle);
   const updateSettings = useCollection((s) => s.updateSettings);
@@ -519,13 +531,21 @@ export function Album({ title, gradient, cards, layoutKey, tagId, storage, onRen
 
   const saveCover = async (name: string, desc: string) => {
     if (onRename && name !== title) await onRename(name);
+    // Une seule description : celle de la fiche IA quand l'album en a une (retouchée à la main), sinon une note libre.
+    if (tagId && sheet && desc !== sheet.summary) await updateSheet(tagId, { summary: desc });
     const all = await albumDescriptionsItem.getValue();
     const next = { ...all };
-    if (desc) next[layoutKey] = desc;
+    if (desc && !(tagId && sheet)) next[layoutKey] = desc;
     else delete next[layoutKey];
     await albumDescriptionsItem.setValue(next);
-    setDescription(desc);
+    setDescription(next[layoutKey] ?? '');
   };
+
+  useEffect(() => {
+    if (!focusImprove) return;
+    const timer = window.setTimeout(() => wishesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 450);
+    return () => window.clearTimeout(timer);
+  }, [focusImprove]);
 
   /** Couverture ↔ première double page. */
   const toggleCover = useCallback(
@@ -707,7 +727,8 @@ export function Album({ title, gradient, cards, layoutKey, tagId, storage, onRen
 
   const bookShut = closed || leaf?.opening || leaf?.closing;
   const cover: CoverProps = {
-    description,
+    description: description || sheet?.summary || '',
+    aiWritten: !description && Boolean(sheet?.summary) && !sheet?.edited,
     editable: closed && !leaf,
     canRename: Boolean(onRename),
     onSave: saveCover,
@@ -882,12 +903,13 @@ export function Album({ title, gradient, cards, layoutKey, tagId, storage, onRen
           onClick={() => wishesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
           className="mt-1 flex cursor-pointer items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-white/80 transition hover:bg-white/20"
         >
-          <ChevronDown className="size-3.5" /> {storage ? 'Cartes à ajouter' : tagId ? 'Cartes à ajouter, souhaits et suggestions' : 'Liste de souhaits et suggestions'}
+          <ChevronDown className="size-3.5" /> {storage ? 'Cartes à ajouter' : tagId ? 'Fiche, cartes à ajouter et souhaits' : 'Liste de souhaits et suggestions'}
         </button>
       </div>
       </div>
 
       <div ref={wishesRef} data-backdrop data-wishes className="mx-auto w-full space-y-6 px-6 pb-12" style={{ maxWidth: pageW * 2 + 40 }}>
+        {tagId && !storage && <AlbumSheetPanel tagId={tagId} cards={cards} />}
         {tagId && <AlbumRecommendations tagId={tagId} name={title} description={description} cards={cards} onBrowse={() => setPicking(true)} />}
         {tagId && picking && <AlbumAddDialog tagId={tagId} name={title} onClose={() => setPicking(false)} />}
         {!storage && <AlbumWishes albumKey={layoutKey} cards={cards} tagId={tagId} albumName={title} />}

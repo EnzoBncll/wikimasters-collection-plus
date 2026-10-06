@@ -5,15 +5,17 @@ import { useCollection } from '@/hooks/use-collection';
 import { useSuggestions } from '@/hooks/use-suggestions';
 import { toast } from '@/hooks/use-toast';
 import { albumDescriptionsItem } from '@/lib/album';
-import { albumSheetsItem, sheetText } from '@/lib/album-sheet';
+import { sheetText, type AlbumSheet } from '@/lib/album-sheet';
 import { kindOf } from '@/lib/album-kind';
 import { consolidate, type Consolidation } from '@/lib/consolidate';
 import { recoDismissedItem } from '@/lib/related';
 import { systemTagIds } from '@/lib/trade';
 import type { OwnedCard, SiteTag } from '@/lib/types';
+import type { CardFacts } from '@/lib/wikidata';
 import { cn } from '@/lib/utils';
 import { useCardViewer } from './card-viewer';
 import { PendingPanel } from './pending-panel';
+import { useAlbumSheets } from './sheets-view';
 import { WmCard } from './wm-card';
 
 /** Cartes affichées par album avant « Voir plus ». */
@@ -33,6 +35,61 @@ function Reasons({ reasons }: { reasons: string[] }) {
   );
 }
 
+type CollectionState = ReturnType<typeof useCollection.getState>;
+
+/** Recommandations fortes de tous les albums de collection (rangement exclu si l'option est active). */
+function runConsolidation(
+  { cards, tags, tradeTags, settings }: Pick<CollectionState, 'cards' | 'tags' | 'tradeTags' | 'settings'>,
+  facts: Record<string, CardFacts>,
+  labels: Record<string, string>,
+  dismissed: Record<string, string[]>,
+  notes: Record<string, string>,
+  sheets: Record<string, AlbumSheet>,
+): Consolidation {
+  const systemIds = systemTagIds(tradeTags);
+  const targets = tags.filter((t) => !systemIds.has(t.id) && !(settings.albumKinds && kindOf(t) === 'storage'));
+  const byTag = new Map(targets.map((t) => [t.id, [] as OwnedCard[]]));
+  for (const card of cards) for (const id of card.tagIds) byTag.get(id)?.push(card);
+  const discardId = tradeTags?.discard?.id;
+  return consolidate({
+    // Description de chaque album : note libre + mots-clés de sa fiche IA.
+    albums: targets.map((tag) => ({ tag, cards: byTag.get(tag.id)!, description: `${notes[tag.id] ?? ''} ${sheetText(sheets[tag.id])}`.trim() })),
+    all: discardId ? cards.filter((c) => !c.tagIds.includes(discardId)) : cards,
+    facts,
+    labels,
+    dismissed,
+  });
+}
+
+/**
+ * Nombre de cartes à ajouter par album (badges « +N » de la page Albums) et au total.
+ * Calculé en différé, pour ne pas ralentir l'ouverture de la page.
+ */
+export function useImproveCounts() {
+  const { cards, tags, tradeTags, settings, version } = useCollection();
+  const facts = useSuggestions((s) => s.facts);
+  const labels = useSuggestions((s) => s.labels);
+  const sheets = useAlbumSheets();
+  const [counts, setCounts] = useState<{ byTag: Map<string, number>; total: number } | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      const [dismissed, notes] = await Promise.all([recoDismissedItem.getValue(), albumDescriptionsItem.getValue()]);
+      if (cancelled) return;
+      const result = runConsolidation({ cards, tags, tradeTags, settings }, facts, labels, dismissed, notes, sheets);
+      const byTag = new Map<string, number>();
+      for (const g of result.albums) byTag.set(g.tag.id, g.matches.length);
+      for (const m of result.multi) for (const x of m.matches) byTag.set(x.tag.id, (byTag.get(x.tag.id) ?? 0) + 1);
+      setCounts({ byTag, total: result.multi.length + result.albums.reduce((n, g) => n + g.matches.length, 0) });
+    }, 400);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [cards, tags, tradeTags, settings, version, facts, labels, sheets]);
+  return counts;
+}
+
 /**
  * Consolider : recommandations fortes de tous les albums de collection, à valider en lot.
  * Les cartes qui conviennent à plusieurs albums sont mises à part : ici, là, ou les deux.
@@ -42,8 +99,8 @@ export function ConsolidateView() {
   const facts = useSuggestions((s) => s.facts);
   const labels = useSuggestions((s) => s.labels);
   const [dismissed, setDismissed] = useState<Record<string, string[]> | null>(null);
-  /** Description de chaque album : note du collectionneur + mots-clés de sa fiche IA. */
-  const [descriptions, setDescriptions] = useState<Record<string, string> | null>(null);
+  const [notes, setNotes] = useState<Record<string, string> | null>(null);
+  const sheets = useAlbumSheets();
   /** Paires « album:carte » déjà traitées (ajoutées ou écartées), masquées tout de suite. */
   const [done, setDone] = useState<Set<string>>(new Set());
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -51,31 +108,16 @@ export function ConsolidateView() {
 
   useEffect(() => {
     recoDismissedItem.getValue().then(setDismissed);
-    Promise.all([albumDescriptionsItem.getValue(), albumSheetsItem.getValue()]).then(([notes, sheets]) => {
-      const ids = new Set([...Object.keys(notes), ...Object.keys(sheets)]);
-      setDescriptions(Object.fromEntries([...ids].map((id) => [id, `${notes[id] ?? ''} ${sheetText(sheets[id])}`.trim()])));
-    });
+    albumDescriptionsItem.getValue().then(setNotes);
   }, []);
 
   // Calcul figé pendant qu'on valide : il ne se refait qu'avec « Actualiser » ou de nouvelles données.
   const live = useRef({ cards, tags, tradeTags, settings });
   live.current = { cards, tags, tradeTags, settings };
   const result: Consolidation | null = useMemo(() => {
-    if (!dismissed || !descriptions) return null;
-    const { cards, tags, tradeTags, settings } = live.current;
-    const systemIds = systemTagIds(tradeTags);
-    const targets = tags.filter((t) => !systemIds.has(t.id) && !(settings.albumKinds && kindOf(t) === 'storage'));
-    const byTag = new Map(targets.map((t) => [t.id, [] as OwnedCard[]]));
-    for (const card of cards) for (const id of card.tagIds) byTag.get(id)?.push(card);
-    const discardId = tradeTags?.discard?.id;
-    return consolidate({
-      albums: targets.map((tag) => ({ tag, cards: byTag.get(tag.id)!, description: descriptions[tag.id] })),
-      all: discardId ? cards.filter((c) => !c.tagIds.includes(discardId)) : cards,
-      facts,
-      labels,
-      dismissed,
-    });
-  }, [dismissed, descriptions, facts, labels, refresh, tags.length, settings.albumKinds]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!dismissed || !notes) return null;
+    return runConsolidation(live.current, facts, labels, dismissed, notes, sheets);
+  }, [dismissed, notes, sheets, facts, labels, refresh, tags.length, settings.albumKinds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Après « Actualiser », la collection a suivi : on repart d'une liste propre.
   useEffect(() => setDone(new Set()), [result]);
@@ -191,9 +233,8 @@ export function ConsolidateView() {
         return (
           <section key={tag.id} className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="flex items-center gap-2 font-semibold">
-                {tagDot(tag)} {tag.name}
-                <span className="text-sm font-normal text-muted-foreground">· {matches.length}</span>
+              <h2 className="flex items-center gap-2 text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                {tagDot(tag)} {tag.name} · {matches.length}
               </h2>
               <div className="flex gap-1.5">
                 <Button size="sm" variant="ghost" className="rounded-full" onClick={() => dismiss(matches.map((m) => m.card), tag)}>

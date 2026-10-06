@@ -254,15 +254,12 @@ export function SuggestionsView() {
   const combos = suggestions.filter((s) => s.source === 'combo');
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-8 px-4 py-6 sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div className="space-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight">Suggestions</h1>
-          <p className="text-sm text-muted-foreground">
-            Groupes détectés grâce à Wikidata · {recognized}/{cards.length} cartes reconnues
-            {notAnalyzed > 0 && ` · ${notAnalyzed} à analyser`}
-          </p>
-        </div>
+    <div className="space-y-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {recognized}/{cards.length} cartes reconnues sur Wikidata
+          {notAnalyzed > 0 && ` · ${notAnalyzed} à analyser`}
+        </p>
         <Button variant={notAnalyzed ? 'default' : 'outline'} onClick={analyze} disabled={Boolean(enriching) || !cards.length} className="rounded-full">
           {enriching ? <Loader2 className="size-4 animate-spin" /> : notAnalyzed ? <Sparkles className="size-4" /> : <RefreshCw className="size-4" />}
           {enriching
@@ -273,7 +270,7 @@ export function SuggestionsView() {
               ? `Analyser ${notAnalyzed} carte${notAnalyzed > 1 ? 's' : ''}`
               : 'Relancer les règles'}
         </Button>
-      </header>
+      </div>
 
       {analyzed === 0 && !enriching ? (
         <div className="h-80">
