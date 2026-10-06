@@ -12,7 +12,7 @@
 
 > Extension Chrome **non officielle** pour [WikiMasters](https://www.wiki-masters.com), sans lien avec l'équipe du jeu.
 
-Range ta collection de cartes Wikipédia : tri **Trade / Not Trade** en quelques clics, **étiquettes** (celles du site), **albums** à feuilleter façon Panini, **liste de souhaits** avec suggestions des meilleures cartes à chercher, et **export** CSV / Google Sheets.
+Range ta collection de cartes Wikipédia : tri **Trade / Not Trade** en quelques clics, **étiquettes** (celles du site), **albums** à feuilleter façon Panini, **albums à objectif** (les rois de France, le top 50 des…) avec les cartes qu'il te reste à trouver, suggestions des meilleures cartes à chercher, et **export** CSV / Google Sheets.
 
 <p align="center">
   <img src="docs/images/review-light.png" alt="Vue Revue en mode clair" width="49%">
@@ -21,17 +21,23 @@ Range ta collection de cartes Wikipédia : tri **Trade / Not Trade** en quelques
 
 ## Fonctionnalités
 
-- **Revue** : toutes tes cartes, filtres (statut, rareté, étiquettes, doublons, nouvelles), sélection multiple, raccourcis clavier (`T` Trade, `N` Not Trade, `E` étiqueter, `A` tout, `/` recherche, `Entrée` afficher en grand).
-- **Cartes au style WikiMasters** : format, couleurs de rareté et statistiques du jeu, papier légèrement grainé ; reflet holographique au survol, plus intense selon la rareté. Les **Ultra rares** ont un irisé qui bouge en permanence, les **Légendaires** une vraie feuille d'or avec un éclat qui la balaie.
-- **Carte en grand** : clic sur une carte (double-clic dans la Revue) pour l'afficher en grand avec ses infos, ← → pour parcourir.
+- **Visite guidée** : à la première ouverture, une présentation pas à pas des quatre pages met en lumière chaque fonction. Passable, et relançable depuis **Paramètres › Apparence › Aide**.
+- **Cartes** : toutes tes cartes, filtres compacts (statut, rareté, étiquettes séparées Collection / Rangement, doublons, nouvelles), sélection multiple, raccourcis clavier (`T` Trade, `N` Not Trade, `E` étiqueter, `A` tout, `/` recherche, `Entrée` afficher en grand).
+- **Boîte d'envoi** : rien ne part sur le site tout de suite. Statuts, étiquettes et albums s'accumulent dans un volet à droite (poignée avec le nombre de modifications) et partent d'un clic ; un tracé aux couleurs de la palette fait le tour du cadre pendant l'envoi.
+- **Cartes au style WikiMasters** : format, couleurs de rareté et statistiques du jeu, neuf habillages au choix (imprimé, premium foil, matière), reflet holographique au survol, plus intense selon la rareté.
+- **Carte en grand** : la carte, ses infos et, à côté, le début de son article Wikipédia (dépliable, repliable) ; ← → pour parcourir.
 - **Trade / Not Trade** : deux étiquettes natives du site, option « tout Trade par défaut », pastilles sur les cartes de WikiMasters.
-- **Étiquettes** : en dossiers animés ou en liste, couleurs, renommage ; tout est visible sur le site.
-- **Albums** : chaque étiquette s'ouvre en album à feuilleter, **relié** (toile, tranches de pages, papier) ou **classeur** (pochettes plastique, anneaux). On tourne les pages en les faisant glisser et on range les cartes case par case.
-- **Liste de souhaits et suggestions** : sous chaque album, Collection+ devine le thème (métier, pays, genre…) et propose les cartes les plus connues de ce thème que tu n'as pas encore ; un ♡ les garde dans la liste de souhaits de l'album.
-- **Suggestions d'étiquettes** : Collection+ reconnaît ce que représente chaque carte (personnalité, film, ville, espèce, footballeur…) et propose des étiquettes en un clic. Règles optionnelles pour les futures cartes, **à valider** ou **automatiques**.
+- **Étiquettes et albums** : un seul bouton **Nouveau** pour une étiquette / album, un album à objectif ou une étiquette de rangement. Chaque étiquette s'ouvre en album à feuilleter, **relié** ou **classeur** : rangement à la main ou vue par rareté (sans perdre ton ordre), croix pour retirer une carte (elle passe dans « Écartées »), description de couverture rédigée par l'IA.
+- **Albums à objectif** : décris ce que tu veux réunir (« les rois de France », « les empereurs en Europe après 1600 », « le top 50 des personnalités féminines françaises avant 1900 »). Collection+ cherche une page « Liste de… » de Wikipédia, une liste Wikidata notée de 0 à 1 selon les dates et le lieu, ou traduit ta phrase en règles modifiables (avec une clé Gemini gratuite, facultative). Tu verrouilles la liste, l'album a ses cases numérotées : cartes collées, cartes possédées à coller d'un clic, cartes à trouver. Survole une carte pour voir l'article.
+- **Enhance** : cartes à ranger dans tes albums, nouveaux albums possibles d'après Wikidata, fiches d'album rédigées par l'IA intégrée de Chrome.
+- **Liste de souhaits et suggestions** : sous chaque album, les cartes les plus connues de son thème que tu n'as pas encore.
 - **Export** : CSV, copie pour tableur, ou classeur Google Sheets mis en forme.
 - **Thèmes** : mode clair, sombre ou auto, et 10 palettes qui recolorent l'interface, le bouton sur le site et l'icône de l'extension.
 - **Cache local** : la collection s'affiche instantanément, seuls les changements sont rechargés.
+
+<p align="center">
+  <img src="docs/images/onboarding.png" alt="Visite guidée à la première ouverture" width="100%">
+</p>
 
 ## Cartes et raretés
 
@@ -65,10 +71,10 @@ Sous chaque album, la liste de souhaits et les **meilleures cartes à chercher**
 
 ## Palettes
 
-Dix accords de couleurs, à choisir dans **Export → Réglages → Palette**. Chacun existe en clair et en sombre.
+Dix accords de couleurs, à choisir dans **Paramètres › Apparence › Palette**. Chacun existe en clair et en sombre.
 
 <p align="center">
-  <img src="docs/images/settings.png" alt="Export et réglages, choix de la palette" width="70%">
+  <img src="docs/images/settings.png" alt="Paramètres, choix de la palette" width="70%">
 </p>
 
 <p align="center">
@@ -107,7 +113,7 @@ Tes réglages, règles et données restent en place (l'identifiant de l'extensio
 
 ## Confidentialité
 
-Aucun serveur, aucune collecte : voir [PRIVACY.md](PRIVACY.md). Les suggestions interrogent Wikidata et Wikipédia (API publiques, sans compte).
+Aucun serveur, aucune collecte : voir [PRIVACY.md](PRIVACY.md). Les suggestions et les albums à objectif interrogent Wikidata et Wikipédia (API publiques, sans compte). Si tu ajoutes une clé Gemini (facultative), seule la phrase de ta demande est envoyée à Google pour être comprise ; la clé reste sur ton ordinateur.
 
 ---
 
@@ -115,7 +121,7 @@ Aucun serveur, aucune collecte : voir [PRIVACY.md](PRIVACY.md). Les suggestions 
 
 ```bash
 pnpm install
-pnpm dev            # Chrome avec l'extension en rechargement à chaud
+pnpm dev            # build de développement (.output/chrome-mv3-dev) en rechargement à chaud
 pnpm build          # build de production → .output/chrome-mv3
 pnpm preview:mock   # aperçu dans un navigateur, avec données simulées
 pnpm typecheck

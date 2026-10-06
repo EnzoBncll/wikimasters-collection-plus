@@ -93,6 +93,7 @@ try {
   await writeFile(join(import.meta.dirname, '..', '.output', 'chrome-mv3', '__rarities.html'), raritiesPage());
   shoot(`${BASE}/__rarities.html`, join(OUT, 'rarities.png'), [1340, 640]);
   shoot(app('theme=dark&palette=cyberpunk', '#export'), join(OUT, 'settings.png'), [1440, 1180]);
+  shoot(app('theme=light&onboarding=2'), join(OUT, 'onboarding.png'), [1440, 900], { wait: 12000 });
   shoot(`${BASE}/popup.html?static&theme=dark`, join(OUT, 'popup.png'), [288, 176], { scale: 2 });
   for (const [palette, theme] of [['abysse', 'dark'], ['aube', 'light'], ['coucher-de-soleil', 'dark'], ['emeraude', 'light']]) {
     shoot(app(`theme=${theme}&palette=${palette}`), join(TMP, `theme-${palette}.png`), [1440, 900]);
