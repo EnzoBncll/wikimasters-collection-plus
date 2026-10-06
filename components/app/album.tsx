@@ -1,8 +1,10 @@
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion';
-import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Gem, Hand, Loader2, Pencil, Plus, Sparkles, X } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Gem, Hand, Loader2, Pencil, Plus, Sparkles, Target, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCollection } from '@/hooks/use-collection';
+import { useSuggestions } from '@/hooks/use-suggestions';
+import { goalAlbumsItem, matchEntries, type GoalAlbum, type GoalEntry } from '@/lib/goal-albums';
 import { albumDescriptionsItem, albumLayoutsItem, albumOrdersItem, pageCount, raritySlots, reconcileSlots, SLOTS_PER_PAGE, swapSlots, type AlbumOrder } from '@/lib/album';
 import { RARITY_LABEL, type OwnedCard } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -77,6 +79,8 @@ interface CoverProps {
   /** Fait rédiger la description par l'IA ; absent quand l'IA n'est pas disponible ou que l'album n'est pas une étiquette. */
   onGenerate?: () => void;
   generating?: boolean;
+  /** Album à objectif : « 23 / 76 cartes » à la place du nombre de vignettes. */
+  progress?: string;
 }
 
 /** Petite étoile discrète : rédiger (ou réécrire) la description avec l'IA. */
@@ -217,6 +221,44 @@ function CoverText({ title, look, cover }: { title: string; look: AlbumStyle; co
   );
 }
 
+interface GoalView {
+  entries: GoalEntry[];
+  /** Carte possédée pour chaque entrée (collée ou non). */
+  match: Map<number, OwnedCard>;
+  onStick: (card: OwnedCard) => void;
+}
+
+/** Case d'un album à objectif : carte à trouver (son nom), ou carte possédée à coller d'un clic. */
+function GoalSlot({ entry, own, look, onStick }: { entry: GoalEntry; own?: OwnedCard; look: AlbumStyle; onStick: (card: OwnedCard) => void }) {
+  return (
+    <div
+      title={entry.description ? `${entry.title} — ${entry.description}` : entry.title}
+      className={cn(
+        'absolute inset-0 flex flex-col items-center justify-end gap-[calc(var(--u)*1.2)] p-[calc(var(--u)*1.5)] pb-[calc(var(--u)*2.5)] text-center',
+        own && 'rounded-[calc(var(--u)*2)] border-[calc(var(--u)*0.5)] border-dashed border-amber-500',
+      )}
+    >
+      {own && (
+        <div className="pointer-events-none absolute inset-[calc(var(--u)*1)] flex items-center justify-center opacity-35 grayscale-[50%]">
+          <Sticker card={own} />
+        </div>
+      )}
+      <span className={cn('relative line-clamp-3 text-[calc(var(--u)*2.5)] leading-tight font-semibold', own ? 'text-amber-900' : look.slotLabel)}>{entry.title}</span>
+      {own && (
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => onStick(own)}
+          title="Coller la carte dans l'album (en attente d'envoi)"
+          className="relative cursor-pointer rounded-full bg-amber-500 px-[calc(var(--u)*2.2)] py-[calc(var(--u)*0.7)] text-[calc(var(--u)*2.3)] font-bold text-white shadow transition hover:scale-105 hover:bg-amber-600"
+        >
+          + Coller
+        </button>
+      )}
+    </div>
+  );
+}
+
 function Page({
   face,
   side,
@@ -233,6 +275,7 @@ function Page({
   unsent,
   onRemove,
   locked,
+  goal,
 }: {
   face: Face;
   side: 'left' | 'right';
@@ -252,6 +295,8 @@ function Page({
   onRemove?: (card: OwnedCard) => void;
   /** Vue triée par rareté : les vignettes ne se déplacent pas. */
   locked?: boolean;
+  /** Album à objectif : cases « goal:<n> » pour les cartes pas encore collées. */
+  goal?: GoalView;
 }) {
   if (face === 'none') return null;
 
@@ -264,7 +309,7 @@ function Page({
           <p className="text-[calc(var(--u)*3.2)] font-semibold tracking-[0.3em] uppercase opacity-80">Album</p>
           <CoverText title={title} look={look} cover={cover} />
           <div className="h-[calc(var(--u)*1)] w-1/2 rounded-full bg-holo" />
-          <p className="text-[calc(var(--u)*3.4)] font-medium opacity-90">{slots.filter(Boolean).length} vignettes</p>
+          <p className="text-[calc(var(--u)*3.4)] font-medium opacity-90">{cover.progress ?? `${slots.filter(Boolean).length} vignettes`}</p>
           <BrandIcon palette={palette} className="mt-[calc(var(--u)*4)] size-[calc(var(--u)*12)] drop-shadow-xl" />
           {cover.editable && (
             <button
@@ -298,15 +343,28 @@ function Page({
             {Array.from({ length: SLOTS_PER_PAGE }, (_, i) => {
               const slot = first + i;
               const id = slots[slot] ?? null;
-              const card = id ? cards.get(id) : undefined;
+              const goalIndex = id?.startsWith('goal:') ? Number(id.slice(5)) : null;
+              const card = id && goalIndex === null ? cards.get(id) : undefined;
               const dragged = drag?.slot === slot;
+              const entry = goal && slot < goal.entries.length ? goal.entries[slot] : undefined;
+              const sectionStart = entry?.section && (slot === 0 || goal!.entries[slot - 1]?.section !== entry.section) ? entry.section : null;
               return (
                 <div
                   key={slot}
                   data-album-slot={slot}
                   className={cn('relative flex items-center justify-center transition-colors', look.slotEmpty, over === slot && drag && 'ring-[calc(var(--u)*0.6)] ring-primary')}
                 >
-                  <span className={cn('text-[calc(var(--u)*7)] tabular-nums', look.slotNumber)}>{slot + 1}</span>
+                  <span className={cn('text-[calc(var(--u)*7)] tabular-nums', look.slotNumber, goalIndex !== null && 'absolute top-[calc(var(--u)*1)] left-[calc(var(--u)*2)] text-[calc(var(--u)*4)]')}>
+                    {slot + 1}
+                  </span>
+                  {sectionStart && (
+                    <span className={cn('absolute -top-[calc(var(--u)*2.8)] left-0 z-20 max-w-[200%] truncate text-[calc(var(--u)*2.1)] font-semibold whitespace-nowrap', look.slotLabel)}>
+                      {sectionStart}
+                    </span>
+                  )}
+                  {goalIndex !== null && goal && (
+                    <GoalSlot entry={goal.entries[goalIndex]!} own={goal.match.get(goalIndex)} look={look} onStick={goal.onStick} />
+                  )}
                   {card && !dragged && (
                     <div
                       data-album-sticker={slot}
@@ -514,6 +572,15 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
   const [picking, setPicking] = useState(false);
   const [order, setOrder] = useState<AlbumOrder>('manual');
   const albumTag = useCollection((s) => (tagId ? s.tags.find((t) => t.id === tagId) : undefined));
+  const allCards = useCollection((s) => s.cards);
+  const stageIntoAlbum = useCollection((s) => s.stageIntoAlbum);
+  const facts = useSuggestions((s) => s.facts);
+  const [goal, setGoal] = useState<GoalAlbum | null>(null);
+  useEffect(() => {
+    if (!tagId) return;
+    goalAlbumsItem.getValue().then((all) => setGoal(all[tagId] ?? null));
+    return goalAlbumsItem.watch((all) => setGoal(all?.[tagId] ?? null));
+  }, [tagId]);
   const availability = useAiAvailability();
   const { write, busy } = useWriteSheet();
 
@@ -526,14 +593,38 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
   const wishesRef = useRef<HTMLDivElement>(null);
 
   const byId = useMemo(() => new Map(cards.map((c) => [c.cardId, c])), [cards]);
+  // Album à objectif : une case par entrée de la liste, dans son ordre ; l'annexe commence sur une nouvelle page.
+  const goalLayout = useMemo(() => {
+    if (!goal) return null;
+    const match = matchEntries(goal.entries, allCards, facts);
+    const inAlbum = new Set(cards.map((c) => c.cardId));
+    const layout: (string | null)[] = goal.entries.map((_, i) => {
+      const card = match.get(i);
+      return card && inAlbum.has(card.cardId) ? card.cardId : `goal:${i}`;
+    });
+    const collected = layout.filter((id) => id && !id.startsWith('goal:')).length;
+    const matched = new Set([...match.values()].map((c) => c.cardId));
+    const extra = cards.filter((c) => !matched.has(c.cardId));
+    if (goal.annex && extra.length) {
+      while (layout.length % SLOTS_PER_PAGE) layout.push(null);
+      layout.push(...raritySlots(extra));
+    }
+    const toStick = [...match.values()].filter((c) => !inAlbum.has(c.cardId));
+    const missing = goal.entries.filter((_, i) => !match.has(i));
+    return { layout, match, collected, toStick, missing };
+  }, [goal, allCards, facts, cards]);
   // Vue par rareté : calculée à l'affichage, le rangement manuel enregistré n'est pas modifié.
-  const shown = useMemo(() => (order === 'rarity' && slots ? raritySlots(cards) : slots), [order, slots, cards]);
+  const shown = useMemo(
+    () => (goalLayout ? goalLayout.layout : order === 'rarity' && slots ? raritySlots(cards) : slots),
+    [goalLayout, order, slots, cards],
+  );
+  const stick = useCallback((list: OwnedCard[]) => tagId && list.length && stageIntoAlbum(list, { id: tagId, name: title }), [tagId, title, stageIntoAlbum]);
   const total = pageCount(shown?.length ?? 0);
   const spreads = total / 2;
 
   // Refs lues par les gestionnaires de pointeur (évite les valeurs figées).
   const state = useRef({ spread, spreads, leaf, slots: shown, closed, order });
-  state.current = { spread, spreads, leaf, slots: shown, closed, order };
+  state.current = { spread, spreads, leaf, slots: shown, closed, order: goalLayout ? 'rarity' : order };
   dirRef.current = leaf?.dir ?? 1;
 
   // Chargement et rangement enregistré
@@ -800,6 +891,7 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
     onOpen: () => toggleCover(true),
     onGenerate: albumTag && availability && availability !== 'unavailable' && cards.length ? generate : undefined,
     generating: Boolean(tagId && busy.has(tagId)),
+    progress: goal && goalLayout ? `${goalLayout.collected} / ${goal.entries.length} cartes` : undefined,
   };
   const unsent = useMemo(() => new Set(tagId ? Object.keys(pending).filter((id) => pending[id]![tagId] === true) : []), [pending, tagId]);
   const onRemove = useCallback(
@@ -810,7 +902,8 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
     },
     [tagId, stageOutOfAlbum],
   );
-  const pageProps = { slots: shown ?? [], cards: byId, title, gradient, total, drag, over, palette, look, cover, unsent, onRemove: tagId ? onRemove : undefined, locked: order === 'rarity' };
+  const pageProps = { slots: shown ?? [], cards: byId, title, gradient, total, drag, over, palette, look, cover, unsent, onRemove: tagId ? onRemove : undefined, locked: Boolean(goalLayout) || order === 'rarity',
+    goal: goal && goalLayout ? { entries: goal.entries, match: goalLayout.match, onStick: (card: OwnedCard) => stick([card]) } : undefined };
   const draggedCard = drag ? byId.get(drag.cardId) : undefined;
   const u = pageW / 100;
   const pageH = Math.round(pageW / 0.75);
@@ -832,7 +925,21 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
           <h2 className="truncate text-xl font-bold">{title}</h2>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <div className="flex rounded-full bg-white/10 p-1" role="radiogroup" aria-label="Ordre des cartes">
+          {goal && goalLayout && (
+            <span className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold tabular-nums" title={`Objectif : ${goal.source.label}`}>
+              <Target className="size-3.5 text-emerald-300" /> {goalLayout.collected} / {goal.entries.length}
+            </span>
+          )}
+          {goalLayout && goalLayout.toStick.length > 0 && (
+            <button
+              type="button"
+              onClick={() => stick(goalLayout.toStick)}
+              className="flex cursor-pointer items-center gap-1.5 rounded-full bg-amber-500 px-3 py-1.5 text-xs font-semibold transition hover:bg-amber-400"
+            >
+              <Plus className="size-3.5" /> Tout coller ({goalLayout.toStick.length})
+            </button>
+          )}
+          <div className={cn('flex rounded-full bg-white/10 p-1', goal && 'hidden')} role="radiogroup" aria-label="Ordre des cartes">
             {(
               [
                 ['manual', Hand, 'Mon ordre', 'Ton rangement, case par case'],
@@ -996,7 +1103,11 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
         )}
         <p>
           Clique une carte pour l'afficher en grand · fais glisser une page pour la tourner ·{' '}
-          {order === 'rarity' ? 'vue triée par rareté, ton rangement est conservé (« Mon ordre » pour ranger)' : 'glisse une vignette vers une autre case pour la ranger'}
+          {goal
+            ? 'album à objectif : chaque case a sa place, « + Coller » range une carte que tu possèdes déjà'
+            : order === 'rarity'
+              ? 'vue triée par rareté, ton rangement est conservé (« Mon ordre » pour ranger)'
+              : 'glisse une vignette vers une autre case pour la ranger'}
         </p>
         <button
           type="button"
@@ -1010,10 +1121,11 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
 
       <div ref={wishesRef} data-backdrop data-wishes className="mx-auto w-full space-y-6 px-6 pb-12" style={{ maxWidth: pageW * 2 + 40 }}>
         {tagId && !storage && <AlbumSheetPanel tagId={tagId} cards={cards} />}
-        {tagId && <AlbumRecommendations tagId={tagId} name={title} description={description} cards={cards} onBrowse={() => setPicking(true)} />}
+        {goalLayout && goalLayout.missing.length > 0 && <GoalMissing entries={goalLayout.missing} />}
+        {tagId && !goal && <AlbumRecommendations tagId={tagId} name={title} description={description} cards={cards} onBrowse={() => setPicking(true)} />}
         {tagId && <AlbumRemoved tagId={tagId} name={title} cards={cards} />}
         {tagId && picking && <AlbumAddDialog tagId={tagId} name={title} onClose={() => setPicking(false)} />}
-        {!storage && <AlbumWishes albumKey={layoutKey} cards={cards} tagId={tagId} albumName={title} />}
+        {!storage && !goal && <AlbumWishes albumKey={layoutKey} cards={cards} tagId={tagId} albumName={title} />}
       </div>
 
       {drag &&
@@ -1037,5 +1149,32 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
         )}
     </motion.div>,
     document.body,
+  );
+}
+
+/** Sous un album à objectif : les cartes qui manquent, avec leur article Wikipédia. */
+function GoalMissing({ entries }: { entries: GoalEntry[] }) {
+  return (
+    <section className="w-full space-y-3 rounded-3xl bg-white/[0.06] p-6 text-white ring-1 ring-white/10 backdrop-blur">
+      <div className="flex items-center gap-2">
+        <Target className="size-4 text-emerald-300" />
+        <h3 className="font-semibold">À trouver</h3>
+        <span className="text-sm text-white/50 tabular-nums">{entries.length}</span>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {entries.map((e) => (
+          <a
+            key={e.title}
+            href={`https://fr.wikipedia.org/wiki/${encodeURIComponent(e.title.replace(/ /g, '_'))}`}
+            target="_blank"
+            rel="noopener"
+            title={e.description ?? undefined}
+            className="flex items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs text-white/80 transition hover:bg-white/20 hover:text-white"
+          >
+            {e.title} <ExternalLink className="size-3 opacity-60" />
+          </a>
+        ))}
+      </div>
+    </section>
   );
 }

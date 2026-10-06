@@ -146,7 +146,7 @@ export function FilterSidebar({ className }: { className?: string }) {
   const untaggedPill = <TagPill storage count={untagged} active={review.tagFilters.has('none')} onClick={() => review.toggleTagFilter('none')} />;
 
   return (
-    <aside className={cn('flex h-full w-62 shrink-0 flex-col border-r', className)}>
+    <aside data-tour="filters" className={cn('flex h-full w-62 shrink-0 flex-col border-r', className)}>
       <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-4">
         <ViewSummary />
 

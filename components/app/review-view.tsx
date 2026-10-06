@@ -169,7 +169,9 @@ export function ReviewView() {
               action={hasActiveFilters(review) && <Button variant="outline" size="sm" onClick={review.resetFilters}>Réinitialiser les filtres</Button>}
             />
           ) : (
-            <CardGrid ref={gridRef} cards={visible} />
+            <div data-tour="cards" className="contents">
+              <CardGrid ref={gridRef} cards={visible} />
+            </div>
           )}
         </div>
 

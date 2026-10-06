@@ -61,12 +61,7 @@ export function Outbox() {
   const summary = useOutboxSummary();
   const [open, setOpen] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
-  const sending = job?.label === SEND_LABEL;
-  const visible = summary.total > 0 || sending;
-
-  useEffect(() => {
-    if (!visible) setOpen(false);
-  }, [visible]);
+  const empty = summary.total === 0;
 
   useEffect(() => {
     if (!confirmDiscard) return;
@@ -95,9 +90,10 @@ export function Outbox() {
   return createPortal(
     <>
       <AnimatePresence>
-        {visible && (
+        {(
           <motion.div
             key="handle"
+            data-tour="outbox"
             initial={{ x: 60 }}
             animate={{ x: open ? -300 : 0 }}
             exit={{ x: 60 }}
@@ -113,14 +109,21 @@ export function Outbox() {
               className="flex cursor-pointer flex-col items-center gap-1.5 rounded-lg px-0.5 py-1 transition hover:bg-muted"
             >
               <span className="h-5 w-1 rounded-full bg-[repeating-linear-gradient(var(--muted-foreground)_0_2px,transparent_2px_5px)] opacity-60" />
-              <span className="grid h-5.5 min-w-6.5 place-items-center rounded-full bg-amber-400 px-1.5 text-xs font-bold text-zinc-900 tabular-nums">{summary.total}</span>
+              <span
+                className={cn(
+                  'grid h-5.5 min-w-6.5 place-items-center rounded-full px-1.5 text-xs font-bold tabular-nums',
+                  empty ? 'bg-muted text-muted-foreground' : 'bg-amber-400 text-zinc-900',
+                )}
+              >
+                {summary.total}
+              </span>
             </button>
             <button
               type="button"
               onClick={send}
-              disabled={Boolean(job)}
+              disabled={Boolean(job) || empty}
               aria-label="Envoyer maintenant sur WikiMasters"
-              title="Envoyer maintenant sur WikiMasters"
+              title={empty ? 'Rien à envoyer' : 'Envoyer maintenant sur WikiMasters'}
               className="grid size-7.5 cursor-pointer place-items-center rounded-full bg-primary text-primary-foreground transition hover:scale-110 disabled:opacity-50 disabled:hover:scale-100"
             >
               <Check className="size-4" strokeWidth={3} />
@@ -143,7 +146,7 @@ export function Outbox() {
             <header className="flex items-start justify-between gap-2 px-4 pt-4 pb-2.5">
               <div>
                 <h3 className="font-heading font-bold">Boîte d'envoi</h3>
-                <p className="text-xs text-muted-foreground">{plural(summary.total, 'modification')} · pas encore sur WikiMasters</p>
+                <p className="text-xs text-muted-foreground">{empty ? 'Tout est à jour sur WikiMasters' : `${plural(summary.total, 'modification')} · pas encore sur WikiMasters`}</p>
               </div>
               <button
                 type="button"
@@ -198,15 +201,22 @@ export function Outbox() {
                   ))}
                 </Group>
               )}
-              <p className="px-1 text-xs text-muted-foreground">Envoi calme, une requête à la fois.</p>
+              {empty ? (
+                <p className="px-1 py-6 text-center text-sm text-muted-foreground">
+                  Rien à envoyer. Les changements de statut, d'étiquettes et d'albums s'accumulent ici avant d'être envoyés d'un coup.
+                </p>
+              ) : (
+                <p className="px-1 text-xs text-muted-foreground">Envoi calme, une requête à la fois.</p>
+              )}
             </div>
             <footer className="flex gap-2 border-t p-3">
               <button
                 type="button"
+                disabled={empty}
                 onClick={() => (confirmDiscard ? (discardPending(), setConfirmDiscard(false)) : setConfirmDiscard(true))}
                 title="Annuler toutes les modifications en attente"
                 className={cn(
-                  'flex h-9 cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-medium transition',
+                  'flex h-9 cursor-pointer items-center gap-1.5 rounded-xl px-3 text-sm font-medium transition disabled:cursor-default disabled:opacity-40',
                   confirmDiscard ? 'bg-destructive text-white' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                 )}
               >
@@ -215,7 +225,7 @@ export function Outbox() {
               <button
                 type="button"
                 onClick={send}
-                disabled={Boolean(job)}
+                disabled={Boolean(job) || empty}
                 className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-50"
               >
                 <Check className="size-4" strokeWidth={3} /> Envoyer
@@ -241,6 +251,9 @@ function Group({ title, count, children }: { title: string; count: number; child
     </div>
   );
 }
+
+/** Débord du tracé d'envoi à l'intérieur du contenu, en pixels. */
+const INWARD = 3;
 
 const box = (el: Element | null) => {
   if (!el || !el.getClientRects().length) return null;
@@ -296,6 +309,8 @@ function SendOverlay() {
   const [progress, setProgress] = useState(0);
   const [size, setSize] = useState({ w: window.innerWidth, h: window.innerHeight });
   const [path, setPath] = useState<string | null>(null);
+  /** Épaisseur du cadre noir autour du contenu (0 sur petit écran). */
+  const [frame, setFrame] = useState(8);
 
   useEffect(() => {
     if (sending) {
@@ -315,6 +330,7 @@ function SendOverlay() {
     const measure = () => {
       setSize({ w: window.innerWidth, h: window.innerHeight });
       setPath(notchOutline());
+      setFrame(document.querySelector('[data-notch-content]')?.getBoundingClientRect().left ?? 0);
     };
     measure();
     window.addEventListener('resize', measure);
@@ -322,6 +338,9 @@ function SendOverlay() {
   }, [phase === 'idle']); // eslint-disable-line react-hooks/exhaustive-deps
 
   const iri = getPalette(palette).icon.iri;
+  // Assez large pour couvrir tout le noir : le cadre jusqu'au bord de la fenêtre et les encoches sur toute leur hauteur.
+  // Le masque coupe ce qui déborde à l'intérieur du contenu.
+  const band = 2 * Math.max(frame + 12, 56);
   const fallback = `M ${size.w / 2} 0 H ${size.w} V ${size.h} H 0 V 0 Z`;
   const d = path ?? fallback;
 
@@ -346,19 +365,29 @@ function SendOverlay() {
                 ))}
               </linearGradient>
             </defs>
-            <path d={d} fill="none" stroke="rgb(255 255 255 / 0.08)" strokeWidth={4} />
-            <motion.path
-              d={d}
-              fill="none"
-              stroke="url(#outbox-holo)"
-              strokeLinecap="round"
-              pathLength={1}
-              strokeDasharray="1 1"
-              initial={{ strokeDashoffset: 1, strokeWidth: 4 }}
-              animate={{ strokeDashoffset: 1 - progress, strokeWidth: phase === 'done' ? [4, 9, 4] : 4 }}
-              transition={{ strokeDashoffset: { duration: 0.35, ease: [0.4, 0.1, 0.2, 1] }, strokeWidth: { duration: 0.7 } }}
-              style={{ filter: `drop-shadow(0 0 6px ${iri[1]}aa)` }}
-            />
+            {/* Le tracé recouvre tout le cadre noir (encoches comprises) et déborde de quelques pixels vers l'intérieur. */}
+            <mask id="outbox-mask" maskUnits="userSpaceOnUse" x={0} y={0} width={size.w} height={size.h}>
+              <rect width={size.w} height={size.h} fill="white" />
+              <path d={d} fill="black" />
+              <path d={d} fill="none" stroke="white" strokeWidth={INWARD * 2} />
+            </mask>
+            <g mask="url(#outbox-mask)">
+              <path d={d} fill="none" stroke="rgb(255 255 255 / 0.06)" strokeWidth={band} />
+              {progress > 0 && (
+                <motion.path
+                  d={d}
+                  fill="none"
+                  stroke="url(#outbox-holo)"
+                  pathLength={1}
+                  // Tracé complet : sans pointillés, pour ne pas laisser de jointure au point de départ.
+                  strokeDasharray={progress >= 1 ? undefined : '1 1'}
+                  strokeWidth={band}
+                  initial={{ strokeDashoffset: 1, opacity: 1 }}
+                  animate={{ strokeDashoffset: progress >= 1 ? 0 : 1 - progress, opacity: phase === 'done' ? [1, 0.55, 1] : 1 }}
+                  transition={{ strokeDashoffset: { duration: 0.35, ease: [0.4, 0.1, 0.2, 1] }, opacity: { duration: 0.7 } }}
+                />
+              )}
+            </g>
           </svg>
           <div className="absolute inset-0 grid place-items-center text-center text-white">
             <div>

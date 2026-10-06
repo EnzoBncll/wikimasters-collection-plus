@@ -9,6 +9,16 @@
       ],
       "port": 5178,
       "autoPort": true
+    },
+    {
+      "name": "wxt-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": [
+        "dev",
+        "--port",
+        "3010"
+      ],
+      "port": 3010
     }
   ]
 }

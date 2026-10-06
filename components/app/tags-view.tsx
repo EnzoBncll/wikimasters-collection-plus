@@ -27,6 +27,8 @@ import { useAiAvailability, useAlbumSheets, useCollectionAlbums } from './sheets
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Album } from './album';
+import { CreateMenu } from './create-menu';
+import { GoalAlbumWizard } from './goal-album-wizard';
 import { useCardViewer } from './card-viewer';
 import { ColorPicker, randomTagColor } from './color-picker';
 import { cardImage } from './card-image';
@@ -155,12 +157,11 @@ function ImprovePill({ icon: Icon, text, onClick }: { icon: LucideIcon; text: st
 export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => void; onOpenEnhance: (section: EnhanceSection) => void }) {
   const { tags, cards, tradeTags, createTag, updateTag, deleteTag, statusOf, version, settings, updateSettings } = useCollection();
   const layout = settings.tagsLayout;
-  const [name, setName] = useState('');
-  const [color, setColor] = useState(randomTagColor);
   const [toDelete, setToDelete] = useState<SiteTag | null>(null);
   const [toRename, setToRename] = useState<SiteTag | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
   const [album, setAlbum] = useState<{ key: string; title: string; gradient: string; focus?: boolean } | null>(null);
+  const [goalWizard, setGoalWizard] = useState(false);
 
   // Pistes d'amélioration : cartes à ranger (par album), nouveaux albums possibles, fiches IA à rédiger.
   const improve = useImproveCounts();
@@ -213,13 +214,6 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
 
   const untagged = useMemo(() => cards.filter((c) => !c.tagIds.some((t) => !systemIds.has(t))), [cards, version, tradeTags]);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (await createTag(name, color)) {
-      setName('');
-      setColor(randomTagColor());
-    }
-  };
 
   const showInReview = (tag: SiteTag | 'none') => {
     const review = useReview.getState();
@@ -324,19 +318,8 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
             Étiquettes natives de WikiMasters · clique une étiquette pour l'ouvrir en album.
           </p>
         </div>
-        <div className="flex w-full max-w-xl items-center gap-3 sm:w-auto">
-        <form onSubmit={submit} className="flex min-w-0 flex-1 items-center gap-2 rounded-full border bg-card py-1 pr-1 pl-3 sm:w-96">
-          <ColorPicker value={color} onChange={setColor} className="size-5" />
-          <Input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Nouvelle étiquette…"
-            className="h-8 border-0 bg-transparent shadow-none focus-visible:ring-0 dark:bg-transparent"
-          />
-          <Button type="submit" size="sm" className="rounded-full" disabled={!name.trim()}>
-            <Plus className="size-4" /> Créer
-          </Button>
-        </form>
+        <div className="flex w-full max-w-3xl flex-wrap items-center gap-3 sm:w-auto">
+          <CreateMenu onCreate={async (n, c) => Boolean(await createTag(n, c))} onGoal={() => setGoalWizard(true)} albumKinds={kinds} />
           <div className="flex shrink-0 rounded-full border bg-card p-1" role="radiogroup" aria-label="Affichage">
             {(
               [
@@ -364,7 +347,7 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
       </header>
 
       {(Boolean(improve?.total) || themeCount > 0 || (sheetsToWrite > 0 && aiAvailability && aiAvailability !== 'unavailable')) && (
-        <div className="-mt-4 flex flex-wrap items-center gap-2">
+        <div data-tour="improve" className="-mt-4 flex flex-wrap items-center gap-2">
           <span className="mr-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Améliorer</span>
           {Boolean(improve?.total) && (
             <ImprovePill icon={Layers} text={`${improve!.total} carte${improve!.total > 1 ? 's' : ''} à ranger dans tes albums`} onClick={() => onOpenEnhance('consolidate')} />
@@ -376,7 +359,7 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
         </div>
       )}
 
-      <section className="space-y-4">
+      <section data-tour="albums" className="space-y-4">
         <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
           {kinds ? 'Collections' : 'Mes étiquettes'} · {collections.length}
         </h2>
@@ -481,6 +464,16 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
           </div>
         )}
       </section>
+
+      {goalWizard && (
+        <GoalAlbumWizard
+          onClose={() => setGoalWizard(false)}
+          onCreated={(tag) => {
+            setGoalWizard(false);
+            setAlbum({ key: tag.id, title: tag.name, gradient: folderGradient(tag.color) });
+          }}
+        />
+      )}
 
       <AnimatePresence>
         {album && (

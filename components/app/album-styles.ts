@@ -40,6 +40,8 @@ export interface AlbumStyle {
   headerAccent: string;
   slotEmpty: string;
   slotNumber: string;
+  /** Nom d'une carte à trouver (album à objectif). */
+  slotLabel: string;
   /** Enveloppe autour de la carte collée. */
   sticker: string;
   /** Multiplicateur de l'inclinaison « collée à la main ». */
@@ -85,6 +87,7 @@ export const ALBUM_STYLES: Record<AlbumStyleId, AlbumStyle> = {
     headerAccent: 'bg-holo opacity-70',
     slotEmpty: 'rounded-[calc(var(--u)*1.4)] border border-[#d8ccb4] bg-[rgb(120_90_40/0.04)] shadow-[inset_0_1px_2px_rgb(120_90_40/0.12)]',
     slotNumber: 'font-black text-[#cfc2a6]',
+    slotLabel: 'text-[#7a6a4f]',
     sticker:
       "after:pointer-events-none after:absolute after:inset-0 after:z-50 after:rounded-[inherit] after:bg-[linear-gradient(135deg,rgb(255_255_255/0.22),transparent_38%)] after:content-[''] [&>.wm-card]:shadow-[0_1px_1px_rgb(0_0_0/0.25),0_4px_10px_-4px_rgb(60_40_10/0.5)]",
     tilt: 1,
@@ -109,6 +112,7 @@ export const ALBUM_STYLES: Record<AlbumStyleId, AlbumStyle> = {
     slotEmpty:
       "rounded-[calc(var(--u)*0.8)] bg-white/[0.035] shadow-[inset_0_0_0_1px_rgb(255_255_255/0.13),inset_0_1px_0_rgb(255_255_255/0.08)] before:absolute before:inset-x-[8%] before:top-[calc(var(--u)*0.8)] before:h-px before:bg-white/20 before:content-['']",
     slotNumber: 'font-black text-white/[0.07]',
+    slotLabel: 'text-white/60',
     sticker:
       "after:pointer-events-none after:absolute after:-inset-[calc(var(--u)*0.5)] after:z-50 after:rounded-[calc(var(--u)*0.9)] after:shadow-[inset_0_0_0_1px_rgb(255_255_255/0.22)] after:bg-[linear-gradient(115deg,rgb(255_255_255/0.2),rgb(255_255_255/0.04)_30%,transparent_45%,transparent_70%,rgb(255_255_255/0.08)_85%,transparent)] after:content-['']",
     tilt: 0,

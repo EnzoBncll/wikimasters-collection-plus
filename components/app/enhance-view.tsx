@@ -40,7 +40,7 @@ export function EnhanceView({ section, onSection }: { section: EnhanceSection; o
           <h1 className="text-2xl font-semibold tracking-tight">{current.title}</h1>
           <p className="text-sm text-muted-foreground">{current.text}</p>
         </div>
-        <div className="flex shrink-0 rounded-full border bg-card p-1" role="tablist" aria-label="Section">
+        <div data-tour="enhance" className="flex shrink-0 rounded-full border bg-card p-1" role="tablist" aria-label="Section">
           {SECTIONS.map(({ id, icon: Icon, label }) => (
             <button
               key={id}

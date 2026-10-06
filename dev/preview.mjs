@@ -12,7 +12,9 @@ createServer(async (req, res) => {
   const path = decodeURIComponent(new URL(req.url, 'http://x').pathname);
   try {
     if (path === '/__shim.js') {
-      res.writeHead(200, { 'content-type': TYPES['.js'] }).end(await readFile(SHIM));
+      // Version simulée = version du projet : pas de bandeau « nouvelle version » sur les captures.
+      const { version } = JSON.parse(await readFile(join(import.meta.dirname, '..', 'package.json'), 'utf8'));
+      res.writeHead(200, { 'content-type': TYPES['.js'] }).end((await readFile(SHIM, 'utf8')).replace("version: '0.1.0'", `version: '${version}'`));
       return;
     }
     const file = join(ROOT, normalize(path === '/' ? '/review.html' : path));

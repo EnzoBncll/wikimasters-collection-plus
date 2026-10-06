@@ -7,6 +7,7 @@ import { rememberAppearance, watchAppearance } from '@/lib/appearance';
 import { useSuggestions } from '@/hooks/use-suggestions';
 import { BrandIcon } from './brand-icon';
 import { CardViewer } from './card-viewer';
+import { Onboarding } from './onboarding';
 import { Outbox } from './outbox';
 import { EnhanceView, type EnhanceSection } from './enhance-view';
 import { ExportView } from './export-view';
@@ -106,6 +107,7 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
       <Toaster />
       <CardViewer />
       <Outbox />
+      <Onboarding onView={setView} />
       <UpdateBanner />
     </TooltipProvider>
   );

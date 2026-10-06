@@ -8,6 +8,7 @@ import { toast } from '@/hooks/use-toast';
 import { useVisibleCards } from '@/hooks/use-review';
 import { useSuggestions } from '@/hooks/use-suggestions';
 import { downloadText, toCsv, toTsv } from '@/lib/csv';
+import { testGeminiKey } from '@/lib/gemini';
 import { EXPORT_SHEETS, type SheetExport } from '@/lib/sheets';
 import { PALETTES, holoGradient, type PaletteId } from '@/lib/palettes';
 import { CARD_STYLE_IDS, type Settings } from '@/lib/store';
@@ -18,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { ALBUM_STYLE_IDS, ALBUM_STYLES } from './album-styles';
 import { BrandIcon } from './brand-icon';
 import { CARD_TAG_STYLES } from './card-tags';
+import { useOnboarding } from './onboarding';
 import { WmCard } from './wm-card';
 
 function Card({ icon, title, text, children }: { icon: React.ReactNode; title: string; text: string; children: React.ReactNode }) {
@@ -374,6 +376,14 @@ function AppearanceSection() {
           />
         </SettingRow>
       </Group>
+
+      <Group title="Aide">
+        <SettingRow title="Présentation de Collection+" text="La visite guidée des quatre pages, comme à la première ouverture.">
+          <Button variant="outline" size="sm" onClick={() => useOnboarding.getState().start(0)}>
+            Revoir la visite
+          </Button>
+        </SettingRow>
+      </Group>
     </div>
   );
 }
@@ -431,6 +441,75 @@ function RulesList() {
   );
 }
 
+/** Clé Google AI Studio : comprendre les demandes libres (« le top 50 des… »). Gratuite, stockée sur cet ordinateur. */
+function GeminiKeyRow() {
+  const saved = useCollection((s) => s.settings.geminiApiKey);
+  const updateSettings = useCollection((s) => s.updateSettings);
+  const [draft, setDraft] = useState(saved);
+  const [state, setState] = useState<'idle' | 'testing' | 'ok' | 'error'>('idle');
+  const [error, setError] = useState('');
+  const [warning, setWarning] = useState<string | null>(null);
+  const save = async () => {
+    const key = draft.trim();
+    if (!key) {
+      await updateSettings({ geminiApiKey: '' });
+      setState('idle');
+      return;
+    }
+    setState('testing');
+    try {
+      setWarning(await testGeminiKey(key));
+      await updateSettings({ geminiApiKey: key });
+      setState('ok');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setState('error');
+    }
+  };
+  return (
+    <div className="space-y-3 px-5 py-4">
+      <div>
+        <p className="text-sm font-medium">Clé Gemini (gratuite)</p>
+        <p className="text-xs text-muted-foreground">
+          Pour comprendre les demandes en langage naturel (« le top 50 des personnalités féminines françaises avant 1900 »). Crée une clé gratuite sur{' '}
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" className="text-primary underline underline-offset-2">
+            aistudio.google.com/apikey
+          </a>
+          , sans carte bancaire. Elle reste sur cet ordinateur et n'est envoyée qu'à Google. Sans clé, une analyse plus simple, sans IA, prend le relais.
+        </p>
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          save();
+        }}
+        className="flex flex-wrap items-center gap-2"
+      >
+        <input
+          type="password"
+          value={draft}
+          onChange={(e) => (setDraft(e.target.value), setState('idle'))}
+          placeholder="AIza…"
+          autoComplete="off"
+          aria-label="Clé Gemini"
+          className="h-9 min-w-56 flex-1 rounded-lg border bg-background px-3 font-mono text-sm outline-none focus:border-primary"
+        />
+        <Button type="submit" size="sm" variant="outline" disabled={state === 'testing' || draft.trim() === saved}>
+          {state === 'testing' && <Loader2 className="size-4 animate-spin" />} {draft.trim() ? 'Vérifier et enregistrer' : 'Retirer la clé'}
+        </Button>
+      </form>
+      {state === 'ok' &&
+        (warning ? (
+          <p className="text-xs text-amber-700 dark:text-amber-300">{warning}</p>
+        ) : (
+          <p className="text-xs text-emerald-600 dark:text-emerald-400">Clé vérifiée et enregistrée.</p>
+        ))}
+      {state === 'error' && <p className="text-xs text-destructive">Clé refusée : {error}</p>}
+      {state === 'idle' && saved && draft.trim() === saved && <p className="text-xs text-muted-foreground">Une clé est enregistrée.</p>}
+    </div>
+  );
+}
+
 function OrganizeSection() {
   const settings = useCollection((s) => s.settings);
   const updateSettings = useCollection((s) => s.updateSettings);
@@ -456,6 +535,10 @@ function OrganizeSection() {
 
       <Group title="Règles automatiques">
         <RulesList />
+      </Group>
+
+      <Group title="Albums à objectif">
+        <GeminiKeyRow />
       </Group>
     </div>
   );
@@ -584,7 +667,7 @@ export function ExportView() {
           <h1 className="text-2xl font-semibold tracking-tight">{current.label}</h1>
           <p className="text-sm text-muted-foreground">{current.text}</p>
         </div>
-        <div className="flex shrink-0 rounded-full border bg-card p-1" role="tablist" aria-label="Section des paramètres">
+        <div data-tour="settings" className="flex shrink-0 rounded-full border bg-card p-1" role="tablist" aria-label="Section des paramètres">
           {SECTIONS.map(({ id, icon: Icon, label }) => (
             <button
               key={id}

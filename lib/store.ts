@@ -33,6 +33,8 @@ export interface Settings {
   cardTagStyle: CardTagStyle;
   /** Habillage des cartes, partout dans l'app. */
   cardStyle: CardStyle;
+  /** Clé gratuite Google AI Studio (Gemini) pour les demandes libres des albums à objectif ; vide = analyse sans IA. */
+  geminiApiKey: string;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -49,6 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
   albumKinds: false,
   cardTagStyle: 'dots',
   cardStyle: 'classic',
+  geminiApiKey: '',
 };
 
 export const settingsItem = storage.defineItem<Settings>('local:settings', {
