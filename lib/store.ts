@@ -5,7 +5,9 @@ import { DEFAULT_PALETTE, type PaletteId } from './palettes';
 export type CardTagStyle = 'dots' | 'ribbon' | 'footer' | 'bookmarks';
 
 /** Habillage des cartes (la disposition intérieure ne change pas). */
-export type CardStyle = 'classic' | 'printed' | 'foil' | 'material';
+export const CARD_STYLE_IDS = ['classic', 'printed', 'printed-b', 'foil', 'foil-b', 'foil-c', 'material', 'material-b', 'material-c'] as const;
+/** Habillage : « printed » / « foil » / « material » sont les variantes A, « -b » / « -c » les suivantes. */
+export type CardStyle = (typeof CARD_STYLE_IDS)[number];
 
 export interface Settings {
   /** Une carte sans étiquette Trade ni Not Trade est considérée Trade. */
@@ -60,6 +62,8 @@ export async function getSettings(): Promise<Settings> {
   const settings = { ...DEFAULT_SETTINGS, ...(await settingsItem.getValue()) };
   if (settings.tradeTagName === LEGACY_TRADE_TAG_NAMES.trade) settings.tradeTagName = DEFAULT_SETTINGS.tradeTagName;
   if (settings.notTradeTagName === LEGACY_TRADE_TAG_NAMES.notTrade) settings.notTradeTagName = DEFAULT_SETTINGS.notTradeTagName;
+  // Habillage retiré depuis (ex. « printed-c ») : retour à l'actuel.
+  if (!(CARD_STYLE_IDS as readonly string[]).includes(settings.cardStyle)) settings.cardStyle = DEFAULT_SETTINGS.cardStyle;
   return settings;
 }
 

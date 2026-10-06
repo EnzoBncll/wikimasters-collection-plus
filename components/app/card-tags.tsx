@@ -130,7 +130,7 @@ function Bookmarks({ tags }: { tags: SiteTag[] }) {
   const { hovered, lift, bind } = useDock();
   const shown = tags.slice(0, 7);
   return (
-    <div className="absolute top-0 left-1/2 z-40 flex -translate-x-1/2 items-start gap-[1.2cqw]" onClick={(e) => e.stopPropagation()}>
+    <div className="absolute top-0 left-[5cqw] z-40 flex items-start gap-[1.2cqw]" onClick={(e) => e.stopPropagation()}>
       {shown.map((t, i) => (
         <span key={t.id} {...bind(i)} className="relative flex justify-center">
           <span
@@ -143,7 +143,7 @@ function Bookmarks({ tags }: { tags: SiteTag[] }) {
               filter: 'drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.35))',
             }}
           />
-          {hovered === i && <Label tag={t} className="top-full mt-[1.5cqw] left-1/2 -translate-x-1/2" />}
+          {hovered === i && <Label tag={t} className="top-full left-0 mt-[1.5cqw]" />}
         </span>
       ))}
       {tags.length > shown.length && <span className="pt-[1cqw] text-[4.5cqw] font-bold text-white drop-shadow">+{tags.length - shown.length}</span>}

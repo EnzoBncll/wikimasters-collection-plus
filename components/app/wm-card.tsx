@@ -2,7 +2,7 @@ import { Shield, Swords } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCollection } from '@/hooks/use-collection';
 import type { CardStyle, CardTagStyle } from '@/lib/store';
-import type { OwnedCard } from '@/lib/types';
+import { RARITY_LABEL, type OwnedCard } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { cardImage } from './card-image';
 import { CardTagsFooter, CardTagsOverlay, useCardTags } from './card-tags';
@@ -66,6 +66,7 @@ export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFoo
       className={cn('wm-card select-none', className)}
       data-rarity={card.rarity ?? undefined}
       data-style={cardStyle}
+      data-rarity-label={card.rarity ? RARITY_LABEL[card.rarity] : undefined}
       onPointerMove={(e) => track(e, tilt)}
       onPointerLeave={reset}
     >
@@ -78,10 +79,16 @@ export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFoo
         {imageOverlay}
       </div>
 
-      <div className="absolute top-[4.5cqw] left-[4.5cqw] z-30 flex items-center gap-[2cqw]">
+      {/* Rareté : sous les signets quand la carte en porte (style « Signets »). */}
+      <div
+        className={cn(
+          'absolute left-[4.5cqw] z-30 flex items-center gap-[2cqw] transition-[top] duration-200',
+          tagStyle === 'bookmarks' && tags.length ? 'top-[15.5cqw]' : 'top-[4.5cqw]',
+        )}
+      >
         {card.rarity && (
           <span
-            className="rounded-[2.5cqw] px-[3.5cqw] py-[1.2cqw] text-[6cqw] leading-none font-bold text-[#0d1117]"
+            className="wm-rarity rounded-[2.5cqw] px-[3.5cqw] py-[1.2cqw] text-[6cqw] leading-none font-bold text-[#0d1117]"
             style={{ backgroundColor: `var(--rarity-${card.rarity.toLowerCase()})`, boxShadow: `0 0 10px color-mix(in srgb, var(--rarity-${card.rarity.toLowerCase()}) 60%, transparent)` }}
           >
             {card.rarity}
@@ -90,7 +97,7 @@ export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFoo
         {badges}
       </div>
 
-      <div className="absolute inset-x-0 top-[45%] bottom-0 z-30 flex flex-col p-[6.5cqw]">
+      <div className="wm-body absolute inset-x-0 top-[45%] bottom-0 z-30 flex flex-col p-[6.5cqw]">
         <h3 className="wm-title line-clamp-2 shrink-0 text-[7.5cqw] leading-tight font-bold text-black" title={card.title}>
           {card.title}
         </h3>

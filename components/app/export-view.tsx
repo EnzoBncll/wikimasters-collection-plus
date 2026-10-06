@@ -1,5 +1,6 @@
-import { Bot, ClipboardCopy, Download, FileSpreadsheet, FileText, FolderCog, Loader2, Monitor, Moon, Palette, Sun, Trash2, Zap } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Bot, ChevronDown, ClipboardCopy, Download, FileSpreadsheet, FileText, FolderCog, Loader2, Monitor, Moon, Palette, Sun, Trash2, Zap } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useCollection } from '@/hooks/use-collection';
@@ -9,10 +10,10 @@ import { useSuggestions } from '@/hooks/use-suggestions';
 import { downloadText, toCsv, toTsv } from '@/lib/csv';
 import { EXPORT_SHEETS, type SheetExport } from '@/lib/sheets';
 import { PALETTES, holoGradient, type PaletteId } from '@/lib/palettes';
-import type { Settings } from '@/lib/store';
+import { CARD_STYLE_IDS, type Settings } from '@/lib/store';
 import { criterionText, type RuleMode } from '@/lib/suggest';
 import { systemTagIds } from '@/lib/trade';
-import { RARITY_ORDER, type OwnedCard } from '@/lib/types';
+import type { OwnedCard } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { ALBUM_STYLE_IDS, ALBUM_STYLES } from './album-styles';
 import { BrandIcon } from './brand-icon';
@@ -119,44 +120,160 @@ function CardTagStylePicker({ value, onChange }: { value: Settings['cardTagStyle
   );
 }
 
-const CARD_STYLES: { id: Settings['cardStyle']; name: string; text: string }[] = [
-  { id: 'classic', name: 'Actuel', text: 'Fond pastel bord à bord' },
-  { id: 'printed', name: 'Bordure imprimée', text: 'Cadre couleur de rareté, image sertie' },
-  { id: 'foil', name: 'Premium foil', text: 'Liseré argent, face sombre, nom doré' },
-  { id: 'material', name: 'Matière par rareté', text: 'Bois, pierre, bronze, argent, or, cristal' },
-];
+/** Habillages dans l'ordre du sélecteur : « Défaut » puis Style 1 à 8. */
+const CARD_STYLES = CARD_STYLE_IDS;
+const styleLabel = (i: number) => (i === 0 ? 'Défaut' : `Style ${i}`);
 
-/** Choix de l'habillage des cartes, avec un aperçu sur ta carte la plus rare. */
-function CardStylePicker({ value, onChange }: { value: Settings['cardStyle']; onChange: (id: Settings['cardStyle']) => void }) {
-  const cards = useCollection((s) => s.cards);
-  const sample = useMemo(() => {
-    const rank = (c: OwnedCard) => (c.rarity ? RARITY_ORDER.length - RARITY_ORDER.indexOf(c.rarity) : 0) * 2 + Number(c.attack != null);
-    return cards.reduce<OwnedCard | undefined>((best, c) => (!best || rank(c) > rank(best) ? c : best), undefined);
-  }, [cards]);
+const PREVIEW_RARITIES = ['C', 'PC', 'R', 'SR', 'UR', 'L'] as const;
+const FAN_KEY = 'collectionPlus:cardFanOpen';
 
+/** Les six raretés tenues en main : arc léger, chaque carte posée sur la précédente, de gauche à droite. */
+function CardFan({ cards, style }: { cards: OwnedCard[]; style: Settings['cardStyle'] }) {
+  const n = cards.length;
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      {CARD_STYLES.map((s) => {
-        const active = s.id === value;
+    <div className="flex justify-center pt-4 pb-2">
+      {cards.map((card, i) => {
+        const t = n > 1 ? i / (n - 1) - 0.5 : 0; // -0,5 → 0,5
         return (
           <div
-            key={s.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => onChange(s.id)}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onChange(s.id)}
-            aria-pressed={active}
-            className={cn(
-              'flex cursor-pointer flex-col items-center gap-2 rounded-xl border p-3 text-xs transition',
-              active ? 'border-primary bg-accent ring-1 ring-primary' : 'hover:border-foreground/20 hover:bg-muted',
-            )}
+            key={`${style}-${card.cardId}`}
+            className="relative w-20 shrink-0 transition-transform duration-300 ease-out not-first:-ml-7 hover:z-50 hover:-translate-y-3 sm:w-24 sm:not-first:-ml-8"
+            style={{ zIndex: i, transform: `translateY(${t * t * 48}px) rotate(${t * 26}deg)`, transformOrigin: '50% 120%' }}
           >
-            {sample && <WmCard card={sample} cardStyle={s.id} showTags={false} className="w-full max-w-36" />}
-            <span className={cn('leading-tight', active && 'font-semibold')}>{s.name}</span>
-            <span className="text-center leading-tight text-muted-foreground">{s.text}</span>
+            <WmCard card={card} cardStyle={style} showTags={false} className="w-full animate-in fade-in zoom-in-95 duration-300" />
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Sélecteur d'habillage en carrousel : la carte du style choisi au centre, les autres glissent sur les côtés
+ * en rapetissant. On passe d'un style à l'autre au clic, aux flèches, en glissant ou à la molette ;
+ * chaque changement s'applique tout de suite. Dessous, un aperçu repliable des six raretés en éventail.
+ */
+function CardStylePicker({ value, onChange }: { value: Settings['cardStyle']; onChange: (id: Settings['cardStyle']) => void }) {
+  const cards = useCollection((s) => s.cards);
+  const pick = useMemo(() => (r: string) => cards.find((c) => c.rarity === r && c.attack != null) ?? cards.find((c) => c.rarity === r), [cards]);
+  const showcase = useMemo(() => pick('SR') ?? cards[0], [pick, cards]);
+  const previews = useMemo(() => PREVIEW_RARITIES.map(pick).filter((c): c is OwnedCard => Boolean(c)), [pick]);
+  const index = Math.max(0, CARD_STYLES.indexOf(value));
+  const go = (i: number) => {
+    const next = Math.max(0, Math.min(CARD_STYLES.length - 1, i));
+    if (next !== index) onChange(CARD_STYLES[next]!);
+  };
+
+  // Molette / pavé tactile horizontal : un cran par geste.
+  const wheelAt = useRef(0);
+  const onWheel = (e: React.WheelEvent) => {
+    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : 0;
+    if (Math.abs(delta) < 8 || Date.now() - wheelAt.current < 260) return;
+    wheelAt.current = Date.now();
+    go(index + Math.sign(delta));
+  };
+  // Glisser : au-delà de 40 px, on passe au style voisin.
+  const dragFrom = useRef<number | null>(null);
+
+  const [fanOpen, setFanOpen] = useState(() => {
+    try {
+      return localStorage.getItem(FAN_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+  const toggleFan = () => {
+    setFanOpen((open) => {
+      try {
+        localStorage.setItem(FAN_KEY, open ? '0' : '1');
+      } catch {
+        /* stockage indisponible : l'état ne sera pas retenu */
+      }
+      return !open;
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      <div
+        tabIndex={0}
+        role="listbox"
+        aria-label="Habillage des cartes"
+        aria-activedescendant={`card-style-${value}`}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowRight') (e.preventDefault(), go(index + 1));
+          else if (e.key === 'ArrowLeft') (e.preventDefault(), go(index - 1));
+        }}
+        onWheel={onWheel}
+        onPointerDown={(e) => (dragFrom.current = e.clientX)}
+        onPointerUp={(e) => {
+          if (dragFrom.current === null) return;
+          const dx = e.clientX - dragFrom.current;
+          dragFrom.current = null;
+          if (Math.abs(dx) > 40) go(index - Math.sign(dx));
+        }}
+        className="relative h-80 touch-pan-y overflow-hidden rounded-xl bg-muted/40 outline-none select-none [perspective:1200px] focus-visible:ring-2 focus-visible:ring-primary"
+      >
+        {CARD_STYLES.map((id, i) => {
+          const d = i - index;
+          const far = Math.abs(d);
+          return (
+            <motion.button
+              key={id}
+              id={`card-style-${id}`}
+              type="button"
+              role="option"
+              aria-selected={d === 0}
+              aria-label={styleLabel(i)}
+              tabIndex={-1}
+              onClick={() => go(i)}
+              initial={false}
+              animate={{
+                x: d * 118 - (d === 0 ? 0 : Math.sign(d) * 34),
+                scale: d === 0 ? 1 : Math.max(0.55, 0.78 - (far - 1) * 0.08),
+                rotateY: d === 0 ? 0 : -Math.sign(d) * 28,
+                opacity: far > 4 ? 0 : 1 - Math.max(0, far - 1) * 0.18,
+              }}
+              transition={{ type: 'spring', stiffness: 320, damping: 32, mass: 0.8 }}
+              className={cn('absolute top-1/2 left-1/2 -mt-[8.5rem] -ml-[5.375rem] w-43 cursor-pointer', far > 4 && 'pointer-events-none')}
+              style={{ zIndex: 20 - far }}
+            >
+              {showcase && <WmCard card={showcase} cardStyle={id} tilt={d === 0} showTags={false} className={cn('w-full transition-[filter] duration-300', d !== 0 && 'brightness-90')} />}
+            </motion.button>
+          );
+        })}
+        <div className="pointer-events-none absolute inset-x-0 bottom-2.5 z-30 flex flex-col items-center gap-1.5">
+          <span className="rounded-full bg-background/85 px-2.5 py-0.5 text-xs font-semibold shadow-sm backdrop-blur">{styleLabel(index)}</span>
+          <div className="pointer-events-auto flex gap-1.5">
+            {CARD_STYLES.map((id, i) => (
+              <button
+                key={id}
+                type="button"
+                aria-label={styleLabel(i)}
+                onClick={() => go(i)}
+                className={cn('h-1.5 cursor-pointer rounded-full transition-all duration-300', i === index ? 'w-4 bg-primary' : 'w-1.5 bg-foreground/25 hover:bg-foreground/50')}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-center">
+        <button
+          type="button"
+          onClick={toggleFan}
+          aria-expanded={fanOpen}
+          className="flex cursor-pointer items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:text-foreground"
+        >
+          <ChevronDown className={cn('size-3.5 transition-transform duration-300', fanOpen && 'rotate-180')} />
+          {fanOpen ? "Masquer l'aperçu des raretés" : "Voir l'aperçu des six raretés"}
+        </button>
+      </div>
+      {fanOpen && (
+        <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+          <CardFan cards={previews} style={value} />
+        </div>
+      )}
     </div>
   );
 }
