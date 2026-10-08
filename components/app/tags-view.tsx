@@ -305,19 +305,18 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
                 )}
               </DropdownMenuItem>
             )}
-            {kinds && (
-              <DropdownMenuItem onSelect={() => toggleKind(tag)}>
-                {!isStorage(tag) ? (
-                  <>
-                    <Archive className="size-4" /> Passer en rangement
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="size-4" /> Passer en collection
-                  </>
-                )}
-              </DropdownMenuItem>
-            )}
+            {/* Toujours proposé : la page Albums sépare les rangements même sans le réglage collection / rangement. */}
+            <DropdownMenuItem onSelect={() => toggleKind(tag)}>
+              {!isStorage(tag) ? (
+                <>
+                  <Archive className="size-4" /> Passer en rangement
+                </>
+              ) : (
+                <>
+                  <Sparkles className="size-4" /> Passer en collection
+                </>
+              )}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onSelect={() => setToDelete(tag)}>
               <Trash2 className="size-4" /> Supprimer
