@@ -40,7 +40,7 @@ Range ta collection de cartes Wikipédia : tri **Trade / Not Trade** en quelques
   - révélé animé par rareté avec sons, pastille « New », récap du paquet, touche Espace, révélé rapide, cartes qui respirent et habillage Collection+ ;
   - rangement sans ouvrir la carte : rangements à gauche, collections à droite, statut Trade / Not Trade / Discard en arc (flèches ← ↓ →), recherche et création d'étiquette ;
   - album à objectif : quand la carte tirée est dans la liste, l'album sort de sa ligne et la carte s'y colle ;
-  - statistiques de tirage (deux colonnes sur grand écran, une sur mobile), compteur de paquets dans l'onglet et sur l'icône, notifications (réserve pleine, pack PRO) ;
+  - statistiques de tirage (aujourd'hui, 7 jours ou tout ; résumé, taux de drop comparés, prévisions, records, cartes d'albums ◇, histogramme sur 30 jours, frise des paquets, image à partager ; deux colonnes sur grand écran, une sur mobile, repliables en une ligne), compteur de paquets dans l'onglet et sur l'icône, notifications (réserve pleine, pack PRO) ;
   - plein écran 3D sur les cartes, liste de souhaits mise en avant sur le marché et les échanges (cœur pour en ajouter), images libres en option.
 - **Synchronisation entre ordinateurs** : albums à objectif, mises en page, cartes écartées, souhaits, règles et réglages suivent sur chaque ordinateur où tu es connecté à Chrome (synchronisation activée). Rien à configurer, aucun compte en plus ; les cartes et étiquettes, elles, sont déjà sur WikiMasters. État et bouton « Synchroniser » dans **Paramètres › Synchro et export**.
 - **Popup** : bouton « Synchroniser » (dernier échange entre ordinateurs), compteur de paquets, historique et export CSV des tirages, réglages rapides et choix du thème.
