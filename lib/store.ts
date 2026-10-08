@@ -35,6 +35,56 @@ export interface Settings {
   cardStyle: CardStyle;
   /** Clé gratuite Google AI Studio (Gemini) pour les demandes libres des albums à objectif ; vide = analyse sans IA. */
   geminiApiKey: string;
+
+  // ---- Sur WikiMasters ----
+  /** Façon d'appliquer la palette sur le site : couleur pleine + halo, ambiance teintée, ou irisé réservé aux paquets. */
+  siteLook: 'solid' | 'ambient' | 'holo';
+  /** Les cartes révélées respirent doucement (léger va-et-vient et oscillation). */
+  cardBreathe: boolean;
+  /** Les cartes révélées prennent l'habillage choisi dans Collection+. */
+  revealSkin: boolean;
+  /** Animation quand la carte tirée fait partie d'un album à objectif. */
+  goalAlbumFx: boolean;
+  /** … et la carte est vraiment ajoutée à cet album sur WikiMasters. */
+  goalAutoStick: boolean;
+  /** Nouvelle interface de la page d'ouverture (fond animé, paquet flottant, jauges). */
+  packStage: boolean;
+  /** Mise en scène du révélé selon la rareté (particules, halos, bannière). */
+  revealFx: boolean;
+  /** Petits sons synthétisés pendant l'ouverture et le révélé. */
+  sound: boolean;
+  /** Volume des sons (0 à 1). */
+  soundVolume: number;
+  /** Pastille « NOUVELLE » sur une carte jamais possédée. */
+  newBadge: boolean;
+  /** Récap du paquet une fois toutes les cartes vues. */
+  packRecap: boolean;
+  /** Espace : ouvrir un paquet, puis carte suivante. */
+  spaceKey: boolean;
+  /** Révélé éclair pour C, PC et R (hors shiny). */
+  fastReveal: boolean;
+  /** Volets de rangement pendant le révélé : rangement à gauche, collections à droite. */
+  revealPanels: boolean;
+  /** Statistiques de tirage sur la page des paquets. */
+  packStats: boolean;
+  /** Bouton plein écran (inclinaison 3D) sur les cartes du site. */
+  cardFullscreen: boolean;
+  /** Image libre (Wikipédia / Commons) pour les cartes sans image. */
+  freeImages: boolean;
+  /** Liste de souhaits mise en avant sur le marché et les échanges, cœur pour ajouter depuis le marché. */
+  wishHighlight: boolean;
+  /** (n/10) dans le titre de l'onglet WikiMasters. */
+  tabTitle: boolean;
+  /** Nombre de paquets sur l'icône de l'extension. */
+  iconBadge: boolean;
+  /** Notification quand le seuil de paquets est atteint. */
+  notifyFull: boolean;
+  notifyThreshold: number;
+  /** Rappel quotidien du pack PRO. */
+  proReminder: boolean;
+  proHour: number;
+  /** Régénération des paquets : détectée, normale (10 min) ou PRO (3 min). */
+  regenMode: 'auto' | 'normal' | 'pro';
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -52,6 +102,31 @@ export const DEFAULT_SETTINGS: Settings = {
   cardTagStyle: 'dots',
   cardStyle: 'classic',
   geminiApiKey: '',
+  siteLook: 'solid',
+  cardBreathe: true,
+  revealSkin: true,
+  goalAlbumFx: true,
+  goalAutoStick: true,
+  packStage: true,
+  revealFx: true,
+  sound: true,
+  soundVolume: 0.6,
+  newBadge: true,
+  packRecap: true,
+  spaceKey: true,
+  fastReveal: false,
+  revealPanels: true,
+  packStats: true,
+  cardFullscreen: true,
+  freeImages: false,
+  wishHighlight: true,
+  tabTitle: true,
+  iconBadge: true,
+  notifyFull: true,
+  notifyThreshold: 10,
+  proReminder: true,
+  proHour: 12,
+  regenMode: 'auto',
 };
 
 export const settingsItem = storage.defineItem<Settings>('local:settings', {

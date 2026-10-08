@@ -6,8 +6,17 @@ import { brandIconSvg } from '@/lib/brand-icon';
 import { applyPalette, getPalette } from '@/lib/palettes';
 import { getSettings, reviewedSnapshotItem, settingsItem } from '@/lib/store';
 import { newCardIds } from '@/lib/trade';
+import { packStateItem, predict, type PackState } from '@/lib/packs';
 import { pageTransport, PROXY_FETCH } from '@/lib/transport';
 import { Badges } from './badges';
+import { startCardTools } from './card-tools';
+import { ctx, initCtx } from './ctx';
+import { startPackStats } from './pack-stats';
+import { startAlbumFx } from './album-fx';
+import { startPanels } from './panels';
+import { startReveal } from './reveal';
+import { startStage } from './stage';
+import { startWishlist } from './wishlist';
 
 const FAB_CSS = `
   :host { all: initial; }
@@ -56,6 +65,15 @@ export default defineContentScript({
     const badges = new Badges();
     badges.start();
 
+    await initCtx();
+    startStage();
+    startReveal();
+    startAlbumFx(startPanels());
+    startPackStats();
+    startCardTools();
+    startWishlist();
+    startTabTitle();
+
     const host = document.createElement('wmt-root');
     const root = host.attachShadow({ mode: 'open' });
     root.innerHTML = `<style>${FAB_CSS}</style><button type="button"><span class="logo"></span>Collection<span class="plus">+</span><span class="count" hidden></span></button>`;
@@ -89,3 +107,16 @@ export default defineContentScript({
     refresh();
   },
 });
+
+/** (n/10) devant le titre de l'onglet WikiMasters : paquets disponibles estimés. */
+function startTabTitle() {
+  let state: PackState | null = null;
+  packStateItem.getValue().then((v) => (state = v));
+  packStateItem.watch((v) => (state = v));
+  setInterval(() => {
+    const base = document.title.replace(/^\(\d+\/\d+\)\s*/, '');
+    const p = ctx.settings.tabTitle ? predict(state) : null;
+    const want = p ? `(${p.n}/${p.max}) ${base}` : base;
+    if (document.title !== want) document.title = want;
+  }, 1000);
+}

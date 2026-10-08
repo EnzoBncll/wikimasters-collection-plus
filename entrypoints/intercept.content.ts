@@ -13,6 +13,8 @@ export default defineContentScript({
 
   main() {
     const IGNORED = /^\/api\/(auth|push|broadcast|notifications)/;
+    /** Ouvertures de paquets : la réponse (cartes tirées, paquets restants) est relayée telle quelle, sans rien révéler. */
+    const PACKS = /^\/api\/packs\/(open|special|pro-daily|grace)$/;
 
     /** Identifiants présents dans la réponse (cartes reçues d'un paquet, d'un échange…). */
     const collectIds = (value: unknown, out = new Set<string>(), depth = 0): Set<string> => {
@@ -37,6 +39,9 @@ export default defineContentScript({
         return;
       }
       if (!path.startsWith('/api/') || IGNORED.test(path)) return;
+      if (PACKS.test(path) && body && typeof body === 'object') {
+        window.postMessage({ source: 'wmt-intercept', type: 'pack', path, data: body }, location.origin);
+      }
       let ids: string[] = [];
       try {
         ids = [...collectIds(typeof body === 'string' ? JSON.parse(body) : body)];

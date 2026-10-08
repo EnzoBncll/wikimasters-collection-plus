@@ -6,7 +6,8 @@ import { useCollection } from '@/hooks/use-collection';
 import { STORAGE_COLOR, STORAGE_PREFIX } from '@/lib/album-kind';
 import { getPalette } from '@/lib/palettes';
 import { cn } from '@/lib/utils';
-import { ColorPicker, randomTagColor } from './color-picker';
+import { randomTagColor } from '@/lib/tag-colors';
+import { ColorPicker } from './color-picker';
 
 type Choice = 'collection' | 'goal' | 'storage';
 

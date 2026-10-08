@@ -1,4 +1,5 @@
 // Sert la build (.output/chrome-mv3) avec la simulation dev/preview-shim.js injectée dans review.html et popup.html.
+// /pulls, /collection, /marketplace… : banc d'essai des scripts de contenu sur une imitation du site (dev/site-*.js).
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
@@ -15,6 +16,23 @@ createServer(async (req, res) => {
       // Version simulée = version du projet : pas de bandeau « nouvelle version » sur les captures.
       const { version } = JSON.parse(await readFile(join(import.meta.dirname, '..', 'package.json'), 'utf8'));
       res.writeHead(200, { 'content-type': TYPES['.js'] }).end((await readFile(SHIM, 'utf8')).replace("version: '0.1.0'", `version: '${version}'`));
+      return;
+    }
+    if (path === '/draft' || /^\/draft-[a-z]+$/.test(path)) {
+      const file = path === '/draft' ? 'draft-reveal.html' : `${path.slice(1)}.html`;
+      res.writeHead(200, { 'content-type': TYPES['.html'] }).end(await readFile(join(import.meta.dirname, file), 'utf8'));
+      return;
+    }
+    if (path === '/__site-shim.js' || path === '/__site-mock.js') {
+      res.writeHead(200, { 'content-type': TYPES['.js'] }).end(await readFile(join(import.meta.dirname, path.slice(3)), 'utf8'));
+      return;
+    }
+    if (/^\/(pulls|collection|global-collection|marketplace|trades)(\/|$)/.test(path)) {
+      // Même ordre que dans Chrome : interception au démarrage, page du site, puis scripts de page et de contenu.
+      const scripts = ['/__site-shim.js', '/content-scripts/intercept.js', '/__site-mock.js', '/content-scripts/page.js', '/content-scripts/wm.js'];
+      res.writeHead(200, { 'content-type': TYPES['.html'] }).end(
+        `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>WikiMasters (banc d'essai)</title></head><body>${scripts.map((s) => `<script src="${s}"></script>`).join('')}</body></html>`,
+      );
       return;
     }
     const file = join(ROOT, normalize(path === '/' ? '/review.html' : path));

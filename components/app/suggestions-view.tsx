@@ -11,7 +11,8 @@ import { computeSuggestions, criterionText, pendingForRule, type Rule, type Rule
 import type { OwnedCard } from '@/lib/types';
 import { systemTagIds } from '@/lib/trade';
 import { cn } from '@/lib/utils';
-import { ColorPicker, randomTagColor } from './color-picker';
+import { randomTagColor } from '@/lib/tag-colors';
+import { ColorPicker } from './color-picker';
 import { useAiAvailability } from './sheets-view';
 import { nameTheme } from '@/lib/album-sheet';
 import { toast } from '@/hooks/use-toast';

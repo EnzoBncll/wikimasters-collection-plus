@@ -33,6 +33,17 @@ export interface OwnedCard {
   ownedTags: Record<string, string[]>;
   /** Date et provenance de chaque exemplaire (clé : user_card id). */
   acquired?: Record<string, Acquisition>;
+  /** Détail de chaque exemplaire (clé : user_card id) : nombre, shiny, favori. */
+  copies?: Record<string, CopyInfo>;
+}
+
+export interface CopyInfo {
+  /** Une ligne du site peut regrouper plusieurs exemplaires identiques. */
+  count: number;
+  shiny: boolean;
+  starred: boolean;
+  /** Date d'obtention (ms), si connue. */
+  at: number | null;
 }
 
 export type AcquisitionSource = 'pack' | 'trade';

@@ -1,4 +1,4 @@
-import { Archive, ArrowRight, Bot, BookOpen, Layers, Folder, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, Sparkles, Trash2, type LucideIcon } from 'lucide-react';
+import { Archive, ArrowRight, Bot, BookOpen, Layers, Folder, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Sparkles, Trash2, Trophy, type LucideIcon } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatedFolder, type Project } from '@/components/ui/3d-folder';
@@ -18,7 +18,7 @@ import { useCollection } from '@/hooks/use-collection';
 import { useReview } from '@/hooks/use-review';
 import { RARITY_LABEL, type OwnedCard, type SiteTag } from '@/lib/types';
 import { systemTagIds } from '@/lib/trade';
-import { kindOf, switchKind } from '@/lib/album-kind';
+import { byKind, isStorage, kindOf, switchKind, toggleFinished } from '@/lib/album-kind';
 import { sheetOutdated } from '@/lib/album-sheet';
 import { useSuggestions } from '@/hooks/use-suggestions';
 import { useImproveCounts } from './consolidate-view';
@@ -30,7 +30,8 @@ import { Album } from './album';
 import { CreateMenu } from './create-menu';
 import { GoalAlbumWizard } from './goal-album-wizard';
 import { useCardViewer } from './card-viewer';
-import { ColorPicker, randomTagColor } from './color-picker';
+import { randomTagColor } from '@/lib/tag-colors';
+import { ColorPicker } from './color-picker';
 import { cardImage } from './card-image';
 import { WmCard } from './wm-card';
 
@@ -189,15 +190,24 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
   }, [albumLink, tags]);
 
   const systemIds = systemTagIds(tradeTags);
-  const own = tags.filter((t) => !systemIds.has(t.id));
+  const own = tags.filter((t) => !systemIds.has(t.id)).sort(byKind);
   const kinds = settings.albumKinds;
-  const collections = kinds ? own.filter((t) => kindOf(t) === 'collection') : own;
-  const storages = kinds ? own.filter((t) => kindOf(t) === 'storage') : [];
+  // Les collections finies passent en tête de page, quel que soit le réglage collection / rangement.
+  const finished = own.filter((t) => kindOf(t) === 'finished');
+  const collections = own.filter((t) => kindOf(t) !== 'finished' && !(kinds && isStorage(t)));
+  const storages = kinds ? own.filter((t) => isStorage(t)) : [];
+
+  const markFinished = async (tag: SiteTag) => {
+    const next = await toggleFinished(tag, randomTagColor);
+    if (await updateTag(tag.id, next)) {
+      toast(kindOf(tag) === 'finished' ? `« ${next.name} » est rouverte` : `« ${next.name} » est terminée, bravo !`, 'success');
+    }
+  };
 
   const toggleKind = async (tag: SiteTag) => {
     const next = await switchKind(tag, randomTagColor);
     if (await updateTag(tag.id, next)) {
-      toast(kindOf(tag) === 'collection' ? `« ${next.name} » passe en rangement` : `« ${next.name} » passe en collection`, 'success');
+      toast(!isStorage(tag) ? `« ${next.name} » passe en rangement` : `« ${next.name} » passe en collection`, 'success');
     }
   };
 
@@ -266,9 +276,22 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
             >
               <Pencil className="size-4" /> Renommer
             </DropdownMenuItem>
+            {!isStorage(tag) && (
+              <DropdownMenuItem onSelect={() => markFinished(tag)}>
+                {kindOf(tag) === 'finished' ? (
+                  <>
+                    <RotateCcw className="size-4" /> Rouvrir la collection
+                  </>
+                ) : (
+                  <>
+                    <Trophy className="size-4" /> Marquer comme finie
+                  </>
+                )}
+              </DropdownMenuItem>
+            )}
             {kinds && (
               <DropdownMenuItem onSelect={() => toggleKind(tag)}>
-                {kindOf(tag) === 'collection' ? (
+                {!isStorage(tag) ? (
                   <>
                     <Archive className="size-4" /> Passer en rangement
                   </>
@@ -357,6 +380,29 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
             <ImprovePill icon={Bot} text={`${sheetsToWrite} fiche${sheetsToWrite > 1 ? 's' : ''} IA à rédiger`} onClick={() => onOpenEnhance('sheets')} />
           )}
         </div>
+      )}
+
+      {finished.length > 0 && (
+        <section className="space-y-4">
+          <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-amber-600 uppercase dark:text-amber-400">
+            <Trophy className="size-3.5" /> Collections finies · {finished.length}
+          </h2>
+          {layout === 'list' ? (
+            <div className="divide-y overflow-hidden rounded-2xl border border-amber-400/40 bg-card shadow-[0_0_0_1px_rgb(234_179_8/0.08),0_10px_30px_-18px_rgb(234_179_8/0.6)]">
+              {finished.map((tag) => (
+                <TagRow key={tag.id} name={tag.name} color={tag.color} cards={byTag.get(tag.id) ?? []} onOpen={() => openAlbum(tag)} controls={tagControls(tag, false)} icon={Trophy} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-8">
+              {finished.map((tag, i) => (
+                <div key={tag.id} className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both duration-700" style={{ animationDelay: `${i * 60}ms` }}>
+                  {folder(tag)}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       <section data-tour="albums" className="space-y-4">

@@ -1,8 +1,10 @@
 import { animate, motion, useMotionValue, useTransform } from 'framer-motion';
-import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Gem, Hand, Loader2, Pencil, Plus, Sparkles, Target, X } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ExternalLink, Gem, Hand, Loader2, Pencil, Plus, Sparkles, Target, Trophy, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCollection } from '@/hooks/use-collection';
+import { toast } from '@/hooks/use-toast';
+import { kindOf, toggleFinished } from '@/lib/album-kind';
 import { useSuggestions } from '@/hooks/use-suggestions';
 import { goalAlbumsItem, matchEntries, type GoalAlbum, type GoalEntry } from '@/lib/goal-albums';
 import { albumDescriptionsItem, albumLayoutsItem, albumOrdersItem, pageCount, raritySlots, reconcileSlots, SLOTS_PER_PAGE, swapSlots, type AlbumOrder } from '@/lib/album';
@@ -17,6 +19,7 @@ import { updateSheet } from '@/lib/album-sheet';
 import { AlbumWishes } from './album-wishes';
 import { ALBUM_STYLE_IDS, ALBUM_STYLES, type AlbumStyle } from './album-styles';
 import { BrandIcon } from './brand-icon';
+import { randomTagColor } from '@/lib/tag-colors';
 import { useCardViewer } from './card-viewer';
 import { WmCard } from './wm-card';
 
@@ -929,6 +932,18 @@ export function Album({ title, gradient, cards, layoutKey, tagId, focusImprove, 
             <span className="flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold tabular-nums" title={`Objectif : ${goal.source.label}`}>
               <Target className="size-3.5 text-emerald-300" /> {goalLayout.collected} / {goal.entries.length}
             </span>
+          )}
+          {albumTag && goal && goalLayout && goalLayout.collected >= goal.entries.length && kindOf(albumTag) !== 'finished' && (
+            <button
+              type="button"
+              onClick={async () => {
+                const next = await toggleFinished(albumTag, randomTagColor);
+                if (await useCollection.getState().updateTag(albumTag.id, next)) toast(`« ${next.name} » est terminée, bravo ! (à envoyer depuis la boîte d'envoi)`, 'success');
+              }}
+              className="flex cursor-pointer items-center gap-1.5 rounded-full bg-amber-400 px-3 py-1.5 text-xs font-semibold text-zinc-900 transition hover:bg-amber-300"
+            >
+              <Trophy className="size-3.5" /> Marquer comme finie
+            </button>
           )}
           {goalLayout && goalLayout.toStick.length > 0 && (
             <button

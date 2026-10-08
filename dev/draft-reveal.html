@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Brouillon UX · révélé et ouverture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bungee&family=Cinzel+Decorative:wght@700;900&family=Orbitron:wght@700;900&family=Righteous&family=Unbounded:wght@600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: oklch(0.75 0.16 293); --fg: oklch(0.975 0.006 293); --muted-fg: oklch(0.72 0.025 293);
+    --card: oklch(0.225 0.022 293); --muted: oklch(0.28 0.024 293); --border: oklch(1 0 0 / 9%);
+    --holo: linear-gradient(135deg, #7DD3FC, #C4B5FD, #F9A8D4, #FDE68A, #86EFAC);
+    --trade: oklch(0.696 0.17 162.48); --not-trade: oklch(0.637 0.237 25.331); --discard: oklch(0.55 0.02 60);
+    --ease: cubic-bezier(.2,.9,.3,1);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0e0d14; color: var(--fg); font: 14px/1.4 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  .label { position: absolute; top: 14px; left: 18px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted-fg); }
+  section { position: relative; min-height: 760px; overflow: hidden; border-bottom: 1px solid var(--border);
+    background: radial-gradient(60% 50% at 50% 35%, oklch(0.32 0.12 293 / .45), transparent 70%), #0e0d14; }
+  .stars { position: absolute; inset: 0; opacity: .45; background-image: radial-gradient(1.2px 1.2px at 20px 30px, #fff, transparent), radial-gradient(1px 1px at 140px 90px, #fff, transparent), radial-gradient(1.4px 1.4px at 260px 160px, #fff, transparent), radial-gradient(1px 1px at 80px 220px, #fff, transparent); background-size: 340px 300px; }
+
+  /* ---------- Révélé ---------- */
+  .scene { position: relative; display: grid; grid-template-columns: 1fr auto 1fr; align-items: start; gap: 0; max-width: 1180px; margin: 0 auto; padding: 70px 24px 0; perspective: 1400px; }
+  .side { position: relative; z-index: 1; width: 250px; margin-top: 46px; transition: opacity .35s var(--ease); }
+  .side.left { justify-self: end; margin-right: -42px; }
+  .side.right { justify-self: start; margin-left: -42px; }
+  .side.dim { opacity: .32; }
+  .panel { border-radius: 18px; padding: 14px 10px 10px; background: color-mix(in oklch, var(--card) 72%, transparent); border: 1px solid var(--border);
+    backdrop-filter: blur(14px) saturate(1.2); box-shadow: 0 20px 50px rgb(0 0 0 / .35); overflow: hidden; transition: height .35s var(--ease); }
+  .panel h3 { margin: 0 6px 8px; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted-fg); }
+  .side.left .panel { padding-right: 52px; }
+  .side.right .panel { padding-left: 52px; }
+  .item { display: flex; align-items: center; gap: 9px; padding: 0 8px; height: 34px; border-radius: 10px; cursor: pointer; overflow: hidden;
+    transition: background .15s, opacity .3s var(--ease), height .3s var(--ease), transform .3s var(--ease); }
+  .item:hover { background: rgb(255 255 255 / .05); }
+  .item .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); flex: none; transition: box-shadow .2s, transform .2s; }
+  .item .n { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .item .n mark { background: none; color: var(--fg); font-weight: 700; text-decoration: underline; text-decoration-color: var(--primary); text-underline-offset: 3px; }
+  .item.on { background: color-mix(in srgb, var(--c) 16%, transparent); }
+  .item.on .dot { transform: scale(1.25); box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 28%, transparent), 0 0 12px var(--c); }
+  .item.on .n { color: #fff; }
+  .item .chk { font-size: 12px; color: var(--c); opacity: 0; transition: opacity .2s; }
+  .item.on .chk { opacity: 1; }
+  .item.out { height: 0; opacity: 0; transform: translateY(-4px); }
+  .item.fin .n::after { content: ' 🏆'; }
+  .empty { margin: 4px 8px 2px; font-size: 12px; color: var(--muted-fg); height: 0; opacity: 0; transition: .3s var(--ease); }
+  .side.dim .empty { height: 18px; opacity: 1; }
+
+  .center { position: relative; z-index: 3; display: flex; flex-direction: column; align-items: center; gap: 16px; transform-style: preserve-3d; }
+  .counter { padding: 6px 16px; border-radius: 999px; background: color-mix(in oklch, var(--card) 75%, transparent); border: 1px solid var(--border); font-size: 11px; letter-spacing: .1em; color: var(--muted-fg); text-transform: uppercase; }
+  .counter b { font-size: 18px; color: var(--rc); margin: 0 4px; }
+  .cardwrap { position: relative; transform-style: preserve-3d; transition: transform .12s ease-out; }
+  .card { position: relative; width: 250px; height: 356px; border-radius: 18px; overflow: hidden; background: #f4f1ea; color: #111;
+    box-shadow: 0 0 34px color-mix(in srgb, var(--rc) 55%, transparent), 0 30px 70px rgb(0 0 0 / .55); }
+  .card.shiny::after { content: ''; position: absolute; inset: 0; background: linear-gradient(115deg, transparent 30%, rgb(255 0 128 / .25), rgb(255 200 0 / .3), rgb(0 255 170 / .3), rgb(0 160 255 / .3), transparent 70%); mix-blend-mode: screen; animation: sweep 2.4s ease-in-out infinite; }
+  @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+  .card .img { height: 46%; background: url(https://picsum.photos/seed/curie/500/360) center/cover; }
+  .card .r { position: absolute; top: 10px; left: 10px; padding: 2px 7px; border-radius: 6px; background: var(--rc); font-weight: 800; font-size: 11px; }
+  .card h4 { margin: 12px 14px 4px; font-size: 19px; }
+  .card p { margin: 0 14px; font-size: 12px; color: #555; }
+  .card .stats { position: absolute; bottom: 12px; left: 14px; right: 14px; display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; }
+
+  /* Pastille New : autocollant à cheval sur le bord haut */
+  .new { position: absolute; top: -13px; left: 50%; transform: translateX(-50%) rotate(-4deg); z-index: 5; padding: 5px 12px 5px 10px; border-radius: 999px;
+    background: var(--holo); color: #16122b; font: 800 12px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: .06em;
+    box-shadow: 0 0 0 2px #0e0d14, 0 6px 18px rgb(0 0 0 / .45), 0 0 22px oklch(0.75 0.16 293 / .55); display: flex; align-items: center; gap: 5px; overflow: hidden; }
+  .new::before { content: '✦'; font-size: 11px; }
+  .new::after { content: ''; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 35%, rgb(255 255 255 / .85) 50%, transparent 65%); transform: translateX(-120%); animation: shine 2.8s ease-in-out .6s infinite; }
+  @keyframes shine { 0%, 55% { transform: translateX(-120%); } 85%, 100% { transform: translateX(120%); } }
+  .new { opacity: 0; }
+  .new.popin { opacity: 1; animation: popin .55s cubic-bezier(.2,.9,.3,1.4) both; }
+  @keyframes popin { from { transform: translateX(-50%) rotate(-25deg) scale(0); } to { transform: translateX(-50%) rotate(-4deg) scale(1); } }
+
+  /* Navigation du site (boutons d'origine, restylés) */
+  .nav { position: relative; display: flex; align-items: center; gap: 12px; padding: 6px 10px; border-radius: 999px; outline: 1px dashed rgb(255 255 255 / .14); outline-offset: 4px; }
+  .nav::after { content: 'UI du site'; position: absolute; right: -78px; top: 50%; transform: translateY(-50%); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: rgb(255 255 255 / .3); }
+  .nav .round { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--border); background: color-mix(in oklch, var(--card) 75%, transparent); color: var(--fg); font-size: 18px; cursor: pointer; transition: transform .15s, box-shadow .2s; }
+  .nav .round.next { width: 52px; height: 52px; font-size: 22px; border-color: color-mix(in srgb, var(--rc) 60%, transparent); box-shadow: 0 0 18px color-mix(in srgb, var(--rc) 45%, transparent); }
+  .nav .round:hover { transform: scale(1.08); }
+  .nav .dots { display: flex; gap: 8px; }
+  .nav .dots i { width: 10px; height: 10px; border-radius: 50%; background: rgb(255 255 255 / .2); }
+  .nav .dots i.on { background: var(--rc); box-shadow: 0 0 10px var(--rc); }
+  .nav .finish { display: none; padding: 10px 24px; border-radius: 999px; background: var(--rc); color: #16122b; font-weight: 800; font-size: 13px; cursor: pointer; }
+  .nav.last .next { display: none; }
+  .nav.last .finish { display: block; }
+
+  /* Statut d'échange : icônes posées sur une bande en arc, nom au survol */
+  .arc { position: relative; width: 273px; height: 64px; margin-top: -10px; }
+  .arc svg { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+  .arc .band { fill: none; stroke: color-mix(in oklch, var(--card) 90%, transparent); stroke-width: 38; stroke-linecap: round; stroke-linejoin: round; transition: stroke .2s; }
+  .arc .rim { fill: none; stroke: rgb(255 255 255 / .11); stroke-width: 40; stroke-linecap: round; stroke-linejoin: round; transition: stroke .2s; }
+  .arc .seg-on .rim { stroke: color-mix(in srgb, var(--c) 70%, transparent); }
+  .arc .seg-on .band { stroke: color-mix(in srgb, var(--c) 22%, var(--card)); }
+  .arc button { all: unset; cursor: pointer; position: absolute; left: var(--x); top: var(--y); width: 32px; height: 32px; margin: -16px 0 0 -16px; border-radius: 50%;
+    display: grid; place-items: center; color: var(--muted-fg); transform: rotate(var(--r)); transition: transform .25s cubic-bezier(.2,.9,.3,1.5), background .2s, color .2s, box-shadow .2s; }
+  .arc button svg { position: static; width: 17px; height: 17px; }
+  .arc button:hover, .arc button.on { color: #fff; background: var(--c); box-shadow: 0 0 0 3px #0e0d14, 0 0 18px color-mix(in srgb, var(--c) 60%, transparent); }
+  .arc button:hover { transform: rotate(var(--r)) scale(1.28); z-index: 2; }
+  .arc button .tip { position: absolute; top: calc(100% + 8px); left: 50%; transform: translate(-50%, -4px) rotate(calc(var(--r) * -1)) scale(.85); white-space: nowrap; padding: 4px 9px; border-radius: 8px;
+    font-size: 10px; font-weight: 700; letter-spacing: .02em; color: #fff; background: color-mix(in srgb, var(--c) 85%, #000); opacity: 0; pointer-events: none; transition: .18s var(--ease); }
+  .arc button .tip kbd { font: 600 9px ui-monospace, monospace; opacity: .65; margin-left: 4px; }
+  .arc button:hover .tip { opacity: 1; transform: translate(-50%, 0) rotate(calc(var(--r) * -1)) scale(calc(1 / 1.28)); }
+  .dock { display: flex; flex-direction: column; align-items: center; margin-top: 8px; }
+  /* Recherche mise en avant, bouton + discret */
+  .search { position: relative; display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+  .search .box { display: flex; align-items: center; gap: 10px; width: 400px; height: 50px; padding: 0 18px; border-radius: 999px;
+    background: color-mix(in oklch, var(--card) 92%, transparent); border: 1px solid oklch(0.75 0.16 293 / .45);
+    box-shadow: 0 14px 40px rgb(0 0 0 / .45), 0 0 0 5px oklch(0.75 0.16 293 / .08), 0 0 30px oklch(0.75 0.16 293 / .18); transition: border-color .2s, box-shadow .2s; }
+  .search .box:focus-within { border-color: var(--primary); box-shadow: 0 14px 40px rgb(0 0 0 / .45), 0 0 0 5px oklch(0.75 0.16 293 / .2), 0 0 40px oklch(0.75 0.16 293 / .35); }
+  .search .ic { font-size: 18px; background: var(--holo); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .search input { all: unset; flex: 1; color: var(--fg); font-size: 15px; font-weight: 500; }
+  .search input::placeholder { color: var(--muted-fg); font-weight: 400; }
+  .search .box kbd { font: 600 10px ui-monospace, monospace; color: var(--muted-fg); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; }
+  .plus { all: unset; cursor: pointer; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 16px; color: var(--muted-fg);
+    border: 1px solid var(--border); background: transparent; transition: color .2s, background .2s, transform .2s var(--ease), border-color .2s; }
+  .plus:hover { color: #16122b; background: var(--holo); border-color: transparent; transform: rotate(90deg); }
+  .burst { position: absolute; inset: -40px; border-radius: 30px; pointer-events: none; opacity: 0; background: radial-gradient(circle, var(--rc) 0%, transparent 62%); mix-blend-mode: screen; }
+  .pop { position: absolute; bottom: calc(100% + 10px); right: -6px; width: 240px; padding: 8px; border-radius: 16px; background: color-mix(in oklch, var(--card) 96%, transparent);
+    border: 1px solid var(--border); box-shadow: 0 20px 50px rgb(0 0 0 / .5); transform-origin: bottom right; transform: scale(.9) translateY(6px); opacity: 0; pointer-events: none; transition: .22s var(--ease); }
+  .pop.open { transform: none; opacity: 1; pointer-events: auto; }
+  .pop p { margin: 4px 8px 8px; font-size: 12px; color: var(--muted-fg); }
+  .pop p b { color: var(--fg); }
+  .pop button { all: unset; cursor: pointer; display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border-radius: 10px; font-size: 13px; }
+  .pop button:hover { background: rgb(255 255 255 / .06); }
+  .pop button span { font-size: 11px; color: var(--muted-fg); display: block; }
+  .pop .ico { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; flex: none; }
+
+  /* ---------- Page d'ouverture ---------- */
+  .open-wrap { display: flex; flex-direction: column; align-items: center; gap: 26px; padding-top: 70px; }
+  .open-wrap h1 { margin: 0; font-size: 46px; letter-spacing: -.02em; background: var(--holo); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .pack { position: relative; width: 190px; height: 266px; border-radius: 16px; background: url(https://picsum.photos/seed/pack/380/532) center/cover;
+    box-shadow: 0 0 40px oklch(0.75 0.16 293 / .45), 0 24px 40px rgb(0 0 0 / .5); animation: float 4.5s ease-in-out infinite; }
+  @keyframes float { 50% { transform: translateY(-12px) rotate(1deg); } }
+  .openbtn { all: unset; cursor: pointer; position: relative; display: flex; align-items: center; gap: 14px; padding: 8px 8px 8px 30px; border-radius: 999px;
+    background: var(--holo); color: #16122b; font-weight: 800; font-size: 17px; letter-spacing: .04em; box-shadow: 0 10px 30px rgb(0 0 0 / .45), 0 0 0 1px rgb(255 255 255 / .35) inset;
+    transition: transform .2s var(--ease), box-shadow .2s; }
+  .openbtn:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgb(0 0 0 / .5), 0 0 30px oklch(0.75 0.16 293 / .55); }
+  .openbtn .count { display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; background: #16122b; color: #fff; font-size: 14px; }
+  .openbtn .count small { color: var(--muted-fg); font-weight: 600; }
+  .openbtn kbd { position: absolute; left: 50%; top: calc(100% + 10px); transform: translateX(-50%); white-space: nowrap; font: 600 11px ui-sans-serif, system-ui; color: var(--muted-fg); letter-spacing: 0; }
+  .openbtn kbd b { font: 700 10px ui-monospace, monospace; color: var(--fg); border: 1px solid var(--border); background: var(--muted); border-radius: 6px; padding: 2px 7px; margin-right: 4px; }
+  .openbtn.off { background: var(--muted); color: var(--muted-fg); cursor: default; box-shadow: none; }
+  .openbtn.off .count { background: rgb(0 0 0 / .3); }
+
+  .reserve { width: 460px; padding: 16px 18px; border-radius: 20px; margin-top: 18px; background: color-mix(in oklch, var(--card) 78%, transparent); border: 1px solid var(--border); backdrop-filter: blur(12px); }
+  .reserve .row { display: flex; align-items: flex-end; gap: 6px; }
+  .ready { display: flex; gap: 6px; }
+  .ready i { width: 30px; height: 42px; border-radius: 7px; background: var(--holo); box-shadow: 0 0 10px oklch(0.75 0.16 293 / .4), inset 0 1px 0 rgb(255 255 255 / .6); animation: in .4s var(--ease) both; }
+  @keyframes in { from { transform: translateY(8px) scale(.8); opacity: 0; } }
+  .charging { position: relative; width: 30px; height: 42px; border-radius: 7px; border: 1.5px dashed oklch(0.75 0.16 293 / .7); overflow: hidden; margin-left: 4px; }
+  .charging::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: var(--p); background: linear-gradient(0deg, oklch(0.75 0.16 293 / .7), oklch(0.75 0.16 293 / .2)); transition: height 1s linear; }
+  .empty-slot { width: 22px; height: 30px; border-radius: 6px; border: 1px solid var(--border); background: rgb(255 255 255 / .03); align-self: flex-end; }
+  .reserve .legend { display: flex; justify-content: space-between; margin-top: 12px; font-size: 12px; color: var(--muted-fg); }
+  .reserve .legend b { color: var(--fg); font-variant-numeric: tabular-nums; }
+  .reserve .legend .ok { color: var(--fg); }
+  .reserve .legend .ok b { font-size: 16px; background: var(--holo); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .controls { position: absolute; top: 12px; right: 18px; display: flex; gap: 8px; z-index: 10; }
+  .controls button { all: unset; cursor: pointer; padding: 6px 12px; border-radius: 999px; font-size: 12px; border: 1px solid var(--border); background: var(--card); color: var(--muted-fg); }
+  .controls button:hover { color: var(--fg); }
+  .controls button.r { min-width: 26px; text-align: center; font-weight: 800; color: #16122b; background: var(--c); border-color: transparent; }
+  .controls span { align-self: center; font-size: 11px; color: var(--muted-fg); margin-right: 2px; }
+</style>
+</head>
+<body>
+
+<section id="reveal">
+  <div class="stars"></div>
+  <div class="label">Brouillon · révélé avec volets</div>
+  <div class="controls" id="rar"><span>Rejouer avec son :</span>
+    <button class="r" data-r="C" style="--c:#b8f2d5">C</button><button class="r" data-r="PC" style="--c:#b1cff2">PC</button><button class="r" data-r="R" style="--c:#c6a7f2">R</button>
+    <button class="r" data-r="SR" style="--c:#ed6fa3">SR</button><button class="r" data-r="UR" style="--c:#fa9931">UR</button><button class="r" data-r="L" style="--c:#ffe144">L</button>
+    <button class="r" data-r="S" style="--c:#e9c15a">Shiny</button></div>
+  <div class="scene">
+    <div class="side left" id="sideL"><div class="panel"><h3>Rangement</h3><div class="list" id="listL"></div><div class="empty">Aucun rangement</div></div></div>
+
+    <div class="center" id="center" style="--rc:#ffe144">
+      <div class="counter">Carte <b>5</b> / 5</div>
+      <div class="cardwrap" id="cardwrap">
+        <div class="burst" id="burst"></div>
+        <div class="card" id="card"><div class="img"></div><span class="r" id="rchip">L</span><h4 id="cname">Marie Curie</h4><p>physicienne et chimiste</p><div class="stats"><span>⚔ 8 900</span><span>🛡 7 200</span></div></div>
+        <div class="new popin" id="newb">New</div>
+      </div>
+      <div class="arc" id="seg">
+        <svg viewBox="0 0 273 64" aria-hidden="true" id="arcSvg"></svg>
+        <button data-s="trade" style="--c:var(--trade)" aria-label="Trade"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg><span class="tip">Trade<kbd>T</kbd></span></button>
+        <button data-s="not" style="--c:var(--not-trade)" aria-label="Not Trade"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/><path d="M3 21 21 3"/></svg><span class="tip">Not Trade<kbd>N</kbd></span></button>
+        <button data-s="discard" style="--c:var(--discard)" aria-label="Discard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/></svg><span class="tip">Discard<kbd>D</kbd></span></button>
+      </div>
+      <div class="nav" id="nav"><div class="round">‹</div><div class="dots"><i></i><i></i><i></i><i></i><i class="on"></i></div><div class="round next" title="Carte suivante (Espace)">›</div><div class="finish">Terminer</div></div>
+      <div class="dock">
+        <div class="search">
+          <div class="box"><span class="ic">⌕</span><input id="q" placeholder="Ranger dans… (chercher une étiquette)" autocomplete="off"><kbd>/</kbd></div>
+          <button class="plus" id="plus" aria-label="Nouvelle étiquette">+</button>
+          <div class="pop" id="pop">
+            <p>Créer <b id="popName">une étiquette</b> dans :</p>
+            <button data-k="collection"><span class="ico" style="background:var(--holo);color:#16122b">★</span><div>Collections<span>Emoji et couleur vive, à droite</span></div></button>
+            <button data-k="storage"><span class="ico" style="background:#71717a33;color:#a1a1aa">·</span><div>Rangement<span>« · Nom », gris, à gauche</span></div></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side right" id="sideR"><div class="panel"><h3>Collections</h3><div class="list" id="listR"></div><div class="empty">Aucune collection</div></div></div>
+  </div>
+</section>
+
+<section id="opening">
+  <div class="stars"></div>
+  <div class="label">Brouillon · page d'ouverture</div>
+  <div class="controls"><button id="toggleOff">Basculer : aucun paquet</button></div>
+  <div class="open-wrap">
+    <h1>Ouvrir un paquet</h1>
+    <div class="pack"></div>
+    <button class="openbtn" id="openbtn">OUVRIR <span class="count" id="count">×6 <small>/ 10</small></span><kbd><b>Espace</b>pour ouvrir</kbd></button>
+    <div class="reserve">
+      <div class="row" id="slots"></div>
+      <div class="legend"><span class="ok" id="okTxt"><b>6</b> paquets prêts</span><span id="next">Prochain dans <b>4:12</b> · plein dans <b>45 min</b></span></div>
+    </div>
+  </div>
+</section>
+
+<section id="variants" style="min-height:auto;padding:60px 24px 70px">
+  <div class="stars"></div>
+  <div class="label">Brouillon · 5 polices et 5 styles de bouton + réserve</div>
+  <style>
+    #variants { --fz: 'Unbounded'; }
+    .fonts { position: relative; max-width: 1180px; margin: 0 auto 34px; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+    .font { all: unset; cursor: pointer; padding: 14px 16px 16px; border-radius: 16px; background: color-mix(in oklch, var(--card) 70%, transparent); border: 1px solid var(--border); transition: border-color .2s, transform .2s; }
+    .font:hover { transform: translateY(-2px); }
+    .font.on { border-color: var(--primary); box-shadow: 0 0 0 4px oklch(0.75 0.16 293 / .15); }
+    .font small { display: block; font-size: 11px; color: var(--muted-fg); margin-bottom: 8px; letter-spacing: .04em; }
+    .font .t { display: block; font-size: 25px; line-height: 1.1; background: var(--holo); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .font .b { display: inline-block; margin-top: 10px; padding: 6px 16px; border-radius: 999px; background: var(--holo); color: #16122b; font-size: 14px; letter-spacing: .08em; }
+    .vgrid { position: relative; max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+    .v { display: flex; flex-direction: column; align-items: center; gap: 22px; padding: 22px 18px 26px; border-radius: 22px; background: color-mix(in oklch, var(--card) 55%, transparent); border: 1px solid var(--border); }
+    .v > h5 { align-self: stretch; margin: 0; font-size: 12px; font-weight: 700; color: var(--muted-fg); display: flex; justify-content: space-between; }
+    .v > h5 span { font-weight: 500; }
+    .v .ttl { margin: 0; font-family: var(--fz), ui-sans-serif, system-ui; font-size: 26px; text-align: center; background: var(--holo); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .v .lbl { font-family: var(--fz), ui-sans-serif, system-ui; }
+    .v .sub { font-size: 12px; color: var(--muted-fg); }
+    .v .sub b { color: var(--fg); font-variant-numeric: tabular-nums; }
+
+    /* 1 · Holo pilule */
+    .v1 .btn { display: flex; align-items: center; gap: 12px; padding: 7px 7px 7px 26px; border-radius: 999px; background: var(--holo); color: #16122b; font-weight: 800; font-size: 16px; letter-spacing: .06em; box-shadow: 0 10px 30px rgb(0 0 0 / .45); cursor: pointer; transition: transform .2s var(--ease); }
+    .v1 .btn:hover { transform: translateY(-2px); }
+    .v1 .btn .c { padding: 7px 13px; border-radius: 999px; background: #16122b; color: #fff; font-size: 13px; }
+    .v1 .row { display: flex; gap: 5px; align-items: flex-end; }
+    .v1 .row i { width: 22px; height: 31px; border-radius: 6px; background: var(--holo); box-shadow: inset 0 1px 0 rgb(255 255 255 / .6); }
+    .v1 .row i.ch { background: none; border: 1.5px dashed var(--primary); position: relative; overflow: hidden; }
+    .v1 .row i.ch::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: var(--p); background: oklch(0.75 0.16 293 / .6); }
+    .v1 .row i.e { width: 16px; height: 22px; background: rgb(255 255 255 / .04); border: 1px solid var(--border); box-shadow: none; }
+
+    /* 2 · Néon */
+    .v2 .btn { padding: 14px 40px; border-radius: 14px; background: #110e1c; color: var(--primary); border: 2px solid var(--primary); font-weight: 800; font-size: 17px; letter-spacing: .2em; cursor: pointer;
+      text-shadow: 0 0 10px var(--primary), 0 0 22px var(--primary); box-shadow: 0 0 18px oklch(0.75 0.16 293 / .55), inset 0 0 18px oklch(0.75 0.16 293 / .3); animation: flick 4s infinite; }
+    .v2 .btn sup { font-size: 11px; margin-left: 6px; letter-spacing: 0; }
+    @keyframes flick { 0%, 92%, 100% { opacity: 1; } 93% { opacity: .55; } 95% { opacity: 1; } 96% { opacity: .7; } }
+    .v2 .row { display: flex; gap: 6px; align-items: flex-end; height: 44px; }
+    .v2 .row i { width: 9px; height: 44px; border-radius: 6px; background: var(--primary); box-shadow: 0 0 10px var(--primary), 0 0 2px #fff inset; }
+    .v2 .row i.ch { background: linear-gradient(0deg, var(--primary) var(--p), rgb(255 255 255 / .06) var(--p)); box-shadow: 0 0 6px oklch(0.75 0.16 293 / .4); animation: pulse 1.4s ease-in-out infinite; }
+    .v2 .row i.e { background: rgb(255 255 255 / .06); box-shadow: none; border: 1px solid oklch(0.75 0.16 293 / .2); }
+    @keyframes pulse { 50% { opacity: .55; } }
+
+    /* 3 · Éventail */
+    .v3 .btn { display: flex; align-items: center; gap: 12px; padding: 14px 26px; border-radius: 18px; color: #fff; font-weight: 800; font-size: 16px; letter-spacing: .08em; cursor: pointer;
+      background: linear-gradient(#17132a, #17132a) padding-box, var(--holo) border-box; border: 2px solid transparent; box-shadow: 0 12px 30px rgb(0 0 0 / .45); }
+    .v3 .btn svg { width: 18px; height: 18px; }
+    .v3 .btn .c { font-size: 12px; color: var(--muted-fg); font-weight: 600; letter-spacing: 0; }
+    .v3 .fan { position: relative; height: 78px; width: 300px; }
+    .v3 .fan i { position: absolute; bottom: 4px; left: 50%; width: 38px; height: 54px; margin-left: -19px; border-radius: 7px; background: var(--holo); border: 2px solid #17132a;
+      transform-origin: 50% 140%; transform: rotate(var(--a)) translateY(var(--ty, 0)); box-shadow: 0 6px 14px rgb(0 0 0 / .4); transition: transform .3s var(--ease); }
+    .v3 .fan:hover i { --ty: -6px; }
+    .v3 .fan i.ch { background: linear-gradient(0deg, oklch(0.75 0.16 293 / .7) var(--p), #241f3a var(--p)); border: 2px dashed var(--primary); }
+    .v3 .fan i.e { background: rgb(255 255 255 / .04); border: 1px solid var(--border); box-shadow: none; }
+
+    /* 4 · Anneau */
+    .v4 .ring { position: relative; width: 168px; height: 168px; display: grid; place-items: center; }
+    .v4 .ring svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+    .v4 .btn { width: 118px; height: 118px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer;
+      background: radial-gradient(circle at 35% 30%, #2b2445, #14111f 70%); border: 1px solid var(--border); box-shadow: 0 10px 30px rgb(0 0 0 / .5), inset 0 1px 0 rgb(255 255 255 / .08); transition: transform .2s var(--ease); }
+    .v4 .btn:hover { transform: scale(1.05); }
+    .v4 .btn b { font-size: 38px; line-height: 1; background: var(--holo); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .v4 .btn span { font-size: 11px; font-weight: 800; letter-spacing: .2em; color: var(--fg); }
+
+    /* 5 · Arcade */
+    .v5 .btn { padding: 16px 44px; border-radius: 16px; background: var(--primary); color: #16122b; font-weight: 900; font-size: 18px; letter-spacing: .14em; cursor: pointer;
+      box-shadow: 0 8px 0 oklch(0.45 0.16 293), 0 14px 26px rgb(0 0 0 / .5); transition: transform .08s, box-shadow .08s; }
+    .v5 .btn:active { transform: translateY(6px); box-shadow: 0 2px 0 oklch(0.45 0.16 293), 0 4px 10px rgb(0 0 0 / .5); }
+    .v5 .panel5 { display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-radius: 14px; background: #0a0910; box-shadow: inset 0 2px 8px rgb(0 0 0 / .8), 0 0 0 1px var(--border); }
+    .v5 .leds { display: flex; gap: 7px; }
+    .v5 .leds i { width: 13px; height: 13px; border-radius: 50%; background: #2a2635; box-shadow: inset 0 1px 2px rgb(0 0 0 / .6); }
+    .v5 .leds i.on { background: radial-gradient(circle at 35% 35%, #fff, var(--primary) 55%); box-shadow: 0 0 8px var(--primary), 0 0 2px #fff; }
+    .v5 .leds i.ch { background: radial-gradient(circle at 35% 35%, #fff8, oklch(0.75 0.16 293 / .6) 55%); animation: pulse 1s steps(2) infinite; }
+    .v5 .digits { font: 700 18px ui-monospace, 'SF Mono', monospace; color: var(--primary); text-shadow: 0 0 8px var(--primary); letter-spacing: .08em; }
+  </style>
+  <div class="fonts" id="fonts">
+    <button class="font on" data-f="Unbounded"><small>1 · Unbounded — moderne, rond</small><span class="t" style="font-family:Unbounded;font-weight:800">Ouvrir un paquet</span><span class="b" style="font-family:Unbounded;font-weight:800">OUVRIR</span></button>
+    <button class="font" data-f="Bungee"><small>2 · Bungee — jeu, arcade</small><span class="t" style="font-family:Bungee">Ouvrir un paquet</span><span class="b" style="font-family:Bungee">OUVRIR</span></button>
+    <button class="font" data-f="Cinzel Decorative"><small>3 · Cinzel — épique, fantasy</small><span class="t" style="font-family:'Cinzel Decorative';font-weight:900">Ouvrir un paquet</span><span class="b" style="font-family:'Cinzel Decorative';font-weight:900">OUVRIR</span></button>
+    <button class="font" data-f="Orbitron"><small>4 · Orbitron — sci-fi</small><span class="t" style="font-family:Orbitron;font-weight:900">Ouvrir un paquet</span><span class="b" style="font-family:Orbitron;font-weight:900">OUVRIR</span></button>
+    <button class="font" data-f="Righteous"><small>5 · Righteous — rétro, fun</small><span class="t" style="font-family:Righteous">Ouvrir un paquet</span><span class="b" style="font-family:Righteous">OUVRIR</span></button>
+  </div>
+  <div class="vgrid">
+    <div class="v v1"><h5>A · Holo pilule <span>tuiles irisées</span></h5><p class="ttl">Ouvrir un paquet</p>
+      <div class="btn lbl">OUVRIR <span class="c">×6 / 10</span></div>
+      <div class="row" data-v="1"></div><div class="sub">Prochain dans <b class="cd">4:12</b> · plein dans <b>45 min</b></div></div>
+    <div class="v v2"><h5>B · Néon <span>barres lumineuses</span></h5><p class="ttl">Ouvrir un paquet</p>
+      <div class="btn lbl">OUVRIR<sup>6/10</sup></div>
+      <div class="row" data-v="2"></div><div class="sub">Prochain dans <b class="cd">4:12</b> · plein dans <b>45 min</b></div></div>
+    <div class="v v3"><h5>C · Éventail <span>paquets en main</span></h5><p class="ttl">Ouvrir un paquet</p>
+      <div class="btn lbl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M9 7h6M9 11h6"/></svg>OUVRIR <span class="c">6 prêts</span></div>
+      <div class="fan" data-v="3"></div><div class="sub">Prochain dans <b class="cd">4:12</b> · plein dans <b>45 min</b></div></div>
+    <div class="v v4"><h5>D · Anneau <span>la réserve fait le tour</span></h5><p class="ttl">Ouvrir un paquet</p>
+      <div class="ring"><svg viewBox="0 0 168 168" data-v="4"></svg><div class="btn lbl"><b>6</b><span>OUVRIR</span></div></div>
+      <div class="sub">Prochain dans <b class="cd">4:12</b> · plein dans <b>45 min</b></div></div>
+    <div class="v v5"><h5>E · Arcade <span>bouton à enfoncer, LED</span></h5><p class="ttl">Ouvrir un paquet</p>
+      <div class="btn lbl">OUVRIR</div>
+      <div class="panel5"><div class="leds" data-v="5"></div><span class="digits cd">04:12</span></div><div class="sub">6 paquets prêts · plein dans <b>45 min</b></div></div>
+  </div>
+  <script>
+    (() => {
+      const READY = 6, MAX = 10;
+      let secs = 252;
+      const p = () => Math.round((1 - secs / 600) * 100) + '%';
+      const draw = () => {
+        const kinds = Array.from({ length: MAX }, (_, i) => (i < READY ? 'r' : i === READY ? 'ch' : 'e'));
+        document.querySelector('[data-v="1"]').innerHTML = kinds.map((k) => `<i class="${k === 'r' ? '' : k}" style="--p:${p()}"></i>`).join('');
+        document.querySelector('[data-v="2"]').innerHTML = kinds.map((k) => `<i class="${k === 'r' ? '' : k}" style="--p:${p()}"></i>`).join('');
+        document.querySelector('[data-v="3"]').innerHTML = kinds.map((k, i) => `<i class="${k === 'r' ? '' : k}" style="--a:${(i - (MAX - 1) / 2) * 9}deg;--p:${p()};z-index:${i}"></i>`).join('');
+        document.querySelector('[data-v="5"]').innerHTML = kinds.map((k) => `<i class="${k === 'r' ? 'on' : k === 'ch' ? 'ch' : ''}"></i>`).join('');
+        const svg = document.querySelector('[data-v="4"]'), r = 74, C = 2 * Math.PI * r, seg = C / MAX, gap = 9;
+        svg.innerHTML = '<defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7DD3FC"/><stop offset=".25" stop-color="#C4B5FD"/><stop offset=".5" stop-color="#F9A8D4"/><stop offset=".75" stop-color="#FDE68A"/><stop offset="1" stop-color="#86EFAC"/></linearGradient></defs>'
+          + kinds.map((k, i) => {
+            const len = k === 'ch' ? (seg - gap) * parseInt(p()) / 100 : seg - gap;
+            const base = `<circle cx="84" cy="84" r="${r}" fill="none" stroke-width="11" stroke-linecap="butt" stroke-dasharray="${seg - gap} ${C}" stroke-dashoffset="${-i * seg}" stroke="rgb(255 255 255 / .07)"/>`;
+            return base + (k === 'e' ? '' : `<circle cx="84" cy="84" r="${r}" fill="none" stroke-width="11" stroke-linecap="butt" stroke-dasharray="${len} ${C}" stroke-dashoffset="${-i * seg}" stroke="${k === 'ch' ? 'oklch(0.75 0.16 293 / .75)' : 'url(#hg)'}"/>`);
+          }).join('');
+        const mm = Math.floor(secs / 60), ss = String(secs % 60).padStart(2, '0');
+        document.querySelectorAll('#variants .cd').forEach((el) => (el.textContent = el.classList.contains('digits') ? `${String(mm).padStart(2, '0')}:${ss}` : `${mm}:${ss}`));
+      };
+      draw();
+      setInterval(() => { secs = secs > 0 ? secs - 1 : 600; draw(); }, 1000);
+      document.querySelectorAll('#fonts .font').forEach((b) => b.onclick = () => {
+        document.querySelectorAll('#fonts .font').forEach((x) => x.classList.toggle('on', x === b));
+        document.getElementById('variants').style.setProperty('--fz', `'${b.dataset.f}'`);
+        document.querySelector('.open-wrap h1').style.fontFamily = `'${b.dataset.f}', ui-sans-serif`;
+        document.getElementById('openbtn').style.fontFamily = `'${b.dataset.f}', ui-sans-serif`;
+      });
+    })();
+  </script>
+</section>
+
+<script>
+  if (location.hash === '#opening') document.getElementById('reveal').style.display = 'none';
+  if (location.hash === '#variants') { document.getElementById('reveal').style.display = 'none'; document.getElementById('opening').style.display = 'none'; }
+  const tags = {
+    L: [['À trier', '#71717a'], ['Divers', '#71717a'], ['Doublons', '#71717a'], ['Vieux trucs', '#71717a']],
+    R: [['👑 Rois de France', '#eab308', true], ['⚽ Footballeurs', '#3b82f6'], ['🔬 Scientifiques', '#a855f7'], ['🏙️ Villes', '#f97316'], ['🎬 Films', '#ec4899'], ['🇫🇷 Personnalités françaises', '#06b6d4']],
+  };
+  const on = new Set(['🔬 Scientifiques', 'Divers']);
+  const esc = (s) => s.replace(/[&<>]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[m]);
+  function renderList(side) {
+    const el = document.getElementById('list' + side);
+    el.innerHTML = tags[side].map(([n, c, fin]) => `<div class="item${on.has(n) ? ' on' : ''}${fin ? ' fin' : ''}" data-n="${esc(n)}" style="--c:${c}"><span class="dot"></span><span class="n">${esc(n)}</span><span class="chk">✓</span></div>`).join('');
+    el.querySelectorAll('.item').forEach((it) => it.onclick = () => { on.has(it.dataset.n) ? on.delete(it.dataset.n) : on.add(it.dataset.n); it.classList.toggle('on'); });
+  }
+  renderList('L'); renderList('R');
+
+  const q = document.getElementById('q');
+  const norm = (s) => s.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+  function filter() {
+    const v = norm(q.value.trim());
+    for (const side of ['L', 'R']) {
+      let shown = 0;
+      document.querySelectorAll(`#list${side} .item`).forEach((it) => {
+        const name = it.dataset.n;
+        const hit = !v || norm(name).includes(v);
+        it.classList.toggle('out', !hit);
+        if (hit) shown++;
+        const i = norm(name).indexOf(v);
+        it.querySelector('.n').innerHTML = v && i >= 0 ? esc(name.slice(0, i)) + '<mark>' + esc(name.slice(i, i + v.length)) + '</mark>' + esc(name.slice(i + v.length)) : esc(name);
+      });
+      document.getElementById('side' + side).classList.toggle('dim', Boolean(v) && shown === 0);
+    }
+    document.getElementById('popName').textContent = q.value.trim() ? `« ${q.value.trim()} »` : 'une étiquette';
+  }
+  q.addEventListener('input', filter);
+  document.addEventListener('keydown', (e) => { if (e.key === '/' && document.activeElement !== q) { e.preventDefault(); q.focus(); } if (e.key === 'Escape') { q.value = ''; filter(); q.blur(); pop.classList.remove('open'); } });
+
+  const pop = document.getElementById('pop');
+  document.getElementById('plus').onclick = (e) => { e.stopPropagation(); pop.classList.toggle('open'); };
+  document.addEventListener('click', (e) => { if (!pop.contains(e.target)) pop.classList.remove('open'); });
+  pop.querySelectorAll('button').forEach((b) => b.onclick = () => {
+    const name = q.value.trim() || 'Nouvelle étiquette';
+    const side = b.dataset.k === 'storage' ? 'L' : 'R';
+    tags[side].push([name, side === 'L' ? '#71717a' : '#22c55e']); on.add(name); renderList(side); q.value = ''; filter(); pop.classList.remove('open');
+  });
+
+  // Arc : trois segments séparés le long d'une courbe ; chaque icône s'incline selon la pente.
+  (() => {
+    const P0 = [24, 16], P1 = [136.5, 66], P2 = [249, 16];
+    const at = (t) => [0, 1].map((k) => (1 - t) ** 2 * P0[k] + 2 * (1 - t) * t * P1[k] + t ** 2 * P2[k]);
+    const slope = (t) => { const dx = 2 * (1 - t) * (P1[0] - P0[0]) + 2 * t * (P2[0] - P1[0]); const dy = 2 * (1 - t) * (P1[1] - P0[1]) + 2 * t * (P2[1] - P1[1]); return Math.atan2(dy, dx) * 180 / Math.PI; };
+    const centers = [.16, .5, .84], half = .085;
+    const svg = document.getElementById('arcSvg');
+    svg.innerHTML = centers.map((c, i) => {
+      const pts = Array.from({ length: 9 }, (_, k) => at(c - half + (2 * half * k) / 8));
+      const d = 'M ' + pts.map((p) => p.map((n) => n.toFixed(1)).join(' ')).join(' L ');
+      return `<g data-i="${i}"><path class="rim" d="${d}"/><path class="band" d="${d}"/></g>`;
+    }).join('');
+    document.querySelectorAll('#seg button').forEach((b, i) => {
+      const [x, y] = at(centers[i]);
+      b.style.setProperty('--x', x + 'px'); b.style.setProperty('--y', y + 'px'); b.style.setProperty('--r', slope(centers[i]).toFixed(1) + 'deg');
+      svg.querySelector(`g[data-i="${i}"]`).style.setProperty('--c', getComputedStyle(b).getPropertyValue('--c'));
+    });
+  })();
+  document.querySelectorAll('#seg button').forEach((b, i) => b.onclick = () => {
+    const was = b.classList.contains('on');
+    document.querySelectorAll('#seg button').forEach((x) => x.classList.remove('on'));
+    document.querySelectorAll('#arcSvg g').forEach((g) => g.classList.remove('seg-on'));
+    if (!was) { b.classList.add('on'); document.querySelector(`#arcSvg g[data-i="${i}"]`).classList.add('seg-on'); }
+  });
+
+  // Carte : inclinaison 3D (les volets restent fixes, derrière)
+  const wrap = document.getElementById('cardwrap');
+  document.getElementById('reveal').addEventListener('pointermove', (e) => {
+    const r = wrap.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+    if (Math.abs(x) > 1.2 || Math.abs(y) > 1.2) { wrap.style.transform = ''; return; }
+    wrap.style.transform = `rotateX(${(-y * 14).toFixed(1)}deg) rotateY(${(x * 18).toFixed(1)}deg) translateZ(30px)`;
+  });
+  // ---------- Sons synthétisés : une signature par rareté, de plus en plus grandiose à partir de SR ----------
+  let ac = null;
+  const audio = () => (ac ??= new AudioContext());
+  function impulse(sec, decay) {
+    const a = audio(), len = a.sampleRate * sec, buf = a.createBuffer(2, len, a.sampleRate);
+    for (let c = 0; c < 2; c++) { const d = buf.getChannelData(c); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** decay; }
+    return buf;
+  }
+  function bus() {
+    if (bus.n) return bus.n;
+    const a = audio(), out = a.createGain(), comp = a.createDynamicsCompressor(), rev = a.createConvolver(), wet = a.createGain();
+    out.gain.value = .55; comp.threshold.value = -16; comp.ratio.value = 5; comp.attack.value = .003; comp.release.value = .25;
+    rev.buffer = impulse(3.8, 2.2); wet.gain.value = .9;
+    out.connect(comp).connect(a.destination); rev.connect(wet).connect(comp);
+    return (bus.n = { out, rev });
+  }
+  function route(node, t0, { v = .1, attack = .015, d = .5, rev = .15, pan = 0, swell = false }) {
+    const a = audio(), g = a.createGain(), p = a.createStereoPanner(), send = a.createGain();
+    p.pan.value = pan; send.gain.value = rev;
+    g.gain.setValueAtTime(swell ? .0001 : 0, t0);
+    if (swell) { g.gain.exponentialRampToValueAtTime(v, t0 + d); g.gain.linearRampToValueAtTime(0, t0 + d + .03); }
+    else { g.gain.linearRampToValueAtTime(v, t0 + attack); g.gain.exponentialRampToValueAtTime(.001, t0 + d); }
+    node.connect(g).connect(p).connect(bus().out); p.connect(send).connect(bus().rev);
+  }
+  function tone(f, t, d, type = 'sine', v = .1, f2, filter, o2 = {}) {
+    const a = audio(), o = a.createOscillator(), t0 = a.currentTime + t;
+    o.type = type; o.frequency.setValueAtTime(f, t0); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t0 + d);
+    let out = o;
+    if (filter) { const fl = a.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.setValueAtTime(o2.filterFrom ?? filter, t0); if (o2.filterFrom) fl.frequency.exponentialRampToValueAtTime(filter, t0 + (o2.filterTime ?? .2)); o.connect(fl); out = fl; }
+    route(out, t0, { v, d, ...o2 }); o.start(t0); o.stop(t0 + d + .1);
+  }
+  function noise(t, d, v = .12, type = 'bandpass', f = 1200, f2, o2 = {}) {
+    const a = audio(), len = Math.ceil(a.sampleRate * d), buf = a.createBuffer(1, len, a.sampleRate), data = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    const src = a.createBufferSource(), fl = a.createBiquadFilter(), t0 = a.currentTime + t;
+    src.buffer = buf; fl.type = type; fl.frequency.setValueAtTime(f, t0); if (f2) fl.frequency.exponentialRampToValueAtTime(f2, t0 + d); fl.Q.value = o2.q ?? .8;
+    src.connect(fl); route(fl, t0, { v, d, attack: d * .2, ...o2 }); src.start(t0); src.stop(t0 + d + .1);
+  }
+  const whoosh = (t, v = .1) => noise(t, .35, v, 'bandpass', 600, 3200);
+  const arp = (t, notes, gap, type = 'triangle', v = .07, d = .5, o2) => notes.forEach((f, i) => tone(f, t + i * gap, d, type, v, null, null, { pan: (i / Math.max(1, notes.length - 1)) * 1.2 - .6, ...o2 }));
+  // Briques « épiques »
+  const kick = (t, v = .5, from = 150, to = 40, d = .6) => tone(from, t, d, 'sine', v, to, null, { rev: .1 });
+  const sub = (t, v = .45, d = 2.5) => tone(55, t, d, 'sine', v, 28, null, { rev: .05 });
+  const crash = (t, v = .14, d = 2.8) => { noise(t, d, v, 'highpass', 5200, null, { rev: .5, attack: .005 }); noise(t, d * .6, v * .7, 'bandpass', 8000, 3000, { rev: .5, attack: .005 }); };
+  const swell = (t, d, v = .12, from = 400, to = 9000) => noise(t, d, v, 'bandpass', from, to, { swell: true, rev: .4, q: 1.4 });
+  const gong = (t, base = 98, v = .16, d = 4) => [1, 2.76, 5.4, 8.93, 13.3].forEach((m, i) => tone(base * m, t, d / (1 + i * .35), 'sine', v / (1 + i * .8), null, null, { rev: .6, attack: .004 }));
+  const brass = (t, freqs, d = 1.4, v = .05) => freqs.forEach((f, i) => [-7, 0, 7].forEach((det) => tone(f * 2 ** (det / 1200), t, d, 'sawtooth', v, null, 2600, { filterFrom: 300, filterTime: .18, rev: .35, attack: .03, pan: (i % 2 ? .3 : -.3) })));
+  const choir = (t, freqs, d = 3, v = .035) => freqs.forEach((f) => [-9, 0, 9].forEach((det) => { const a = audio(), o = a.createOscillator(), f1 = a.createBiquadFilter(), f2 = a.createBiquadFilter(), t0 = a.currentTime + t;
+    o.type = 'sawtooth'; o.frequency.value = f * 2 ** (det / 1200); f1.type = 'bandpass'; f1.frequency.value = 750; f1.Q.value = 3; f2.type = 'bandpass'; f2.frequency.value = 1150; f2.Q.value = 3;
+    const mix = a.createGain(); o.connect(f1).connect(mix); o.connect(f2).connect(mix); route(mix, t0, { v, d, attack: .5, rev: .7, pan: det / 20 }); o.start(t0); o.stop(t0 + d + .1); }));
+  const bells = (t, notes, gap, v = .06) => notes.forEach((f, i) => { tone(f, t + i * gap, 1.6, 'sine', v, null, null, { rev: .55, attack: .003, pan: Math.sin(i) * .6 }); tone(f * 2.01, t + i * gap, .9, 'sine', v * .35, null, null, { rev: .55, attack: .003 }); });
+  const shimmer = (t, d, v = .025) => { for (let i = 0; i < 26; i++) tone(2000 + Math.random() * 3000, t + Math.random() * d, .25, 'sine', v, null, null, { rev: .7, pan: Math.random() * 2 - 1, attack: .002 }); };
+
+  const SOUND = {
+    // Commune : un retournement de papier et une note douce.
+    C: (hit) => { whoosh(hit - .3, .07); tone(523, hit, .28, 'triangle', .06); },
+    // Peu commune : deux notes qui montent.
+    PC: (hit) => { whoosh(hit - .3, .08); arp(hit, [523, 784], .07, 'triangle', .065, .35); },
+    // Rare : petite cloche (accord majeur) et un éclat aigu.
+    R: (hit) => { whoosh(hit - .3, .09); bells(hit, [659, 831, 988], .06, .05); tone(1976, hit + .2, .6, 'sine', .025, null, null, { rev: .4 }); },
+    // Super rare : souffle qui monte, coup sourd, gerbe de cloches et scintillement dans la réverbération.
+    SR: (hit) => {
+      tone(110, 0, hit, 'sine', .08, 330, null, { rev: .2 }); swell(0, hit, .09, 300, 6000);
+      kick(hit, .45); noise(hit, .35, .12, 'highpass', 3500, null, { rev: .5, attack: .003 });
+      bells(hit + .02, [1047, 1319, 1568, 2093], .055, .055); shimmer(hit + .1, .9, .02);
+    },
+    // Ultra rare : montée en tension, double impact, cuivres en deux accords, cymbale.
+    UR: (hit) => {
+      tone(110, 0, hit, 'sawtooth', .04, 880, 2400, { rev: .3 }); tone(55, 0, hit, 'sine', .12, 110); swell(0, hit, .14, 200, 9000);
+      for (let i = 0; i < 8; i++) noise(hit - .55 + i * .065, .05, .05 + i * .012, 'bandpass', 1800, null, { rev: .2, attack: .002 });
+      kick(hit, .6, 170, 35, .9); sub(hit, .35, 2); crash(hit, .13, 2.6); noise(hit + .18, .25, .14, 'bandpass', 1600, null, { rev: .4, attack: .002 }); kick(hit + .18, .4, 140, 45, .5);
+      brass(hit + .05, [262, 330, 392], .7, .045); brass(hit + .55, [294, 370, 440, 587], 1.6, .05);
+      bells(hit + .55, [1175, 1480, 1760, 2349], .06, .05); shimmer(hit + .5, 1.4, .02);
+    },
+    // Légendaire : cœur qui s'accélère, longue montée, silence, déflagration, gong, chœur et fanfare.
+    L: (hit) => {
+      [0, .48, .9, 1.25, 1.52].forEach((s, i) => { tone(60, s, .2, 'sine', .25 + i * .04, 40); tone(60, s + .14, .16, 'sine', .15 + i * .03, 40); });
+      tone(80, .1, hit - .25, 'sawtooth', .045, 1600, 3200, { rev: .35 }); tone(40, .1, hit - .25, 'sine', .14, 80); swell(.1, hit - .25, .18, 150, 12000);
+      choir(.4, [131, 196], hit - .5, .018);
+      // 150 ms de silence avant l'impact.
+      kick(hit, .75, 190, 30, 1.2); sub(hit, .5, 3.2); gong(hit, 98, .18, 5); crash(hit, .16, 3.4); noise(hit, .9, .18, 'lowpass', 900, 200, { rev: .3, attack: .003 });
+      choir(hit + .05, [262, 330, 392, 523], 3.6, .04);
+      brass(hit + .25, [262, 330, 392], .5, .05); brass(hit + .8, [349, 440, 523], .5, .05); brass(hit + 1.3, [392, 494, 587, 784], 2.2, .06);
+      bells(hit + .2, [523, 659, 784, 1047, 1319, 1568, 2093, 2637], .07, .055); shimmer(hit + .3, 2.6, .024);
+      kick(hit + 1.3, .45, 140, 40, .6); crash(hit + 1.3, .1, 2.4);
+    },
+    // Shiny : cascade cristalline par-dessus.
+    S: (hit) => { whoosh(hit - .3, .08); bells(hit, [2349, 2637, 3136, 3520, 3951, 4699], .045, .04); shimmer(hit + .2, 1.2, .022); arp(hit + .35, [1568, 1976, 2349], .08, 'sine', .04, 1, { rev: .6 }); },
+  };
+
+  // ---------- Animation (le retournement qui t'a plu) + charge selon la rareté ----------
+  const RC = { C: '#b8f2d5', PC: '#b1cff2', R: '#c6a7f2', SR: '#ed6fa3', UR: '#fa9931', L: '#ffe144', S: '#e9c15a' };
+  const NAMES = { C: 'Tour Eiffel', PC: 'Pikachu', R: 'Napoléon Ier', SR: 'Daft Punk', UR: 'Zinédine Zidane', L: 'Marie Curie', S: 'Tokyo' };
+  const CHARGE = { C: 0, PC: 0, R: 0, SR: 700, UR: 1300, L: 2100, S: 0 };
+  let anims = [];
+  function play(r) {
+    anims.forEach((a) => a.cancel()); anims = [];
+    const c = document.getElementById('card'), center = document.getElementById('center'), col = RC[r];
+    center.style.setProperty('--rc', col);
+    document.getElementById('rchip').textContent = r === 'S' ? 'R' : r;
+    document.getElementById('cname').textContent = NAMES[r];
+    c.classList.toggle('shiny', r === 'S');
+    const nb = document.getElementById('newb'); nb.classList.remove('popin');
+    const charge = CHARGE[r], dur = 1100, hit = charge + dur * .55;
+    if (charge) {
+      const jitter = [];
+      for (let i = 0; i <= 16; i++) { const k = (r === 'L' ? 7 : r === 'UR' ? 5 : 2) * (i / 16) ** 2; jitter.push({ offset: i / 16, opacity: Math.min(1, i / 3), transform: `translate(${(Math.random() * 2 - 1) * k}px, ${(Math.random() * 2 - 1) * k}px) scale(${.82 + .08 * i / 16})`, filter: `brightness(0) drop-shadow(0 0 ${6 + 30 * i / 16}px ${col})` }); }
+      anims.push(c.animate(jitter, { duration: charge, easing: 'linear' }));
+    }
+    anims.push(c.animate([
+      { transform: 'rotateY(160deg) translateZ(80px) scale(.85)', opacity: charge ? 1 : 0, filter: charge ? `brightness(0) drop-shadow(0 0 30px ${col})` : 'none' },
+      { offset: .55, transform: 'rotateY(-14deg) translateZ(120px) scale(1.06)', opacity: 1, filter: `brightness(${charge ? 1.8 : 1.15})` },
+      { transform: 'none', opacity: 1, filter: 'none' },
+    ], { duration: dur, delay: charge, easing: 'cubic-bezier(.2,.9,.3,1)', fill: 'backwards' }));
+    const big = { C: .35, PC: .45, R: .6, SR: .8, UR: 1, L: 1.2, S: .8 }[r];
+    anims.push(document.getElementById('burst').animate([{ opacity: 0, transform: 'scale(.6)' }, { opacity: big, transform: 'scale(1)', offset: .25 }, { opacity: 0, transform: `scale(${1.3 + big * .5})` }], { duration: 900 + big * 600, delay: hit, easing: 'ease-out' }));
+    setTimeout(() => nb.classList.add('popin'), hit + 120);
+    SOUND[r](hit / 1000);
+  }
+  document.querySelectorAll('#rar .r').forEach((b) => b.onclick = () => play(b.dataset.r));
+  document.querySelector('#nav .next').onclick = () => document.getElementById('nav').classList.add('last');
+
+  // Réserve de paquets : prêts (pleins), en charge (pointillés qui se remplissent), à venir (petits vides)
+  let ready = 6, secs = 252, off = false;
+  const slots = document.getElementById('slots');
+  function renderSlots() {
+    const n = off ? 0 : ready;
+    slots.innerHTML = `<div class="ready">${'<i></i>'.repeat(n)}</div>` + (n < 10 ? `<div class="charging" style="--p:${Math.round((1 - secs / 600) * 100)}%"></div>` : '') + '<div class="empty-slot"></div>'.repeat(Math.max(0, 10 - n - 1));
+    document.getElementById('okTxt').innerHTML = n ? `<b>${n}</b> paquet${n > 1 ? 's' : ''} prêt${n > 1 ? 's' : ''}` : 'Aucun paquet prêt';
+    document.getElementById('count').innerHTML = `×${n} <small>/ 10</small>`;
+    document.getElementById('openbtn').classList.toggle('off', !n);
+    document.getElementById('openbtn').firstChild.textContent = n ? 'OUVRIR ' : `PROCHAIN DANS ${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')} `;
+  }
+  renderSlots();
+  setInterval(() => { secs = secs > 0 ? secs - 1 : 600; document.querySelector('#next b').textContent = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`; const ch = slots.querySelector('.charging'); if (ch) ch.style.setProperty('--p', Math.round((1 - secs / 600) * 100) + '%'); if (off) renderSlots(); }, 1000);
+  document.getElementById('toggleOff').onclick = (e) => { off = !off; e.target.textContent = off ? 'Basculer : 6 paquets' : 'Basculer : aucun paquet'; renderSlots(); };
+</script>
+</body>
+</html>

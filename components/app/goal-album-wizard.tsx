@@ -24,7 +24,7 @@ import { canQuery, resolveNames, resolvePlan, runPlan, understandFree, type Free
 import { candidatesFor, relatedCriteria, scoreCandidates, searchEntities, understand, type Candidate, type Constraints, type WdEntity } from '@/lib/goal-search';
 import type { SiteTag } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { randomTagColor, TAG_COLORS } from './color-picker';
+import { randomTagColor, TAG_COLORS } from '@/lib/tag-colors';
 import { useThumbnails, WikiPeek } from './wiki-peek';
 
 const TRIES = ['les rois de France', 'les empereurs en Europe après 1600', 'les papes', "les recettes à l'orange confite"];

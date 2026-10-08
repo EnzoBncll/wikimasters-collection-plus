@@ -1,6 +1,6 @@
 import { sleep } from './queue';
 import { transport } from './transport';
-import type { Acquisition, OwnedCard, Rarity, SiteTag } from './types';
+import type { Acquisition, CopyInfo, OwnedCard, Rarity, SiteTag } from './types';
 
 const MAX_COLLECTION_PAGES = 300;
 
@@ -36,11 +36,13 @@ export async function fetchFullCollection(onPage?: (page: number, cards: number)
       const count = Number(entry?.count) || 1;
       const tagIds = extractTagIds(entry);
       const acquired = extractAcquisition(entry);
+      const copy = extractCopy(entry, count, acquired);
 
       if (existing) {
         if (ownedId && !existing.ownedIds.includes(ownedId)) existing.ownedIds.push(ownedId);
         if (ownedId) existing.ownedTags[ownedId] = tagIds;
         if (ownedId && acquired) (existing.acquired ??= {})[ownedId] = acquired;
+        if (ownedId) (existing.copies ??= {})[ownedId] = copy;
         existing.count += count;
         for (const id of tagIds) if (!existing.tagIds.includes(id)) existing.tagIds.push(id);
       } else {
@@ -61,6 +63,7 @@ export async function fetchFullCollection(onPage?: (page: number, cards: number)
           tagIds,
           ownedTags: ownedId ? { [ownedId]: tagIds } : {},
           acquired: ownedId && acquired ? { [ownedId]: acquired } : {},
+          copies: ownedId ? { [ownedId]: copy } : {},
         });
       }
     }
@@ -87,6 +90,17 @@ function extractAcquisition(entry: any): Acquisition | null {
   const source = /trade|exchange|echange|swap/.test(rawSource) ? 'trade' : /pack|booster|open|draw/.test(rawSource) ? 'pack' : null;
   if (Number.isNaN(at) && !source) return null;
   return { at: Number.isNaN(at) ? null : at, source, estimated: false };
+}
+
+/** Shiny et favori de l'exemplaire (champs de la table user_cards du site). */
+function extractCopy(entry: any, count: number, acquired: Acquisition | null): CopyInfo {
+  const flag = (...values: unknown[]) => values.some((v) => v === true || v === 1 || v === 'true');
+  return {
+    count,
+    shiny: flag(entry?.is_shiny, entry?.shiny),
+    starred: flag(entry?.starred, entry?.is_starred, entry?.favorite, entry?.is_favorite),
+    at: acquired?.at ?? null,
+  };
 }
 
 /** Les étiquettes peuvent arriver sous forme d'ids ou d'objets ; on normalise en ids. */

@@ -1,4 +1,4 @@
-import { Bot, ChevronDown, ClipboardCopy, Download, FileSpreadsheet, FileText, FolderCog, Loader2, Monitor, Moon, Palette, Sun, Trash2, Zap } from 'lucide-react';
+import { Bot, ChevronDown, ClipboardCopy, Download, FileSpreadsheet, FileText, FolderCog, Globe, Loader2, Monitor, Moon, Palette, Sun, Trash2, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,7 @@ import { cn } from '@/lib/utils';
 import { ALBUM_STYLE_IDS, ALBUM_STYLES } from './album-styles';
 import { BrandIcon } from './brand-icon';
 import { CARD_TAG_STYLES } from './card-tags';
+import { SiteSettings } from './site-settings';
 import { useOnboarding } from './onboarding';
 import { WmCard } from './wm-card';
 
@@ -544,6 +545,16 @@ function OrganizeSection() {
   );
 }
 
+function SiteSection() {
+  const settings = useCollection((s) => s.settings);
+  const updateSettings = useCollection((s) => s.updateSettings);
+  return (
+    <div className="space-y-8">
+      <SiteSettings settings={settings} update={updateSettings} />
+    </div>
+  );
+}
+
 function ExportSection() {
   const { cards, tags, newIds, statusOf, settings, updateSettings } = useCollection();
   const visible = useVisibleCards();
@@ -630,11 +641,12 @@ function ExportSection() {
   );
 }
 
-type SettingsSection = 'appearance' | 'organize' | 'export';
+type SettingsSection = 'appearance' | 'organize' | 'site' | 'export';
 
 const SECTIONS = [
   { id: 'appearance', icon: Palette, label: 'Apparence', text: "Mode, palette, habillage des cartes et des albums." },
   { id: 'organize', icon: FolderCog, label: 'Rangement', text: 'Statut d’échange, types d’albums et règles automatiques.' },
+  { id: 'site', icon: Globe, label: 'Sur WikiMasters', text: 'Ouverture des paquets, volets de rangement, statistiques, notifications et outils sur les cartes du site.' },
   { id: 'export', icon: Download, label: 'Export', text: 'Ta collection vers Google Sheets, un fichier CSV ou le presse-papier.' },
 ] as const;
 
@@ -688,6 +700,7 @@ export function ExportView() {
       </header>
       {section === 'appearance' && <AppearanceSection />}
       {section === 'organize' && <OrganizeSection />}
+      {section === 'site' && <SiteSection />}
       {section === 'export' && <ExportSection />}
     </div>
   );

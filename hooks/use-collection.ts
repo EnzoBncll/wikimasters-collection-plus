@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { collectionCache, saveCards, type CollectionCache } from '@/lib/cache';
+import { collectionCache, collectionDirty, saveCards, type CollectionCache } from '@/lib/cache';
 import type { QueueProgress } from '@/lib/queue';
 import { siteTagsApi } from '@/lib/siteTags';
 import { getSettings, lastReviewAtItem, reviewedSnapshotItem, settingsItem, type Settings } from '@/lib/store';
@@ -82,6 +82,10 @@ interface CollectionState {
   deleteTag(tagId: string): Promise<void>;
   validateReview(): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
+  /** Cartes marquées Discard (sur le site ou en attente) : candidates à la vraie défausse. */
+  discardMarked(): OwnedCard[];
+  /** Après une défausse : recharge la collection et retire Discard des exemplaires gardés. */
+  finishDiscards(cardIds: string[]): Promise<void>;
 }
 
 /** Le site garde ses étiquettes en mémoire : propose de recharger l'onglet WikiMasters ouvert pour voir les nouveaux noms. */
@@ -375,6 +379,27 @@ export const useCollection = create<CollectionState>((set, get) => {
       await lastReviewAtItem.setValue(now);
       set({ newIds: new Set(), lastReviewAt: now });
       toast('Revue validée : plus aucune carte « nouvelle »', 'success');
+    },
+
+    discardMarked() {
+      return get().cards.filter((card) => get().explicitOf(card) === 'discard');
+    },
+
+    async finishDiscards(cardIds) {
+      await collectionDirty.setValue(true);
+      await get().sync();
+      const discardId = get().tradeTags?.discard?.id;
+      if (!discardId) return;
+      const kept = get().remote.filter((c) => cardIds.includes(c.cardId) && c.tagIds.includes(discardId));
+      if (!kept.length) return;
+      try {
+        await applyTagChanges(api, kept, [{ tagId: discardId, on: false }], undefined, { concurrency: 1, minDelayMs: 350 });
+        set({ remote: [...get().remote] });
+        setPending(prunePending(get().pending, remoteById()));
+        await persist();
+      } catch (error) {
+        toast(`Défausse faite, mais Discard n'a pas pu être retiré : ${errorText(error)}`, 'error');
+      }
     },
 
     async updateSettings(patch) {

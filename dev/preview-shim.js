@@ -71,7 +71,9 @@
   const entries = Array.from({ length: 420 }, (_, i) => {
     const n = i % 400;
     const title = n < real.length ? real[n] : `Carte ${n}`;
-    return { id: `own-${i}`, card_id: `card-${n}`, count: 1,
+    // Doublons simulés : cartes 0 à 19 en deux exemplaires (un shiny, un favori, une ligne de trois).
+    return { id: `own-${i}`, card_id: `card-${n}`, count: i === 402 ? 3 : 1, is_shiny: i === 401, starred: i === 3,
+      obtained_at: new Date(Date.UTC(2026, 0, 1) + i * 3600e3).toISOString(),
       card: { id: `card-${n}`, wikipedia_title: title, rarity: R[(n * 7) % 6],
         description: DESCRIPTIONS[n % DESCRIPTIONS.length], attack: 1000 + ((n * 7919) % 8000), defense: 1000 + ((n * 104729) % 8000),
         image_url: n % 3 ? `https://picsum.photos/seed/wm${n}/320/240` : null,
@@ -89,7 +91,15 @@
     if (url.hostname.includes('wiki-masters')) {
       await new Promise((r) => setTimeout(r, 120));
       window.__calls.push(method + ' ' + url.pathname);
-      if (url.pathname.endsWith('/stats')) return json({ rarityCounts: { C: 70 } });
+      if (url.pathname.endsWith('/stats')) return json({ rarityCounts: { C: 70, n: entries.length } });
+      const discard = url.pathname.match(/^\/api\/user-cards\/([^/]+)\/discard$/);
+      if (discard && method === 'POST') {
+        const i = entries.findIndex((e) => e.id === decodeURIComponent(discard[1]));
+        if (i < 0) return json({ error: 'Exemplaire introuvable' }, 404);
+        if (entries[i].count > 1) entries[i].count--;
+        else entries.splice(i, 1);
+        return json({ ok: true, wikibidous: 1 });
+      }
       const page = Number(url.searchParams.get('page'));
       return json({ collection: entries.slice(page * 100, page * 100 + 100) });
     }
@@ -97,6 +107,10 @@
       window.__calls.push(method + ' ' + url.pathname + url.search);
       const path = url.pathname.replace('/rest/v1/', '');
       if (path === 'tags' && method === 'GET') return json(tags);
+      if (path === 'user_cards' && method === 'GET') {
+        const ids = (url.searchParams.get('id') || '').replace(/^in\.\(|\)$/g, '').split(',');
+        return json(entries.filter((e) => ids.includes(e.id)).map(({ id, count, is_shiny, starred, obtained_at }) => ({ id, count, is_shiny, starred, obtained_at })));
+      }
       if (path === 'tags' && method === 'POST') { const b = JSON.parse(init.body); const t = { id: 't-' + Date.now(), ...b }; tags.push(t); return json([t], 201); }
       if (path === 'tags' && method === 'PATCH') { const id = url.searchParams.get('id').slice(3); const tag = tags.find((t) => t.id === id); if (tag) Object.assign(tag, JSON.parse(init.body)); return json(tag ? [tag] : []); }
       if (path === 'user_card_tags' && method === 'GET') { const rows = uct.map(([user_card_id, tag_id]) => ({ user_card_id, tag_id })); const from = Number((init.headers?.range || '0-999').split('-')[0]); return json(rows.slice(from, from + 1000)); }

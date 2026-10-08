@@ -6,6 +6,8 @@
  */
 export const SITE_ORIGIN = 'https://www.wiki-masters.com';
 export const PROXY_FETCH = 'wmt:proxy-fetch';
+/** Demande au service worker les cookies du site (cookie de session illisible depuis la page). */
+export const SITE_COOKIES = 'wmt:site-cookies';
 
 export interface SiteResponse {
   status: number;
@@ -44,7 +46,15 @@ export const pageTransport: Transport = {
     return { status: response.status, text: await response.text() };
   },
   async cookies() {
-    return parseCookieString(document.cookie);
+    const own = parseCookieString(document.cookie);
+    if ([...own.keys()].some((k) => k.includes('-auth-token'))) return own;
+    try {
+      const list: [string, string][] | undefined = await browser.runtime.sendMessage({ type: SITE_COOKIES });
+      if (Array.isArray(list)) return new Map([...own, ...list]);
+    } catch {
+      // Service worker indisponible : on garde les cookies lisibles.
+    }
+    return own;
   },
 };
 

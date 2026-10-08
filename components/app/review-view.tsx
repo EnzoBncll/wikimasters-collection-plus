@@ -1,4 +1,4 @@
-import { CheckCircle2, Loader2, PanelLeft, Search, SearchX, Sparkles } from 'lucide-react';
+import { CheckCircle2, Copy, Loader2, PanelLeft, Search, SearchX, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -8,6 +8,7 @@ import { useCardViewer } from './card-viewer';
 import { hasActiveFilters, useReview, useVisibleCards, type SortKey } from '@/hooks/use-review';
 import { cn } from '@/lib/utils';
 import { CardGrid, type CardGridHandle } from './card-grid';
+import { DuplicatesDialog } from './duplicates-dialog';
 import { FilterSidebar } from './filter-sidebar';
 import { SelectionBar } from './selection-bar';
 
@@ -20,6 +21,8 @@ export function ReviewView() {
   const gridRef = useRef<CardGridHandle>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [dupsOpen, setDupsOpen] = useState(false);
+  const dupCount = useMemo(() => cards.filter((c) => c.count > 1).length, [cards]);
 
   // La sélection ne garde que les cartes encore visibles.
   useEffect(() => {
@@ -127,6 +130,12 @@ export function ReviewView() {
             </span>
           </Button>
 
+          <Button variant="outline" size="sm" className="h-9 rounded-full" onClick={() => setDupsOpen(true)} title="Tes cartes en double, et la défausse des exemplaires en trop">
+            <Copy className="size-3.5" />
+            Mes doublons
+            <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums">{dupCount}</span>
+          </Button>
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-9 rounded-full">
@@ -177,6 +186,7 @@ export function ReviewView() {
 
         <SelectionBar targets={targets} visible={visible} />
       </div>
+      <DuplicatesDialog open={dupsOpen} onClose={() => setDupsOpen(false)} />
     </div>
   );
 }

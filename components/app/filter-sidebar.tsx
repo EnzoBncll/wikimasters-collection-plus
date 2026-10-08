@@ -3,7 +3,7 @@ import { useMemo } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { tagCounts, useCollection } from '@/hooks/use-collection';
 import { hasActiveFilters, useReview, useVisibleCards } from '@/hooks/use-review';
-import { kindOf } from '@/lib/album-kind';
+import { byKind, isStorage } from '@/lib/album-kind';
 import { RARITY_LABEL, RARITY_ORDER, type SiteTag, type TradeStatus } from '@/lib/types';
 import { systemTagIds } from '@/lib/trade';
 import { cn } from '@/lib/utils';
@@ -129,15 +129,15 @@ export function FilterSidebar({ className }: { className?: string }) {
   }, [cards, explicitOf, version]);
 
   const systemIds = systemTagIds(tradeTags);
-  const ownTags = tags.filter((t) => !systemIds.has(t.id));
+  const ownTags = tags.filter((t) => !systemIds.has(t.id)).sort(byKind);
   const untagged = cards.filter((c) => !c.tagIds.some((t) => !systemIds.has(t))).length;
-  const collection = settings.albumKinds ? ownTags.filter((t) => kindOf(t) === 'collection') : ownTags;
-  const storage = settings.albumKinds ? ownTags.filter((t) => kindOf(t) === 'storage') : [];
-  const pill = (tag: SiteTag, isStorage = false) => (
+  const collection = settings.albumKinds ? ownTags.filter((t) => !isStorage(t)) : ownTags;
+  const storage = settings.albumKinds ? ownTags.filter(isStorage) : [];
+  const pill = (tag: SiteTag, asStorage = false) => (
     <TagPill
       key={tag.id}
       tag={tag}
-      storage={isStorage}
+      storage={asStorage}
       count={counts.tags.get(tag.id) ?? 0}
       active={review.tagFilters.has(tag.id)}
       onClick={() => review.toggleTagFilter(tag.id)}

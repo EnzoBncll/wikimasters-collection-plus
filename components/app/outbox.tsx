@@ -1,12 +1,14 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, ChevronRight, Undo2 } from 'lucide-react';
+import { Check, ChevronRight, Trash2, Undo2 } from 'lucide-react';
 import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCollection } from '@/hooks/use-collection';
 import { getPalette } from '@/lib/palettes';
+import { planDiscards } from '@/lib/discard';
 import { systemTagIds } from '@/lib/trade';
 import type { TradeStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { DiscardDialog } from './discard-dialog';
 import { TRADE_LABEL } from './trade-cart';
 
 const SEND_LABEL = 'Envoi sur WikiMasters';
@@ -16,8 +18,11 @@ const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
 
 /** Ce qui attend dans la boîte d'envoi, regroupé pour le volet. */
 function useOutboxSummary() {
-  const { pending, tagEdits, remoteTags, tags, tradeTags } = useCollection();
+  const { pending, tagEdits, remoteTags, tags, tradeTags, version, discardMarked } = useCollection();
   return useMemo(() => {
+    // Estimation d'après le cache ; le récapitulatif relit shiny et favoris sur le site avant d'agir.
+    const discards = planDiscards(discardMarked());
+    const discardUnits = discards.reduce((n, d) => n + d.units.length, 0);
     const system = systemTagIds(tradeTags);
     const statusOf: Record<string, TradeStatus> = {};
     if (tradeTags) {
@@ -47,9 +52,12 @@ function useOutboxSummary() {
       statuses: [...statuses.entries()],
       albums: [...albums.entries()].map(([id, n]) => ({ tag: tagById.get(id), ...n })).filter((a) => a.tag),
       edits,
-      total: Object.keys(pending).length + edits.length,
+      changes: Object.keys(pending).length + edits.length,
+      discards: discards.length,
+      discardUnits,
+      total: Object.keys(pending).length + edits.length + discards.length,
     };
-  }, [pending, tagEdits, remoteTags, tags, tradeTags]);
+  }, [pending, tagEdits, remoteTags, tags, tradeTags, version, discardMarked]);
 }
 
 /**
@@ -61,6 +69,7 @@ export function Outbox() {
   const summary = useOutboxSummary();
   const [open, setOpen] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [recap, setRecap] = useState(false);
   const empty = summary.total === 0;
 
   useEffect(() => {
@@ -84,7 +93,8 @@ export function Outbox() {
 
   const send = () => {
     setOpen(false);
-    pushPending();
+    if (summary.discards) setRecap(true);
+    else pushPending();
   };
 
   return createPortal(
@@ -201,6 +211,16 @@ export function Outbox() {
                   ))}
                 </Group>
               )}
+              {summary.discards > 0 && (
+                <Group title="Défausse" count={summary.discardUnits}>
+                  <li className="flex items-center gap-2">
+                    <Trash2 className="size-3.5 shrink-0 text-discard" />
+                    {plural(summary.discards, 'carte')} marquée{summary.discards > 1 ? 's' : ''} Discard
+                    <span className="ml-auto text-xs text-muted-foreground tabular-nums">≈ −{summary.discardUnits}</span>
+                  </li>
+                  <li className="text-xs text-muted-foreground">Un exemplaire toujours gardé, jamais les shiny ni les favoris. Récapitulatif et confirmation avant d'agir.</li>
+                </Group>
+              )}
               {empty ? (
                 <p className="px-1 py-6 text-center text-sm text-muted-foreground">
                   Rien à envoyer. Les changements de statut, d'étiquettes et d'albums s'accumulent ici avant d'être envoyés d'un coup.
@@ -212,7 +232,7 @@ export function Outbox() {
             <footer className="flex gap-2 border-t p-3">
               <button
                 type="button"
-                disabled={empty}
+                disabled={!summary.changes}
                 onClick={() => (confirmDiscard ? (discardPending(), setConfirmDiscard(false)) : setConfirmDiscard(true))}
                 title="Annuler toutes les modifications en attente"
                 className={cn(
@@ -236,6 +256,7 @@ export function Outbox() {
       </AnimatePresence>
 
       <SendOverlay />
+      <DiscardDialog open={recap} tagChanges={summary.changes} onClose={() => setRecap(false)} />
     </>,
     document.body,
   );

@@ -5,7 +5,7 @@ import { useCollection } from '@/hooks/use-collection';
 import type { OwnedCard } from '@/lib/types';
 import { systemTagIds } from '@/lib/trade';
 import { cn } from '@/lib/utils';
-import { randomTagColor } from './color-picker';
+import { randomTagColor } from '@/lib/tag-colors';
 
 /**
  * Liste des étiquettes perso avec état pour la sélection (toutes / certaines / aucune).
