@@ -18,7 +18,7 @@ import { useCollection } from '@/hooks/use-collection';
 import { useReview } from '@/hooks/use-review';
 import { RARITY_LABEL, type OwnedCard, type SiteTag } from '@/lib/types';
 import { systemTagIds } from '@/lib/trade';
-import { byKind, goalName, isStorage, kindOf, switchKind, toggleFinished } from '@/lib/album-kind';
+import { byKind, goalName, hasGoalPrefix, isStorage, kindOf, switchKind, toggleFinished } from '@/lib/album-kind';
 import { goalAlbumsItem } from '@/lib/goal-albums';
 import { sheetOutdated } from '@/lib/album-sheet';
 import { useSuggestions } from '@/hooks/use-suggestions';
@@ -200,17 +200,17 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
   const kinds = settings.albumKinds;
   // Les collections finies passent en tête de page, quel que soit le réglage collection / rangement.
   const finished = own.filter((t) => kindOf(t) === 'finished');
-  // Albums à objectif : préfixe « 🎯 » (reconnu partout), ou liste fermée enregistrée dans l'extension.
+  // Albums à objectif : préfixe « ◇ » (reconnu partout), ou liste fermée enregistrée dans l'extension.
   const isGoal = (t: SiteTag) => kindOf(t) === 'goal' || (goalIds.has(t.id) && kindOf(t) === 'collection');
   const goals = own.filter(isGoal);
-  const unprefixedGoals = goals.filter((t) => kindOf(t) !== 'goal');
+  const unprefixedGoals = goals.filter((t) => !hasGoalPrefix(t.name));
   // Rangements (« · Nom ») : toujours leur propre groupe, juste avant le statut d'échange.
   const collections = own.filter((t) => kindOf(t) !== 'finished' && !isGoal(t) && !isStorage(t));
   const storages = own.filter((t) => isStorage(t));
 
   const prefixGoals = async () => {
     for (const tag of unprefixedGoals) await updateTag(tag.id, { name: goalName(tag.name) });
-    toast(`${unprefixedGoals.length} album(s) renommé(s) avec « 🎯 » : à envoyer depuis la boîte d'envoi`, 'success');
+    toast(`${unprefixedGoals.length} album(s) renommé(s) avec « ◇ » : à envoyer depuis la boîte d'envoi`, 'success');
   };
 
   const markFinished = async (tag: SiteTag) => {
@@ -429,7 +429,7 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
             </h2>
             {unprefixedGoals.length > 0 && (
               <Button variant="outline" size="sm" className="h-7 rounded-full px-2.5 text-xs" onClick={prefixGoals}>
-                Ajouter « 🎯 » à {unprefixedGoals.length} album{unprefixedGoals.length > 1 ? 's' : ''}
+                Ajouter « ◇ » à {unprefixedGoals.length} album{unprefixedGoals.length > 1 ? 's' : ''}
               </Button>
             )}
           </div>

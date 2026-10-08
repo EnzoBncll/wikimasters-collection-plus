@@ -1,4 +1,4 @@
-import { Heart, Loader2, RefreshCw, Search, Trash2, Upload, Users } from 'lucide-react';
+import { CircleCheck, Heart, Loader2, RefreshCw, Search, Trash2, Upload, Users } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -162,6 +162,36 @@ export function WishlistView() {
       toast(`« ${card.title} » ajoutée aux souhaits WikiMasters`, 'success');
     });
 
+  /* ---------- Souhaits déjà exaucés ---------- */
+  const ownedOnSite = list?.cards.filter(isOwned) ?? [];
+  const ownedInAlbums = albumGroups.flatMap((g) => g.items.filter((w) => ownedTitles.has(titleKey(w.title))).map((w) => ({ key: g.key, item: w })));
+  const doneCount = ownedOnSite.length + ownedInAlbums.length;
+  const [cleaning, setCleaning] = useState(false);
+  /** Retire d'un coup les cartes obtenues : de la liste du site (une écriture par carte) et des listes d'albums. */
+  const removeObtained = async () => {
+    setCleaning(true);
+    let removed = 0;
+    try {
+      for (const card of ownedOnSite) {
+        await removeWish(card.cardId);
+        removed++;
+      }
+      if (ownedInAlbums.length) {
+        const all = await wishlistsItem.getValue();
+        const next = { ...all };
+        for (const { key, item } of ownedInAlbums) next[key] = (next[key] ?? []).filter((w) => w.qid !== item.qid);
+        await wishlistsItem.setValue(next);
+      }
+      setList((l) => l && { ...l, cards: l.cards.filter((c) => !isOwned(c)) });
+      toast(`${removed + ownedInAlbums.length} souhait(s) exaucé(s) retiré(s)`, 'success');
+    } catch (e) {
+      toast(`Liste de souhaits : ${String((e as Error)?.message ?? e)}`, 'error');
+      void load();
+    } finally {
+      setCleaning(false);
+    }
+  };
+
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8 px-4 py-6 sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -175,6 +205,27 @@ export function WishlistView() {
           {loading ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Actualiser
         </Button>
       </header>
+
+      {doneCount > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-5 py-3.5">
+          <p className="flex items-center gap-2 text-sm">
+            <CircleCheck className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <span>
+              <b>{doneCount} souhait{doneCount > 1 ? 's' : ''} exaucé{doneCount > 1 ? 's' : ''}</b> : tu as déjà{' '}
+              {[
+                ownedOnSite.length && `${ownedOnSite.length} carte${ownedOnSite.length > 1 ? 's' : ''} de ta liste WikiMasters`,
+                ownedInAlbums.length && `${ownedInAlbums.length} souhait${ownedInAlbums.length > 1 ? 's' : ''} d'album`,
+              ]
+                .filter(Boolean)
+                .join(' et ')}
+              . Les retirer ?
+            </span>
+          </p>
+          <Button size="sm" onClick={removeObtained} disabled={cleaning}>
+            {cleaning ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />} Retirer {doneCount > 1 ? 'les' : 'la'} carte{doneCount > 1 ? 's' : ''} obtenue{doneCount > 1 ? 's' : ''}
+          </Button>
+        </div>
+      )}
 
       <CatalogSearch wishedIds={wishedIds} isOwned={isOwned} busy={busy} onToggle={toggle} />
 
@@ -226,6 +277,16 @@ export function WishlistView() {
                   <div className="absolute top-2 right-2 z-50">
                     <HeartButton on busy={busy.has(card.cardId)} onClick={() => toggle(card)} label="Retirer des souhaits" />
                   </div>
+                  {owned && (
+                    <button
+                      type="button"
+                      onClick={() => toggle(card)}
+                      disabled={busy.has(card.cardId)}
+                      className="flex w-full cursor-pointer items-center justify-center gap-1 rounded-full border border-emerald-500/40 px-2 py-1 text-xs text-emerald-700 transition hover:bg-emerald-500/10 disabled:cursor-progress dark:text-emerald-300"
+                    >
+                      <CircleCheck className="size-3.5" /> Obtenue · retirer des souhaits
+                    </button>
+                  )}
                   {friends.length > 0 && !owned && (
                     <p className="flex items-center gap-1 truncate px-1 text-xs text-muted-foreground" title={`Possédée par ${friends.join(', ')}`}>
                       <Users className="size-3.5 shrink-0 text-primary" /> {friends.slice(0, 3).join(', ')}
@@ -273,7 +334,14 @@ export function WishlistView() {
                         <p className="truncate text-xs text-muted-foreground">{item.description ?? `${item.sitelinks} éditions de Wikipédia`}</p>
                       </div>
                       {have ? (
-                        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">Obtenue</span>
+                        <button
+                          type="button"
+                          onClick={() => removeAlbumWish(group.key, item.qid)}
+                          title="Tu as cette carte : la retirer de la liste de l'album"
+                          className="flex cursor-pointer items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-700 transition hover:bg-emerald-500/25 dark:text-emerald-300"
+                        >
+                          <CircleCheck className="size-3.5" /> Obtenue · retirer
+                        </button>
                       ) : onSite ? (
                         <span className="flex items-center gap-1 text-xs text-muted-foreground">
                           <Heart className="size-3.5 text-primary" fill="currentColor" /> Sur WikiMasters

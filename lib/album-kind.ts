@@ -5,7 +5,7 @@ import type { SiteTag } from './types';
  * Type d'une étiquette, lu dans son nom et sa couleur sur le site : le même compte WikiMasters
  * ouvert sur un autre ordinateur retrouve donc le même classement.
  *  - rangement : « · Nom », gris, sans emoji ;
- *  - album à objectif : « 🎯 Nom » (sa liste fermée est dans l'extension, lib/goal-albums.ts) ;
+ *  - album à objectif : « ◇ Nom » (anciennement « 🎯 Nom ») (sa liste fermée est dans l'extension, lib/goal-albums.ts) ;
  *  - collection : emoji et couleur vive ;
  *  - collection finie : nom terminé par « ✓ », couleur or.
  */
@@ -13,7 +13,9 @@ import type { SiteTag } from './types';
 export type AlbumKind = 'goal' | 'collection' | 'finished' | 'storage';
 
 export const STORAGE_PREFIX = '· ';
-export const GOAL_PREFIX = '🎯 ';
+export const GOAL_PREFIX = '◇ ';
+/** Préfixe des versions 0.8.3 : encore reconnu, remplacé par « ◇ » d'un clic. */
+const LEGACY_GOAL_PREFIX = '🎯';
 export const STORAGE_COLOR = '#71717a';
 export const FINISHED_SUFFIX = ' ✓';
 export const FINISHED_COLOR = '#eab308';
@@ -30,11 +32,14 @@ export function kindOf(tag: Pick<SiteTag, 'name'>): AlbumKind {
   const name = tag.name.trim();
   if (name.startsWith(STORAGE_PREFIX.trim())) return 'storage';
   if (TRAILING_CHECK.test(name)) return 'finished';
-  if (name.startsWith(GOAL_PREFIX.trim())) return 'goal';
+  if (name.startsWith(GOAL_PREFIX.trim()) || name.startsWith(LEGACY_GOAL_PREFIX)) return 'goal';
   return 'collection';
 }
 
-/** Nom d'album à objectif : « 🎯 » à la place de l'emoji de tête (et sans « ✓ »). */
+/** L'album porte déjà le préfixe actuel « ◇ ». */
+export const hasGoalPrefix = (name: string) => name.trim().startsWith(GOAL_PREFIX.trim());
+
+/** Nom d'album à objectif : « ◇ » à la place de l'emoji de tête (et sans « ✓ »). */
 export function goalName(name: string): string {
   return `${GOAL_PREFIX}${bareName(name)}`;
 }
@@ -45,6 +50,7 @@ export const isStorage = (tag: Pick<SiteTag, 'name'>) => kindOf(tag) === 'storag
 export function bareName(name: string): string {
   let n = name.trim();
   if (n.startsWith(STORAGE_PREFIX.trim())) n = n.slice(STORAGE_PREFIX.trim().length).trim();
+  if (n.startsWith(GOAL_PREFIX.trim())) n = n.slice(GOAL_PREFIX.trim().length).trim();
   n = n.replace(TRAILING_CHECK, '').trim();
   return n.replace(LEADING_EMOJI, '').trim() || n;
 }

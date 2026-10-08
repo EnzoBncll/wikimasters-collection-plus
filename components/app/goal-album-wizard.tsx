@@ -237,7 +237,7 @@ export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; o
     if (!draft || !entries.length || !name.trim() || creating) return;
     setCreating(true);
     try {
-      // Préfixe commun « 🎯 » : les albums à objectif se reconnaissent sur le site comme sur tous tes ordinateurs.
+      // Préfixe commun « ◇ » : les albums à objectif se reconnaissent sur le site comme sur tous tes ordinateurs.
       const full = goalName(name);
       const existing = tags.find((t) => t.name.toLowerCase() === full.toLowerCase() || t.name.toLowerCase() === name.trim().toLowerCase());
       const tag = existing ?? (await createTag(full, color));
