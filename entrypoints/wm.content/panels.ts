@@ -28,7 +28,8 @@ interface Copy {
   tagIds: Set<string>;
 }
 
-const PAGE_CSS = `.wmt-col { position: relative; z-index: 2; }`;
+// La carte passe devant l'arc des statuts (même place, plan plus profond).
+const PAGE_CSS = `.wmt-col { position: relative; z-index: 2; } .wmt-cardblock { position: relative; z-index: 2; }`;
 
 const LAYER_CSS = `${PANEL_CSS}
   :host { position: absolute !important; inset: 0 !important; z-index: 1 !important; pointer-events: none; }
@@ -70,20 +71,20 @@ const CENTERS = [0.13, 0.5, 0.87];
 const HALF = 0.085;
 
 const ARC_CSS = `
-  :host { all: initial; display: block; position: relative; width: ${ARC_W}px; height: ${ARC_H}px; margin: -8px auto 2px; }
+  :host { all: initial; display: block; position: relative; z-index: 1; width: ${ARC_W}px; height: ${ARC_H}px; margin: -8px auto 2px; }
   svg { position: absolute; inset: 0; overflow: visible; }
   .seg { cursor: pointer; outline: none; transform-box: fill-box; transform-origin: center; transition: transform .25s cubic-bezier(.2,.9,.3,1.5); color: var(--muted-foreground); }
   .seg .rim { fill: none; stroke: oklch(1 0 0 / 11%); stroke-width: 40; stroke-linecap: round; stroke-linejoin: round; transition: stroke .2s; }
   .seg .band { fill: none; stroke: var(--glass); stroke-width: 38; stroke-linecap: round; stroke-linejoin: round; transition: stroke .2s; }
   .seg .ic { fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; transition: color .2s; }
-  .seg:hover, .seg:focus-visible { transform: scale(1.12); color: #fff; }
+  .seg:hover, .seg:focus-visible { transform: translate(var(--nx), var(--ny)) rotate(var(--r)) scale(1.12, 1.18) rotate(calc(var(--r) * -1)); color: #fff; }
   .seg:hover .band, .seg:focus-visible .band, .seg.on .band { stroke: var(--c); }
   .seg:hover .rim, .seg:focus-visible .rim, .seg.on .rim { stroke: color-mix(in srgb, var(--c) 60%, #fff); }
   .seg.on { color: #fff; }
   .seg:hover { filter: drop-shadow(0 0 12px color-mix(in srgb, var(--c) 55%, transparent)); }
-  .tip { position: absolute; top: calc(100% + 2px); transform: translate(-50%, -4px); white-space: nowrap; padding: 4px 9px; border-radius: 8px; pointer-events: none;
+  .tip { position: absolute; transform: translate(-50%, -50%) rotate(var(--r)) translateY(-4px); white-space: nowrap; padding: 4px 9px; border-radius: 8px; pointer-events: none;
     font: 700 10px/1.3 ui-sans-serif, system-ui, sans-serif; letter-spacing: .02em; color: #fff; background: color-mix(in srgb, var(--c) 85%, #000); opacity: 0; transition: .18s cubic-bezier(.2,.9,.3,1); }
-  .tip.show { opacity: 1; transform: translate(-50%, 0); }
+  .tip.show { opacity: 1; transform: translate(-50%, -50%) rotate(var(--r)); }
   .tip kbd { font: 600 9px ui-monospace, monospace; opacity: .65; margin-left: 4px; }
 `;
 
@@ -132,18 +133,31 @@ const slope = (t: number) => {
   return (Math.atan2(dy, dx) * 180) / Math.PI;
 };
 
+/** Vecteur perpendiculaire à l'arc (vers l'extérieur, loin de la carte), de longueur `len`. */
+const normal = (t: number, len: number): [number, number] => {
+  const a = (slope(t) * Math.PI) / 180;
+  return [-Math.sin(a) * len, Math.cos(a) * len];
+};
+
 function arcMarkup() {
   const segs = STATUS.map((st, i) => {
     const c = CENTERS[i]!;
     const pts = Array.from({ length: 9 }, (_, k) => at(c - HALF + (2 * HALF * k) / 8));
     const d = `M ${pts.map((p) => p.map((n) => n.toFixed(1)).join(' ')).join(' L ')}`;
     const [x, y] = at(c);
-    return `<g class="seg" data-st="${st.key}" tabindex="0" role="button" aria-label="${st.label}" style="--c:${st.color}">
+    const [nx, ny] = normal(c, 5);
+    return `<g class="seg" data-st="${st.key}" tabindex="0" role="button" aria-label="${st.label}" style="--c:${st.color};--r:${slope(c).toFixed(1)}deg;--nx:${nx.toFixed(1)}px;--ny:${ny.toFixed(1)}px">
       <path class="rim" d="${d}"/><path class="band" d="${d}"/>
       <g class="ic" transform="translate(${(x - 9).toFixed(1)} ${(y - 9).toFixed(1)}) rotate(${slope(c).toFixed(1)} 9 9) scale(.75)">${ICONS[st.key]}</g>
     </g>`;
   }).join('');
-  const tips = STATUS.map((st, i) => `<span class="tip" data-tip="${st.key}" style="--c:${st.color};left:${at(CENTERS[i]!)[0]}px">${st.label}<kbd>${st.kbd}</kbd></span>`).join('');
+  // Étiquette sous le segment, le long de sa normale et inclinée comme lui.
+  const tips = STATUS.map((st, i) => {
+    const c = CENTERS[i]!;
+    const [x, y] = at(c);
+    const [nx, ny] = normal(c, 34);
+    return `<span class="tip" data-tip="${st.key}" style="--c:${st.color};--r:${slope(c).toFixed(1)}deg;left:${(x + nx).toFixed(1)}px;top:${(y + ny).toFixed(1)}px">${st.label}<kbd>${st.kbd}</kbd></span>`;
+  }).join('');
   return `<svg viewBox="0 0 ${ARC_W} ${ARC_H}">${segs}</svg>${tips}`;
 }
 
@@ -525,6 +539,7 @@ export function startPanels(): PanelsApi {
   const detach = () => {
     for (const h of hosts) if (h.isConnected) h.remove();
     document.querySelectorAll('.wmt-col').forEach((c) => c.classList.remove('wmt-col'));
+    document.querySelectorAll('.wmt-cardblock').forEach((c) => c.classList.remove('wmt-cardblock'));
   };
 
   let lastCardId = '';
@@ -543,6 +558,7 @@ export function startPanels(): PanelsApi {
     if (getComputedStyle(stage).position === 'static') stage.style.position = 'relative';
     if (layer.host.parentElement !== stage) stage.append(layer.host);
     const block = cardBlock(flip, col);
+    if (!block.classList.contains('wmt-cardblock')) block.classList.add('wmt-cardblock');
     if (block.nextElementSibling !== arc.host) block.after(arc.host);
     if (search.host.parentElement !== col || col.lastElementChild !== search.host) col.append(search.host);
 
