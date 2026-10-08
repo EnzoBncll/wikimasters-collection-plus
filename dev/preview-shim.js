@@ -86,6 +86,7 @@
     { id: 't-foot', name: 'Footballeurs', color: '#3b82f6' }, { id: 't-pays', name: 'Pays', color: '#f59e0b' }];
   const uct = [['own-3', 't-nt'], ['own-5', 't-nt'], ['own-0', 't-foot'], ['own-1', 't-foot'], ['own-4', 't-foot'], ['own-5', 't-foot'], ['own-8', 't-pays'], ['own-7', 't-trade']];
   window.__calls = [];
+  const wished = ['card-2'];
   const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
   const orig = window.fetch.bind(window);
   window.fetch = async (input, init = {}) => {
@@ -103,6 +104,17 @@
         else entries.splice(i, 1);
         return json({ ok: true, wikibidous: 1 });
       }
+      // Catalogue : liste de souhaits (?wishlist=1) et recherche (?q=).
+      if (url.pathname === '/api/cards') {
+        const all = entries.slice(0, 400).map((e) => e.card);
+        const extra = ['Rafael Nadal', 'Pelé', 'Diego Maradona', 'Johan Cruyff'].map((t, k) => ({ id: `cat-${k}`, wikipedia_title: t, rarity: R[(k * 5 + 2) % 6], description: DESCRIPTIONS[k], image_url: `https://picsum.photos/seed/cat${k}/320/240` }));
+        if (url.searchParams.has('wishlist')) {
+          const cards = [...extra, ...wished.map((id) => all.find((c) => c.id === id)).filter(Boolean)].filter((c) => wished.includes(c.id) || c.id.startsWith('cat-'));
+          return json({ cards, total: cards.length, ownedCardIds: ['card-2'], friendOwners: { 'cat-0': [{ id: 'u1', username: 'Léa' }, { id: 'u2', username: 'Max' }], 'cat-2': [{ id: 'u3', username: 'Sam' }] } });
+        }
+        const q = (url.searchParams.get('q') || '').toLowerCase();
+        return json({ cards: [...extra, ...all].filter((c) => c.wikipedia_title.toLowerCase().includes(q)).slice(0, 50) });
+      }
       const page = Number(url.searchParams.get('page'));
       return json({ collection: entries.slice(page * 100, page * 100 + 100) });
     }
@@ -110,6 +122,8 @@
       window.__calls.push(method + ' ' + url.pathname + url.search);
       const path = url.pathname.replace('/rest/v1/', '');
       if (path === 'tags' && method === 'GET') return json(tags);
+      if (path === 'wishlist_items' && method === 'POST') { wished.push(JSON.parse(init.body).card_id); return new Response(null, { status: 201 }); }
+      if (path === 'wishlist_items' && method === 'DELETE') { const id = url.searchParams.get('card_id').slice(3); wished.splice(wished.indexOf(id), 1); return new Response(null, { status: 204 }); }
       if (path === 'user_cards' && method === 'GET') {
         const ids = (url.searchParams.get('id') || '').replace(/^in\.\(|\)$/g, '').split(',');
         return json(entries.filter((e) => ids.includes(e.id)).map(({ id, count, is_shiny, starred, obtained_at }) => ({ id, count, is_shiny, starred, obtained_at })));

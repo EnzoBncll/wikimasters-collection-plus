@@ -1,4 +1,4 @@
-import { LayoutGrid, Settings, Sparkles, Tags } from 'lucide-react';
+import { Heart, LayoutGrid, Settings, Sparkles, Tags } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { NotchNav, type NotchItemData } from '@/components/ui/adaptive-notch-navigation-bar';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -15,10 +15,11 @@ import { ReviewView } from './review-view';
 import { SyncStatus } from './sync-status';
 import { ThemeToggle } from './theme-toggle';
 import { TagsView } from './tags-view';
+import { WishlistView } from './wishlist-view';
 import { Toaster } from './toaster';
 import { UpdateBanner } from './update-banner';
 
-type ViewId = 'review' | 'tags' | 'suggestions' | 'settings';
+type ViewId = 'review' | 'tags' | 'wishes' | 'suggestions' | 'settings';
 
 function Logo() {
   const palette = useCollection((s) => s.settings.palette);
@@ -70,6 +71,7 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
   const items: NotchItemData[] = [
     { id: 'review', label: 'Cards', icon: LayoutGrid, badge: newCount ? String(newCount) : undefined },
     { id: 'tags', label: 'Albums', icon: Tags },
+    { id: 'wishes', label: 'Souhaits', icon: Heart },
     { id: 'suggestions', label: 'Enhance', icon: Sparkles, badge: pendingCount ? String(pendingCount) : undefined },
     { id: 'settings', label: 'Paramètres', icon: Settings, iconOnly: true },
   ];
@@ -100,6 +102,7 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
               }}
             />
           )}
+          {view === 'wishes' && <WishlistView />}
           {view === 'suggestions' && <EnhanceView section={enhanceSection} onSection={setEnhanceSection} />}
           {view === 'settings' && <ExportView />}
         </div>

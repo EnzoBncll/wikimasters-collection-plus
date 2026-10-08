@@ -30,6 +30,7 @@ Range ta collection de cartes Wikipédia : tri **Trade / Not Trade** en quelques
 - **Étiquettes et albums** : un seul bouton **Nouveau** pour une étiquette / album, un album à objectif ou une étiquette de rangement. Chaque étiquette s'ouvre en album à feuilleter, **relié** ou **classeur** : rangement à la main ou vue par rareté (sans perdre ton ordre), croix pour retirer une carte (elle passe dans « Écartées »), description de couverture rédigée par l'IA.
 - **Albums à objectif** : décris ce que tu veux réunir (« les rois de France », « les empereurs en Europe après 1600 », « le top 50 des personnalités féminines françaises avant 1900 »). Collection+ cherche une page « Liste de… » de Wikipédia, une liste Wikidata notée de 0 à 1 selon les dates et le lieu, ou traduit ta phrase en règles modifiables (avec une clé Gemini gratuite, facultative). Tu verrouilles la liste, l'album prend le préfixe « 🎯 » et son propre groupe en tête de la page Albums (au-dessus des collections et des rangements), avec ses cases numérotées : cartes collées, cartes possédées à coller d'un clic, cartes à trouver. Survole une carte pour voir l'article.
 - **Enhance** : cartes à ranger dans tes albums, nouveaux albums possibles d'après Wikidata, fiches d'album rédigées par l'IA intégrée de Chrome.
+- **Souhaits** : une page dédiée à ta liste de souhaits WikiMasters (le cœur du site) : recherche dans le catalogue pour en ajouter, filtre « À trouver » et « Chez tes amis » (qui possède la carte, pour proposer un échange), et les souhaits notés sous tes albums, à envoyer sur le site d'un clic.
 - **Liste de souhaits et suggestions** : sous chaque album, les cartes les plus connues de son thème que tu n'as pas encore.
 - **Export** : CSV, copie pour tableur, ou classeur Google Sheets mis en forme.
 - **Doublons et défausse** : « Mes doublons » liste tes cartes en double ; les cartes marquées Discard sont défaussées depuis la boîte d'envoi, après un récapitulatif (un exemplaire toujours gardé, jamais les shiny ni les favoris).
@@ -42,7 +43,7 @@ Range ta collection de cartes Wikipédia : tri **Trade / Not Trade** en quelques
   - statistiques de tirage, compteur de paquets dans l'onglet et sur l'icône, notifications (réserve pleine, pack PRO) ;
   - plein écran 3D sur les cartes, liste de souhaits mise en avant sur le marché et les échanges (cœur pour en ajouter), images libres en option.
 - **Synchronisation entre ordinateurs** : albums à objectif, mises en page, cartes écartées, souhaits, règles et réglages suivent sur chaque ordinateur où tu es connecté à Chrome (synchronisation activée). Rien à configurer, aucun compte en plus ; les cartes et étiquettes, elles, sont déjà sur WikiMasters. État et bouton « Synchroniser » dans **Paramètres › Synchro et export**.
-- **Popup** : compteur de paquets, historique et export CSV des tirages, réglages rapides et choix du thème.
+- **Popup** : bouton « Synchroniser » (dernier échange entre ordinateurs), compteur de paquets, historique et export CSV des tirages, réglages rapides et choix du thème.
 - **Thèmes** : mode clair, sombre ou auto, et 10 palettes qui recolorent l'interface, le bouton sur le site et l'icône de l'extension. Sur le site, trois styles : couleur pleine, ambiance teintée ou irisé.
 - **Cache local** : la collection s'affiche instantanément, seuls les changements sont rechargés.
 

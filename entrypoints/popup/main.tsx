@@ -1,4 +1,4 @@
-import { BarChart3, Download, ExternalLink, Home, Monitor, Moon, Package, Settings2, Sparkles, Sun, Trash2 } from 'lucide-react';
+import { BarChart3, CloudCheck, CloudOff, Download, Loader2, RefreshCw, ExternalLink, Home, Monitor, Moon, Package, Settings2, Sparkles, Sun, Trash2 } from 'lucide-react';
 import { StrictMode, useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@/assets/globals.css';
@@ -6,6 +6,7 @@ import { BrandIcon } from '@/components/app/brand-icon';
 import { SiteSettings } from '@/components/app/site-settings';
 import { applyAppearance, cachedAppearance, rememberAppearance } from '@/lib/appearance';
 import { collectionCache } from '@/lib/cache';
+import { CLOUD_SYNC_NOW, cloudSyncItem } from '@/lib/cloud-sync';
 import { downloadText } from '@/lib/csv';
 import {
   ago,
@@ -32,6 +33,42 @@ import { availableUpdate, checkForUpdate, currentVersion, type UpdateInfo } from
 import { cn } from '@/lib/utils';
 
 applyAppearance(cachedAppearance() ?? DEFAULT_SETTINGS);
+
+/** Synchro entre ordinateurs (compte Chrome) : dernier échange et bouton pour la lancer tout de suite. */
+function CloudSyncRow() {
+  const sync = useStored(cloudSyncItem, null as Awaited<ReturnType<typeof cloudSyncItem.getValue>> | null);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try {
+      await browser.runtime.sendMessage({ type: CLOUD_SYNC_NOW });
+    } finally {
+      setBusy(false);
+    }
+  };
+  if (sync?.enabled === false) {
+    return (
+      <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+        <CloudOff className="size-3.5" /> Synchro entre ordinateurs désactivée
+      </p>
+    );
+  }
+  const last = Math.max(sync?.lastPushAt ?? 0, sync?.lastPullAt ?? 0);
+  const problem = sync?.error || sync?.tooBig.length;
+  return (
+    <button
+      type="button"
+      onClick={run}
+      disabled={busy}
+      title="Albums à objectif, mises en page, souhaits et réglages, via ton compte Chrome"
+      className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-full border bg-card p-2.5 text-sm transition hover:-translate-y-px hover:border-foreground/25 disabled:cursor-progress"
+    >
+      {busy ? <Loader2 className="size-4 animate-spin text-primary" /> : last ? <CloudCheck className={cn('size-4', problem ? 'text-destructive' : 'text-primary')} /> : <RefreshCw className="size-4 text-primary" />}
+      Synchroniser
+      <span className="text-[11px] text-muted-foreground">{busy ? '…' : last ? `· ${Date.now() - last < 60_000 ? "à l'instant" : `il y a ${ago(last)}`}` : '· jamais'}</span>
+    </button>
+  );
+}
 
 function useStored<T>(item: { getValue(): Promise<T>; watch(cb: (v: T) => void): () => void }, fallback: T): T {
   const [value, setValue] = useState<T>(fallback);
@@ -188,6 +225,7 @@ function HomeTab() {
       >
         <Package className="size-4 text-primary" /> Ouvrir un paquet <ExternalLink className="size-3 text-muted-foreground" />
       </a>
+      <CloudSyncRow />
       {update?.latest && (
         <a href={update.url} target="_blank" rel="noopener" className="block rounded-xl bg-muted px-3 py-2 text-center text-xs hover:underline">
           Version {update.latest} disponible — voir la mise à jour

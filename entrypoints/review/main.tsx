@@ -16,8 +16,8 @@ const applyHash = () => {
 applyHash();
 window.addEventListener('hashchange', applyHash);
 
-// Lien direct vers une vue : review.html#tags, #suggestions, #settings (ou #export) ; un album : #album=<id de l'étiquette ou « none »>.
-const VIEWS = ['review', 'tags', 'suggestions', 'settings'] as const;
+// Lien direct vers une vue : review.html#tags, #wishes, #suggestions, #settings (ou #export) ; un album : #album=<id de l'étiquette ou « none »>.
+const VIEWS = ['review', 'tags', 'wishes', 'suggestions', 'settings'] as const;
 const hash = location.hash === '#export' ? '#settings' : location.hash;
 const hashView = hash.startsWith('#album=') ? 'tags' : VIEWS.find((v) => hash === `#${v}`);
 

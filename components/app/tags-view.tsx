@@ -204,8 +204,9 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
   const isGoal = (t: SiteTag) => kindOf(t) === 'goal' || (goalIds.has(t.id) && kindOf(t) === 'collection');
   const goals = own.filter(isGoal);
   const unprefixedGoals = goals.filter((t) => kindOf(t) !== 'goal');
-  const collections = own.filter((t) => kindOf(t) !== 'finished' && !isGoal(t) && !(kinds && isStorage(t)));
-  const storages = kinds ? own.filter((t) => isStorage(t)) : [];
+  // Rangements (« · Nom ») : toujours leur propre groupe, juste avant le statut d'échange.
+  const collections = own.filter((t) => kindOf(t) !== 'finished' && !isGoal(t) && !isStorage(t));
+  const storages = own.filter((t) => isStorage(t));
 
   const prefixGoals = async () => {
     for (const tag of unprefixedGoals) await updateTag(tag.id, { name: goalName(tag.name) });
@@ -575,7 +576,7 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
             layoutKey={album.key}
             tagId={album.key !== 'none' && !systemIds.has(album.key) ? album.key : undefined}
             focusImprove={album.focus}
-            storage={kinds && storages.some((t) => t.id === album.key)}
+            storage={storages.some((t) => t.id === album.key)}
             cards={album.key === 'none' ? untagged : (byTag.get(album.key) ?? [])}
             onRename={
               album.key !== 'none' && !systemIds.has(album.key)
