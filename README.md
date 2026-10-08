@@ -134,7 +134,7 @@ Tes réglages, règles et données restent en place (l'identifiant de l'extensio
 
 ## Plusieurs ordinateurs
 
-Installe Collection+ sur chaque ordinateur et connecte-toi à Chrome avec le même compte, synchronisation activée (`chrome://settings/syncSetup`, « Extensions » coché). Tes albums à objectif, mises en page et réglages arrivent d'eux-mêmes, en quelques secondes, et chaque changement repart vers les autres ordinateurs. Si deux ordinateurs ont modifié les mêmes données hors ligne, les deux versions sont fusionnées.
+Installe Collection+ sur chaque ordinateur et connecte-toi à Chrome avec le même compte, synchronisation activée (`chrome://settings/syncSetup`, « Extensions » coché). Tes albums à objectif, mises en page et réglages arrivent d'eux-mêmes, en quelques secondes, et chaque changement repart vers les autres ordinateurs ; une vérification automatique repasse toutes les 5 minutes. Si deux ordinateurs ont modifié les mêmes données hors ligne, les deux versions sont fusionnées.
 
 La synchronisation de Chrome offre 100 Ko par extension : les données sont compressées, ce qui laisse de la place pour des dizaines d'albums à objectif. La place utilisée s'affiche dans **Paramètres › Synchro et export**.
 
@@ -180,7 +180,7 @@ Le workflow [Release](.github/workflows/release.yml) construit le zip et crée l
 
 - Collection en cache (`chrome.storage.local`) ; à l'ouverture, vérification légère (`/api/my-collection/stats` + étiquettes).
 - Rechargement complet si le site a modifié la collection (paquet, échange, marché… détecté automatiquement), si les stats changent, si le cache a plus de 6 h, ou via ↻.
-- Entre ordinateurs (`lib/cloud-sync.ts`, dans le service worker) : chaque donnée propre à l'extension est compressée (gzip), découpée en morceaux de 8 Ko et recopiée dans `chrome.storage.sync`, avec son empreinte et l'appareil d'origine. Au démarrage, chaque donnée est comparée à la copie partagée (prise, envoyée ou fusionnée) ; ensuite, les changements partent après 2,5 s de calme.
+- Entre ordinateurs (`lib/cloud-sync.ts`, dans le service worker) : chaque donnée propre à l'extension est compressée (gzip), découpée en morceaux de 8 Ko et recopiée dans `chrome.storage.sync`, avec son empreinte et l'appareil d'origine. Au démarrage, chaque donnée est comparée à la copie partagée (prise, envoyée ou fusionnée) ; ensuite, les changements partent après 2,5 s de calme, et une vérification complète repasse toutes les 5 minutes.
 
 ## Licence
 

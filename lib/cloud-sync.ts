@@ -71,6 +71,9 @@ const PART = (k: string, i: number) => `s:${k}:${i}`;
 /** Taille d'un morceau (8 Ko par entrée, nom de clé et guillemets compris). */
 const CHUNK = 7800;
 const DEBOUNCE = 2500;
+/** Vérification automatique : rattrape ce qu'un événement de Chrome aurait manqué (service worker endormi, réseau coupé…). */
+const AUTO_ALARM = 'wmt-cloud-sync';
+const AUTO_MINUTES = 5;
 
 interface Meta {
   h: string;
@@ -318,6 +321,13 @@ export function startCloudSync() {
     if (message?.type !== CLOUD_SYNC_NOW) return;
     syncNow().then(() => sendResponse({ ok: true }));
     return true;
+  });
+
+  browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === AUTO_ALARM) void syncNow();
+  });
+  void browser.alarms.get(AUTO_ALARM).then((alarm) => {
+    if (!alarm) void browser.alarms.create(AUTO_ALARM, { periodInMinutes: AUTO_MINUTES });
   });
 
   void syncNow();
