@@ -5,13 +5,15 @@ import type { SiteTag } from './types';
  * Type d'une étiquette, lu dans son nom et sa couleur sur le site : le même compte WikiMasters
  * ouvert sur un autre ordinateur retrouve donc le même classement.
  *  - rangement : « · Nom », gris, sans emoji ;
+ *  - album à objectif : « 🎯 Nom » (sa liste fermée est dans l'extension, lib/goal-albums.ts) ;
  *  - collection : emoji et couleur vive ;
  *  - collection finie : nom terminé par « ✓ », couleur or.
  */
 
-export type AlbumKind = 'collection' | 'finished' | 'storage';
+export type AlbumKind = 'goal' | 'collection' | 'finished' | 'storage';
 
 export const STORAGE_PREFIX = '· ';
+export const GOAL_PREFIX = '🎯 ';
 export const STORAGE_COLOR = '#71717a';
 export const FINISHED_SUFFIX = ' ✓';
 export const FINISHED_COLOR = '#eab308';
@@ -28,7 +30,13 @@ export function kindOf(tag: Pick<SiteTag, 'name'>): AlbumKind {
   const name = tag.name.trim();
   if (name.startsWith(STORAGE_PREFIX.trim())) return 'storage';
   if (TRAILING_CHECK.test(name)) return 'finished';
+  if (name.startsWith(GOAL_PREFIX.trim())) return 'goal';
   return 'collection';
+}
+
+/** Nom d'album à objectif : « 🎯 » à la place de l'emoji de tête (et sans « ✓ »). */
+export function goalName(name: string): string {
+  return `${GOAL_PREFIX}${bareName(name)}`;
 }
 
 export const isStorage = (tag: Pick<SiteTag, 'name'>) => kindOf(tag) === 'storage';
@@ -82,8 +90,8 @@ export async function toggleFinished(tag: SiteTag, fallbackColor: () => string):
   return { name: `${base}${FINISHED_SUFFIX}`, color: FINISHED_COLOR };
 }
 
-/** Collections finies d'abord, puis les autres collections, puis les rangements ; ordre alphabétique sinon. */
+/** Collections finies d'abord, puis les albums à objectif, les autres collections, les rangements ; ordre alphabétique sinon. */
 export function byKind(a: Pick<SiteTag, 'name'>, b: Pick<SiteTag, 'name'>): number {
-  const rank: Record<AlbumKind, number> = { finished: 0, collection: 1, storage: 2 };
+  const rank: Record<AlbumKind, number> = { finished: 0, goal: 1, collection: 2, storage: 3 };
   return rank[kindOf(a)] - rank[kindOf(b)] || bareName(a.name).localeCompare(bareName(b.name), 'fr');
 }

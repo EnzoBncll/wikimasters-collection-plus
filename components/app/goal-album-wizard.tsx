@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useCollection } from '@/hooks/use-collection';
 import { useSuggestions } from '@/hooks/use-suggestions';
 import { toast } from '@/hooks/use-toast';
+import { goalName } from '@/lib/album-kind';
 import {
   cleanQuery,
   criterionEntries,
@@ -107,7 +108,7 @@ const pct = (n: number) => n.toFixed(2).replace('.', ',');
 
 /** Assistant de création d'un album à objectif : sujet → cartes → aperçu. */
 export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; onCreated: (tag: SiteTag) => void }) {
-  const { cards, tags, createTag, stageIntoAlbum } = useCollection();
+  const { cards, tags, createTag, updateTag, stageIntoAlbum } = useCollection();
   const facts = useSuggestions((s) => s.facts);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [query, setQuery] = useState('');
@@ -236,9 +237,12 @@ export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; o
     if (!draft || !entries.length || !name.trim() || creating) return;
     setCreating(true);
     try {
-      const existing = tags.find((t) => t.name.toLowerCase() === name.trim().toLowerCase());
-      const tag = existing ?? (await createTag(name.trim(), color));
+      // Préfixe commun « 🎯 » : les albums à objectif se reconnaissent sur le site comme sur tous tes ordinateurs.
+      const full = goalName(name);
+      const existing = tags.find((t) => t.name.toLowerCase() === full.toLowerCase() || t.name.toLowerCase() === name.trim().toLowerCase());
+      const tag = existing ?? (await createTag(full, color));
       if (!tag) return;
+      if (existing && existing.name !== full) await updateTag(existing.id, { name: full });
       await saveGoalAlbum(tag.id, { entries, source: { kind: draft.kind === 'list' ? 'list' : draft.kind === 'search' ? 'search' : 'criteria', label: draft.label }, annex, at: Date.now() });
       const toStick = [...owned.values()].filter((c) => !c.tagIds.includes(tag.id));
       if (toStick.length) stageIntoAlbum(toStick, tag);

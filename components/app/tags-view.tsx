@@ -1,4 +1,4 @@
-import { Archive, ArrowRight, Bot, BookOpen, Layers, Folder, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Sparkles, Trash2, Trophy, type LucideIcon } from 'lucide-react';
+import { Archive, ArrowRight, Bot, BookOpen, Layers, Folder, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Sparkles, Target, Trash2, Trophy, type LucideIcon } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatedFolder, type Project } from '@/components/ui/3d-folder';
@@ -18,7 +18,8 @@ import { useCollection } from '@/hooks/use-collection';
 import { useReview } from '@/hooks/use-review';
 import { RARITY_LABEL, type OwnedCard, type SiteTag } from '@/lib/types';
 import { systemTagIds } from '@/lib/trade';
-import { byKind, isStorage, kindOf, switchKind, toggleFinished } from '@/lib/album-kind';
+import { byKind, goalName, isStorage, kindOf, switchKind, toggleFinished } from '@/lib/album-kind';
+import { goalAlbumsItem } from '@/lib/goal-albums';
 import { sheetOutdated } from '@/lib/album-sheet';
 import { useSuggestions } from '@/hooks/use-suggestions';
 import { useImproveCounts } from './consolidate-view';
@@ -163,6 +164,11 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
   const [renameDraft, setRenameDraft] = useState('');
   const [album, setAlbum] = useState<{ key: string; title: string; gradient: string; focus?: boolean } | null>(null);
   const [goalWizard, setGoalWizard] = useState(false);
+  const [goalIds, setGoalIds] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    void goalAlbumsItem.getValue().then((all) => setGoalIds(new Set(Object.keys(all ?? {}))));
+    return goalAlbumsItem.watch((all) => setGoalIds(new Set(Object.keys(all ?? {}))));
+  }, []);
 
   // Pistes d'amélioration : cartes à ranger (par album), nouveaux albums possibles, fiches IA à rédiger.
   const improve = useImproveCounts();
@@ -194,8 +200,17 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
   const kinds = settings.albumKinds;
   // Les collections finies passent en tête de page, quel que soit le réglage collection / rangement.
   const finished = own.filter((t) => kindOf(t) === 'finished');
-  const collections = own.filter((t) => kindOf(t) !== 'finished' && !(kinds && isStorage(t)));
+  // Albums à objectif : préfixe « 🎯 » (reconnu partout), ou liste fermée enregistrée dans l'extension.
+  const isGoal = (t: SiteTag) => kindOf(t) === 'goal' || (goalIds.has(t.id) && kindOf(t) === 'collection');
+  const goals = own.filter(isGoal);
+  const unprefixedGoals = goals.filter((t) => kindOf(t) !== 'goal');
+  const collections = own.filter((t) => kindOf(t) !== 'finished' && !isGoal(t) && !(kinds && isStorage(t)));
   const storages = kinds ? own.filter((t) => isStorage(t)) : [];
+
+  const prefixGoals = async () => {
+    for (const tag of unprefixedGoals) await updateTag(tag.id, { name: goalName(tag.name) });
+    toast(`${unprefixedGoals.length} album(s) renommé(s) avec « 🎯 » : à envoyer depuis la boîte d'envoi`, 'success');
+  };
 
   const markFinished = async (tag: SiteTag) => {
     const next = await toggleFinished(tag, randomTagColor);
@@ -396,6 +411,36 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-8">
               {finished.map((tag, i) => (
+                <div key={tag.id} className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both duration-700" style={{ animationDelay: `${i * 60}ms` }}>
+                  {folder(tag)}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {goals.length > 0 && (
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-primary uppercase">
+              <Target className="size-3.5" /> Albums à objectif · {goals.length}
+            </h2>
+            {unprefixedGoals.length > 0 && (
+              <Button variant="outline" size="sm" className="h-7 rounded-full px-2.5 text-xs" onClick={prefixGoals}>
+                Ajouter « 🎯 » à {unprefixedGoals.length} album{unprefixedGoals.length > 1 ? 's' : ''}
+              </Button>
+            )}
+          </div>
+          {layout === 'list' ? (
+            <div className="divide-y overflow-hidden rounded-2xl border bg-card">
+              {goals.map((tag) => (
+                <TagRow key={tag.id} name={tag.name} color={tag.color} cards={byTag.get(tag.id) ?? []} onOpen={() => openAlbum(tag)} controls={tagControls(tag, false)} icon={Target} />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-8">
+              {goals.map((tag, i) => (
                 <div key={tag.id} className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both duration-700" style={{ animationDelay: `${i * 60}ms` }}>
                   {folder(tag)}
                 </div>

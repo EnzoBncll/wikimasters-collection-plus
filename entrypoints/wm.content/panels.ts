@@ -238,7 +238,11 @@ export function startPanels(): PanelsApi {
     const own = tags.filter((t) => !sys.has(t.id));
     return {
       left: own.filter((t) => kindOf(t) === 'storage').sort(byName),
-      right: [...own.filter((t) => kindOf(t) === 'finished').sort(byName), ...own.filter((t) => kindOf(t) === 'collection').sort(byName)],
+      right: [
+        ...own.filter((t) => kindOf(t) === 'finished').sort(byName),
+        ...own.filter((t) => kindOf(t) === 'goal').sort(byName),
+        ...own.filter((t) => kindOf(t) === 'collection').sort(byName),
+      ],
     };
   };
   const display = (t: SiteTag) => (kindOf(t) === 'storage' ? t.name.replace(/^·\s*/, '') : t.name.replace(/\s*[✓✔]\s*$/u, ''));
