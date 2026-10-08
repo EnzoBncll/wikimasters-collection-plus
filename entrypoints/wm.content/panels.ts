@@ -121,9 +121,9 @@ const ICONS: Record<Status, string> = {
   discard: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/>',
 };
 const STATUS: { key: Status; label: string; color: string; kbd: string }[] = [
-  { key: 'trade', label: 'Trade', color: 'oklch(0.696 0.17 162.48)', kbd: 'T' },
-  { key: 'notTrade', label: 'Not Trade', color: 'oklch(0.637 0.237 25.331)', kbd: 'N' },
-  { key: 'discard', label: 'Discard', color: 'oklch(0.55 0.02 60)', kbd: 'D' },
+  { key: 'trade', label: 'Trade', color: 'oklch(0.696 0.17 162.48)', kbd: '←' },
+  { key: 'notTrade', label: 'Not Trade', color: 'oklch(0.637 0.237 25.331)', kbd: '↓' },
+  { key: 'discard', label: 'Discard', color: 'oklch(0.55 0.02 60)', kbd: '→' },
 ];
 
 const at = (t: number) => [0, 1].map((k) => (1 - t) ** 2 * P0[k]! + 2 * (1 - t) * t * P1[k]! + t ** 2 * P2[k]!) as [number, number];
@@ -588,7 +588,8 @@ export function startPanels(): PanelsApi {
   });
   setInterval(sync, 200);
 
-  // Raccourcis : / recherche, T / N / D statut, 1–9 collections, ⇧1–9 rangements.
+  // Raccourcis : / recherche, ← ↓ → statut (gauche, milieu, droite de l'arc), 1–9 collections, ⇧1–9 rangements.
+  // Pas de lettres : elles partaient pendant la saisie d'un mot.
   document.addEventListener(
     'keydown',
     (e) => {
@@ -608,8 +609,8 @@ export function startPanels(): PanelsApi {
         toggle(tag);
         return;
       }
-      const status = ({ KeyT: 'trade', KeyN: 'notTrade', KeyD: 'discard' } as const)[e.code as 'KeyT' | 'KeyN' | 'KeyD'];
-      if (status && !e.shiftKey) {
+      const status = ({ ArrowLeft: 'trade', ArrowDown: 'notTrade', ArrowRight: 'discard' } as const)[e.key as 'ArrowLeft' | 'ArrowDown' | 'ArrowRight'];
+      if (status && !e.shiftKey && !e.repeat) {
         e.preventDefault();
         e.stopPropagation();
         setStatus(status);

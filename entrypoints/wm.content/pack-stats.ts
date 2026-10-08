@@ -5,7 +5,20 @@ import { ctx, esc, onSettings, PANEL_CSS, themedHost } from './ctx';
 
 const CSS = `${PANEL_CSS}
   :host { display: block; width: 100%; }
-  .panel { padding: 12px 14px; position: static; }
+  .panel { padding: 12px 14px; position: static; container-type: inline-size; }
+  /* Une colonne sur mobile ; deux sur grand écran (aujourd'hui + taux | séries + historique). */
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 22px; }
+  .col { min-width: 0; }
+  .col > h5:first-child { margin-top: 12px; }
+  .panel .wide { display: none; }
+  @container (min-width: 640px) {
+    .panel { padding: 16px 20px; }
+    .cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+    .col > h5:first-child, .col > .today:first-child { margin-top: 0; }
+    .col.b { border-left: 1px solid var(--border); padding-left: 22px; }
+    .cols .grid { grid-template-columns: repeat(4, 1fr); }
+    .panel .wide { display: flex; }
+  }
   .head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
   .title { font-weight: 700; font-size: 13px; }
   .title i { font-style: normal; background: var(--holo); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800; }
@@ -69,7 +82,9 @@ export function startPackStats() {
     if (!col) return false;
     if (host.parentElement !== col || col.lastElementChild !== host) col.append(host);
     const ref = [...col.children].filter((c) => c !== host && !c.classList.contains('wmt-bg')).reduce((w, c) => Math.max(w, c.getBoundingClientRect().width), 0);
-    host.style.width = `${Math.max(300, Math.min(420, Math.round(ref)))}px`;
+    // Toute la largeur utile sur grand écran (deux colonnes au-delà de 640 px), la largeur de l'écran sur mobile.
+    const room = document.documentElement.clientWidth - 32;
+    host.style.width = `${Math.round(Math.min(room, Math.max(ref, room >= 700 ? Math.min(920, room) : 300)))}px`;
     return true;
   };
 
@@ -91,10 +106,10 @@ export function startPackStats() {
       <div class="cell">Sans shiny<b>${packsSince(pulls, (c) => c.s)}</b></div></div>`;
     const sortCards = (cards: PullRecord['cards']) => [...cards].sort((a, b) => (RARITY_RANK[a.r] ?? 9) - (RARITY_RANK[b.r] ?? 9));
     const last = pulls
-      .slice(-5)
+      .slice(-8)
       .reverse()
       .map(
-        (p) => `<div class="pk"><span class="dots">${sortCards(p.cards)
+        (p, i) => `<div class="pk${i >= 5 ? ' wide' : ''}"><span class="dots">${sortCards(p.cards)
           .map((c) => `<i title="${esc(`${c.r} · ${c.name}`)}" style="background:${RARITY_COLOR[c.r as keyof typeof RARITY_COLOR] ?? '#555'}${c.s ? ';box-shadow:0 0 0 2px #fff inset' : ''}"></i>`)
           .join('')}</span><span class="t">${ago(p.t)}</span></div>`,
       )
@@ -102,9 +117,9 @@ export function startPackStats() {
     const best = pulls
       .flatMap((p) => p.cards.map((c) => ({ ...c, t: p.t })))
       .filter((c) => (RARITY_RANK[c.r] ?? 9) <= 2 || c.s)
-      .slice(-4)
+      .slice(-6)
       .reverse()
-      .map((c) => `<div class="it">${chip(c.r)}<span class="n">${esc(c.name)}</span>${c.s ? '<span class="shy">shiny</span>' : ''}<span class="t">${ago(c.t)}</span></div>`)
+      .map((c, i) => `<div class="it${i >= 4 ? ' wide' : ''}">${chip(c.r)}<span class="n">${esc(c.name)}</span>${c.s ? '<span class="shy">shiny</span>' : ''}<span class="t">${ago(c.t)}</span></div>`)
       .join('');
 
     const start = new Date();
@@ -135,13 +150,15 @@ export function startPackStats() {
       <div class="head"><span class="title">Tirages · Collection<i>+</i></span><span class="sub">${pulls.length} paquet${pulls.length > 1 ? 's' : ''} · ${total} carte${total > 1 ? 's' : ''}</span></div>
       ${
         pulls.length
-          ? `${todayHtml}${rates}<h5>Séries en cours</h5>${streaks}<h5>Derniers paquets</h5><div class="packs">${last}</div>${best ? `<h5>Dernières grosses cartes</h5>${best}` : ''}`
+          ? `<div class="cols"><div class="col a">${todayHtml}${rates}${best ? `<h5>Dernières grosses cartes</h5>${best}` : ''}</div>
+             <div class="col b"><h5>Séries en cours</h5>${streaks}<h5>Derniers paquets</h5><div class="packs">${last}</div></div></div>`
           : '<div class="empty">Ouvre un paquet pour commencer à suivre tes tirages.</div>'
       }`;
   }
 
   onSettings(render);
   setInterval(render, 5000);
+  addEventListener('resize', () => mount());
   new MutationObserver(() => {
     if (ctx.settings.packStats && location.pathname.startsWith('/pulls') && !host.isConnected) render();
   }).observe(document.body, { childList: true, subtree: true });

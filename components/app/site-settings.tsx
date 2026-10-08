@@ -50,7 +50,7 @@ export const SITE_GROUPS: { title: string; rows: Row[] }[] = [
       { key: 'packRecap', title: 'Récap du paquet', text: 'Une fois toutes les cartes vues, en bas à droite.' },
       { key: 'spaceKey', title: 'Touche Espace', text: 'Ouvre un paquet, puis passe à la carte suivante (un appui = une action).' },
       { key: 'fastReveal', title: 'Révélé rapide', text: 'Animations éclair pour C, PC et R ; la grande mise en scène reste pour SR, UR, L et shiny.' },
-      { key: 'revealPanels', title: 'Volets de rangement au révélé', text: 'Rangement à gauche (⇧1–9), collections à droite (1–9), statut T / N / D : sans ouvrir la carte.' },
+      { key: 'revealPanels', title: 'Volets de rangement au révélé', text: 'Rangement à gauche (⇧1–9), collections à droite (1–9), statut ← Trade, ↓ Not Trade, → Discard : sans ouvrir la carte.' },
     ],
   },
   {

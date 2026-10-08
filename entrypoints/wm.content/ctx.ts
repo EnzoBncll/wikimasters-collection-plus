@@ -81,7 +81,9 @@ export function siteModalOpen(): boolean {
 }
 
 export const typing = () => {
-  const a = document.activeElement as HTMLElement | null;
+  // Les champs de Collection+ vivent dans des shadow roots : document.activeElement n'y montre que l'hôte.
+  let a = document.activeElement as HTMLElement | null;
+  while (a?.shadowRoot?.activeElement) a = a.shadowRoot.activeElement as HTMLElement;
   return Boolean(a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)));
 };
 
