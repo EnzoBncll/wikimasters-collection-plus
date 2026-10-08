@@ -4,6 +4,7 @@ Collection+ n'a **aucun serveur** et ne collecte aucune donnée.
 
 - **Ta session WikiMasters** est lue dans le cookie du site, uniquement pour appeler l'API de WikiMasters en ton nom (lire ta collection, poser des étiquettes). Elle n'est jamais stockée ni envoyée ailleurs.
 - **Stockage local** (`chrome.storage.local`, sur ton ordinateur uniquement) : cache de ta collection, données Wikidata, introductions Wikipédia, règles, réglages (dont la clé Gemini si tu en ajoutes une), rangement des albums, listes des albums à objectif, listes de souhaits, historique de tes tirages de paquets (lu dans les réponses du site quand tu ouvres un paquet) et estimation du nombre de paquets disponibles.
+- **Synchronisation entre ordinateurs** (désactivable dans Paramètres › Synchro et export) : albums à objectif, rangement des albums, listes de souhaits, règles et réglages sont recopiés dans `chrome.storage.sync`, que Chrome transporte vers tes autres ordinateurs connectés au même compte Chrome. La clé Gemini n'en fait jamais partie. Aucun serveur de Collection+ n'intervient.
 - **Services contactés** :
   - `www.wiki-masters.com` et son backend Supabase : ta collection, tes étiquettes, ta liste de souhaits (cœur sur le marché) et la défausse des exemplaires que tu confirmes ;
   - `www.wikidata.org` et `query.wikidata.org` : informations publiques sur les articles, suggestions d'album et listes des albums à objectif (seuls des titres d'articles, des critères de thème et le texte de ta demande sont envoyés) ;

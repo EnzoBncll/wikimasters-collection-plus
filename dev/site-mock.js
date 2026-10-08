@@ -76,6 +76,13 @@
       main.querySelector('.done')?.addEventListener('click', idle);
     };
     idle();
+    // ?open=N : ouvre un paquet tout seul et s'arrête sur la carte N (captures du README).
+    const auto = new URLSearchParams(location.search).get('open');
+    if (auto !== null) {
+      setTimeout(() => main.querySelector('.open')?.click(), 1500);
+      const step = (n) => n > 0 && setTimeout(() => (main.querySelector('.next')?.click(), step(n - 1)), 400);
+      setTimeout(() => step(Number(auto) || 0), 3500);
+    }
   } else if (route.startsWith('/collection') || route.startsWith('/marketplace') || route.startsWith('/global-collection')) {
     const grid = document.createElement('div');
     grid.className = 'flex flex-wrap justify-center grid';

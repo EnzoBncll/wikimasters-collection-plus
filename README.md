@@ -12,7 +12,7 @@
 
 > Extension Chrome **non officielle** pour [WikiMasters](https://www.wiki-masters.com), sans lien avec l'équipe du jeu.
 
-Range ta collection de cartes Wikipédia : tri **Trade / Not Trade** en quelques clics, **étiquettes** (celles du site), **albums** à feuilleter façon Panini, **albums à objectif** (les rois de France, le top 50 des…) avec les cartes qu'il te reste à trouver, suggestions des meilleures cartes à chercher, et **export** CSV / Google Sheets.
+Range ta collection de cartes Wikipédia : tri **Trade / Not Trade** en quelques clics, **étiquettes** (celles du site), **albums** à feuilleter façon Panini, **albums à objectif** (les rois de France, le top 50 des…) avec les cartes qu'il te reste à trouver, ouverture des paquets redessinée sur WikiMasters, suggestions des meilleures cartes à chercher, **synchronisation entre tes ordinateurs** et **export** CSV / Google Sheets.
 
 <p align="center">
   <img src="docs/images/review-light.png" alt="Vue Revue en mode clair" width="49%">
@@ -41,6 +41,7 @@ Range ta collection de cartes Wikipédia : tri **Trade / Not Trade** en quelques
   - album à objectif : quand la carte tirée est dans la liste, l'album sort de sa ligne et la carte s'y colle ;
   - statistiques de tirage, compteur de paquets dans l'onglet et sur l'icône, notifications (réserve pleine, pack PRO) ;
   - plein écran 3D sur les cartes, liste de souhaits mise en avant sur le marché et les échanges (cœur pour en ajouter), images libres en option.
+- **Synchronisation entre ordinateurs** : albums à objectif, mises en page, cartes écartées, souhaits, règles et réglages suivent sur chaque ordinateur où tu es connecté à Chrome (synchronisation activée). Rien à configurer, aucun compte en plus ; les cartes et étiquettes, elles, sont déjà sur WikiMasters. État et bouton « Synchroniser » dans **Paramètres › Synchro et export**.
 - **Popup** : compteur de paquets, historique et export CSV des tirages, réglages rapides et choix du thème.
 - **Thèmes** : mode clair, sombre ou auto, et 10 palettes qui recolorent l'interface, le bouton sur le site et l'icône de l'extension. Sur le site, trois styles : couleur pleine, ambiance teintée ou irisé.
 - **Cache local** : la collection s'affiche instantanément, seuls les changements sont rechargés.
@@ -48,6 +49,15 @@ Range ta collection de cartes Wikipédia : tri **Trade / Not Trade** en quelques
 <p align="center">
   <img src="docs/images/onboarding.png" alt="Visite guidée à la première ouverture" width="100%">
 </p>
+
+## Sur WikiMasters
+
+<p align="center">
+  <img src="docs/images/site-pulls.png" alt="Page d'ouverture redessinée : paquets en éventail autour du bouton Ouvrir" width="49%">
+  <img src="docs/images/site-reveal.png" alt="Révélé d'une carte SR avec ses volets Rangement et Collections" width="49%">
+</p>
+
+À gauche, la page d'ouverture : tes paquets en éventail, le compteur et le temps avant la réserve pleine. À droite, le révélé : la carte à l'habillage Collection+ (avec sa description, sans avoir à cliquer), les volets Rangement et Collections pour l'étiqueter d'un clic, et le statut Trade / Not Trade / Discard en dessous.
 
 ## Cartes et raretés
 
@@ -95,7 +105,7 @@ Dix accords de couleurs, à choisir dans **Paramètres › Apparence › Palette
   <img src="docs/images/themes.png" alt="Collection+ en Abysse, Aube, Coucher de soleil et Émeraude" width="100%">
 </p>
 
-<img src="docs/images/popup.png" alt="Popup de l'extension" width="288" align="right">
+<img src="docs/images/popup.png" alt="Popup de l'extension" width="300" align="right">
 
 **Popup et bouton sur le site** : un clic sur l'icône ouvre Collection+ ou trie directement les nouvelles cartes. Sur WikiMasters, le bouton **Collection+** en bas à gauche indique combien de cartes attendent d'être triées.
 
@@ -121,9 +131,15 @@ Collection+ vérifie les nouvelles versions et affiche **« Version x.y.z dispon
 
 Tes réglages, règles et données restent en place (l'identifiant de l'extension est fixe).
 
+## Plusieurs ordinateurs
+
+Installe Collection+ sur chaque ordinateur et connecte-toi à Chrome avec le même compte, synchronisation activée (`chrome://settings/syncSetup`, « Extensions » coché). Tes albums à objectif, mises en page et réglages arrivent d'eux-mêmes, en quelques secondes, et chaque changement repart vers les autres ordinateurs. Si deux ordinateurs ont modifié les mêmes données hors ligne, les deux versions sont fusionnées.
+
+La synchronisation de Chrome offre 100 Ko par extension : les données sont compressées, ce qui laisse de la place pour des dizaines d'albums à objectif. La place utilisée s'affiche dans **Paramètres › Synchro et export**.
+
 ## Confidentialité
 
-Aucun serveur, aucune collecte : voir [PRIVACY.md](PRIVACY.md). Les suggestions et les albums à objectif interrogent Wikidata et Wikipédia (API publiques, sans compte). Si tu ajoutes une clé Gemini (facultative), seule la phrase de ta demande est envoyée à Google pour être comprise ; la clé reste sur ton ordinateur.
+Aucun serveur, aucune collecte : voir [PRIVACY.md](PRIVACY.md). La synchronisation entre ordinateurs passe par ton compte Chrome (`chrome.storage.sync`) ; la clé Gemini n'en fait pas partie. Les suggestions et les albums à objectif interrogent Wikidata et Wikipédia (API publiques, sans compte). Si tu ajoutes une clé Gemini (facultative), seule la phrase de ta demande est envoyée à Google pour être comprise ; la clé reste sur ton ordinateur.
 
 ---
 
@@ -163,6 +179,7 @@ Le workflow [Release](.github/workflows/release.yml) construit le zip et crée l
 
 - Collection en cache (`chrome.storage.local`) ; à l'ouverture, vérification légère (`/api/my-collection/stats` + étiquettes).
 - Rechargement complet si le site a modifié la collection (paquet, échange, marché… détecté automatiquement), si les stats changent, si le cache a plus de 6 h, ou via ↻.
+- Entre ordinateurs (`lib/cloud-sync.ts`, dans le service worker) : chaque donnée propre à l'extension est compressée (gzip), découpée en morceaux de 8 Ko et recopiée dans `chrome.storage.sync`, avec son empreinte et l'appareil d'origine. Au démarrage, chaque donnée est comparée à la copie partagée (prise, envoyée ou fusionnée) ; ensuite, les changements partent après 2,5 s de calme.
 
 ## Licence
 

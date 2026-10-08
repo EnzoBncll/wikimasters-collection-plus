@@ -42,6 +42,44 @@ function shoot(url, file, [width, height], { scale = 1, wait = 6000 } = {}) {
   console.log('  ✓', file.replace(OUT + '/', ''));
 }
 
+/**
+ * Capture en temps réel par le protocole DevTools : le temps virtuel de --screenshot fige les animations
+ * (Web Animations) à mi-course, ce qui gâche le révélé. Ici on attend vraiment `wait` ms.
+ */
+async function shootLive(url, file, [width, height], { wait = 12000 } = {}) {
+  const port = 9300 + Math.floor(Math.random() * 500);
+  const chrome = spawn(CHROME, ['--headless', '--hide-scrollbars', '--disable-gpu', `--remote-debugging-port=${port}`, `--window-size=${width},${height}`, `--user-data-dir=${join(TMP, `live-${port}`)}`, 'about:blank'], { stdio: 'ignore' });
+  try {
+    let target;
+    for (let i = 0; i < 50 && !target; i++) {
+      await new Promise((r) => setTimeout(r, 200));
+      target = await fetch(`http://127.0.0.1:${port}/json/list`).then((r) => r.json()).then((l) => l.find((t) => t.type === 'page')).catch(() => null);
+    }
+    const ws = new WebSocket(target.webSocketDebuggerUrl);
+    await new Promise((r) => ws.addEventListener('open', r, { once: true }));
+    let id = 0;
+    const send = (method, params = {}) =>
+      new Promise((resolve) => {
+        const n = ++id;
+        const onMessage = (e) => {
+          const msg = JSON.parse(e.data);
+          if (msg.id === n) (ws.removeEventListener('message', onMessage), resolve(msg.result));
+        };
+        ws.addEventListener('message', onMessage);
+        ws.send(JSON.stringify({ id: n, method, params }));
+      });
+    await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+    await send('Page.navigate', { url });
+    await new Promise((r) => setTimeout(r, wait));
+    const { data } = await send('Page.captureScreenshot', { format: 'png' });
+    await writeFile(file, Buffer.from(data, 'base64'));
+    ws.close();
+    console.log('  ✓', file.replace(OUT + '/', ''));
+  } finally {
+    chrome.kill();
+  }
+}
+
 async function page(name, html) {
   const file = join(TMP, `${name}.html`);
   await writeFile(file, `<!doctype html><meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif}</style>${html}`);
@@ -53,7 +91,7 @@ async function page(name, html) {
  * stylé par la feuille de style de la build.
  */
 function raritiesPage() {
-  const css = readdirSync(join(import.meta.dirname, '..', '.output', 'chrome-mv3', 'assets')).find((f) => /^review-.*\.css$/.test(f));
+  const css = readdirSync(join(import.meta.dirname, '..', '.output', 'chrome-mv3', 'assets')).find((f) => /\.css$/.test(f));
   const card = (rarity, hover, x, y) => `
     <div style="width:190px"><div class="wm-card ${hover ? 'force' : ''}" data-rarity="${rarity}"
       style="--mx:${x}%;--my:${y}%;--holo-angle:${95 + (x / 100 - 0.5) * 40}deg">
@@ -93,8 +131,11 @@ try {
   await writeFile(join(import.meta.dirname, '..', '.output', 'chrome-mv3', '__rarities.html'), raritiesPage());
   shoot(`${BASE}/__rarities.html`, join(OUT, 'rarities.png'), [1340, 640]);
   shoot(app('theme=dark&palette=cyberpunk', '#export'), join(OUT, 'settings.png'), [1440, 1180]);
+  await shootLive(`${BASE}/pulls?palette=nuit-violette`, join(OUT, 'site-pulls.png'), [1440, 900], { wait: 5000 });
+  // ?nodesc : descriptions venues de Wikipédia, comme sur le vrai site.
+  await shootLive(`${BASE}/pulls?palette=nuit-violette&style=foil&open=0&rarities=SR,R,L,PC,C&nodesc`, join(OUT, 'site-reveal.png'), [1440, 900], { wait: 14000 });
   shoot(app('theme=light&onboarding=2'), join(OUT, 'onboarding.png'), [1440, 900], { wait: 12000 });
-  shoot(`${BASE}/popup.html?static&theme=dark`, join(OUT, 'popup.png'), [288, 176], { scale: 2 });
+  shoot(`${BASE}/popup.html?static&theme=dark`, join(OUT, 'popup.png'), [360, 325], { scale: 2 });
   for (const [palette, theme] of [['abysse', 'dark'], ['aube', 'light'], ['coucher-de-soleil', 'dark'], ['emeraude', 'light']]) {
     shoot(app(`theme=${theme}&palette=${palette}`), join(TMP, `theme-${palette}.png`), [1440, 900]);
   }
