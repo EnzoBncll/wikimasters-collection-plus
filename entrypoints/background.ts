@@ -1,4 +1,5 @@
 import { defineBackground } from '#imports';
+import { startCloudSync } from '@/lib/cloud-sync';
 import { OPEN_REVIEW_TAB } from '@/lib/messages';
 import { EXPORT_SHEETS, exportToSheets, isSheetsConfigured } from '@/lib/sheets';
 import { fmtDuration, packMetaItem, packStateItem, predict, PRO_PERIOD, thresholdAt, today } from '@/lib/packs';
@@ -93,6 +94,7 @@ async function openPulls(id: string) {
 }
 
 export default defineBackground(() => {
+  startCloudSync();
   syncToolbarIcon();
   settingsItem.watch(() => {
     syncToolbarIcon();

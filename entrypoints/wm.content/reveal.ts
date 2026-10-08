@@ -1,7 +1,7 @@
 import { addPull, cardName, packMetaItem, packStateItem, packsSince, periodFor, recordFromResponse, RARITY_COLOR, RARITY_RANK, SHINY_COLOR, today, type PackState, type PullRecord } from '@/lib/packs';
 import { ctx, esc, typing } from './ctx';
 import { center, Fx, rnd } from './fx';
-import { applySkin } from './card-skin';
+import { applySkin, fillPackDescriptions } from './card-skin';
 import { revealSound, sfx, type RevealSound } from './sound';
 
 /**
@@ -333,6 +333,8 @@ export function startReveal() {
     const pack: CurrentPack = { cards: data.cards, owned: parsed.owned, seen: new Set(), recapShown: false, record: parsed.record, sinceL: null };
     reveal.pack = pack;
     reveal.emit();
+    // Descriptions cherchées pendant l'animation d'ouverture, avant la première carte.
+    if (Array.isArray(data.cards)) void fillPackDescriptions(data.cards).then(() => reveal.flip && reveal.card && applySkin(reveal.flip, reveal.card));
     const pulls = await addPull(parsed.record);
     pack.sinceL = packsSince(pulls, (c) => c.r === 'L');
   });

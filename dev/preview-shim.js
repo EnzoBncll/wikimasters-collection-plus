@@ -11,6 +11,8 @@
       tagsLayout: params.get('tagsLayout') || 'folders',
     };
   }
+  // Compteur de paquets du popup : 6 / 10, le prochain dans un peu plus de 4 min.
+  if (location.pathname.endsWith('popup.html')) store.packState = { n: 6, max: 10, nextAt: Date.now() + 252000, period: 600000, observedAt: Date.now() };
   // ?demo=viewer : ouvre la première carte de l'album en grand ; ?demo=wishes : ajoute trois souhaits et descend au panneau.
   const demo = params.get('demo');
   const until = (sel, cb) => {
@@ -52,7 +54,8 @@
       async set(items) { const changes = {}; for (const [k, v] of Object.entries(items)) { changes[k] = { oldValue: store[k], newValue: v }; store[k] = structuredClone(v); } listeners.forEach((l) => l(changes, 'local')); },
       async remove(keys) { [].concat(keys).forEach((k) => delete store[k]); },
       onChanged: { addListener: (l) => listeners.push((c) => l(c)), removeListener() {} },
-    }, onChanged: { addListener: (l) => listeners.push(l), removeListener() {} } },
+    }, sync: { QUOTA_BYTES: 102400, async get() { return {}; }, async set() {}, async remove() {}, async getBytesInUse() { return 5300; } },
+    onChanged: { addListener: (l) => listeners.push(l), removeListener() {} } },
     runtime: { id: 'test', getManifest: () => ({ oauth2: null, version: '0.1.0' }), getURL: (p) => p, sendMessage: async () => ({ error: 'not_configured' }), onMessage: { addListener() {} } },
     tabs: { query: async () => [] },
     cookies: { getAll: async () => [{ name: 'sb-cyrxjeppjqsxxjayfrur-auth-token', value: session }] },

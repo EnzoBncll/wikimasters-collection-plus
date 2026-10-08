@@ -1,12 +1,13 @@
-import { Bot, ChevronDown, ClipboardCopy, Download, FileSpreadsheet, FileText, FolderCog, Globe, Loader2, Monitor, Moon, Palette, Sun, Trash2, Zap } from 'lucide-react';
+import { Bot, ChevronDown, CloudCheck, RefreshCw, ClipboardCopy, Download, FileSpreadsheet, FileText, FolderCog, Globe, Loader2, Monitor, Moon, Palette, Sun, Trash2, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { useCollection } from '@/hooks/use-collection';
 import { toast } from '@/hooks/use-toast';
 import { useVisibleCards } from '@/hooks/use-review';
 import { useSuggestions } from '@/hooks/use-suggestions';
+import { CLOUD_SYNC_NOW, cloudSyncItem, SYNCED_LABELS, type CloudSyncState } from '@/lib/cloud-sync';
 import { downloadText, toCsv, toTsv } from '@/lib/csv';
 import { testGeminiKey } from '@/lib/gemini';
 import { EXPORT_SHEETS, type SheetExport } from '@/lib/sheets';
@@ -20,6 +21,7 @@ import { ALBUM_STYLE_IDS, ALBUM_STYLES } from './album-styles';
 import { BrandIcon } from './brand-icon';
 import { CARD_TAG_STYLES } from './card-tags';
 import { SiteSettings } from './site-settings';
+import { ago } from './sync-status';
 import { useOnboarding } from './onboarding';
 import { WmCard } from './wm-card';
 
@@ -555,6 +557,67 @@ function SiteSection() {
   );
 }
 
+/** Synchronisation entre ordinateurs par la synchro de Chrome (lib/cloud-sync.ts). */
+function CloudSyncGroup() {
+  const [sync, setSync] = useState<CloudSyncState | null>(null);
+  const [used, setUsed] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    const refreshUsage = () => browser.storage.sync.getBytesInUse(null).then(setUsed, () => {});
+    void cloudSyncItem.getValue().then(setSync);
+    refreshUsage();
+    return cloudSyncItem.watch((next) => {
+      setSync(next);
+      refreshUsage();
+    });
+  }, []);
+  const toggle = async (enabled: boolean) => cloudSyncItem.setValue({ ...(await cloudSyncItem.getValue()), enabled });
+  const syncNow = async () => {
+    setBusy(true);
+    try {
+      await browser.runtime.sendMessage({ type: CLOUD_SYNC_NOW });
+      toast('Synchronisation vérifiée', 'success');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const last = Math.max(sync?.lastPushAt ?? 0, sync?.lastPullAt ?? 0);
+  const quota = browser.storage.sync.QUOTA_BYTES ?? 102400;
+  return (
+    <Group title="Entre tes ordinateurs">
+      <SettingRow
+        title="Synchroniser avec ton compte Chrome"
+        text="Albums à objectif, mises en page, souhaits, règles et réglages suivent sur chaque ordinateur où tu es connecté à Chrome avec la synchronisation activée. Les cartes et étiquettes sont déjà sur WikiMasters."
+      >
+        <Switch checked={sync?.enabled ?? true} onCheckedChange={toggle} />
+      </SettingRow>
+      {sync?.enabled !== false && (
+        <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+          <div className="space-y-1 text-xs text-muted-foreground">
+            <p className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+              <CloudCheck className="size-4 text-primary" />
+              {last ? `Dernier échange ${ago(last)}` : 'Pas encore d’échange'}
+              {sync?.lastPullAt ? ` · reçu d’un autre ordinateur ${ago(sync.lastPullAt)}` : ''}
+            </p>
+            {used !== null && (
+              <p>
+                Place utilisée : {Math.round(used / 1024)} Ko sur {Math.round(quota / 1024)} Ko
+              </p>
+            )}
+            {!!sync?.tooBig.length && (
+              <p className="text-destructive">Trop volumineux pour la synchro de Chrome : {sync.tooBig.map((k) => SYNCED_LABELS[k]).join(', ')}.</p>
+            )}
+            {sync?.error && <p className="text-destructive">{sync.error}</p>}
+          </div>
+          <Button variant="outline" size="sm" onClick={syncNow} disabled={busy}>
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Synchroniser
+          </Button>
+        </div>
+      )}
+    </Group>
+  );
+}
+
 function ExportSection() {
   const { cards, tags, newIds, statusOf, settings, updateSettings } = useCollection();
   const visible = useVisibleCards();
@@ -591,6 +654,7 @@ function ExportSection() {
 
   return (
     <div className="space-y-8">
+      <CloudSyncGroup />
       <section className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3 px-1">
           <h2 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Cartes exportées</h2>
@@ -647,7 +711,7 @@ const SECTIONS = [
   { id: 'appearance', icon: Palette, label: 'Apparence', text: "Mode, palette, habillage des cartes et des albums." },
   { id: 'organize', icon: FolderCog, label: 'Rangement', text: 'Statut d’échange, types d’albums et règles automatiques.' },
   { id: 'site', icon: Globe, label: 'Sur WikiMasters', text: 'Ouverture des paquets, volets de rangement, statistiques, notifications et outils sur les cartes du site.' },
-  { id: 'export', icon: Download, label: 'Export', text: 'Ta collection vers Google Sheets, un fichier CSV ou le presse-papier.' },
+  { id: 'export', icon: Download, label: 'Synchro et export', text: 'Tes albums sur tous tes ordinateurs, et ta collection vers Google Sheets, un fichier CSV ou le presse-papier.' },
 ] as const;
 
 const SECTION_KEY = 'collectionPlus:settingsSection';

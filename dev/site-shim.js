@@ -56,7 +56,8 @@
     wikipedia_url: `https://fr.wikipedia.org/wiki/${encodeURIComponent(NAMES[i % NAMES.length].replace(/ /g, '_'))}`,
     rarity,
     is_shiny: rarity === 'R' && i % 4 === 0,
-    description: ['footballeur international', 'ville et capitale', 'monument historique', 'empereur des Français', 'physicienne et chimiste'][i % 5],
+    // ?nodesc : paquet sans description, comme le site avant le clic sur la carte.
+    description: params.has('nodesc') ? null : ['footballeur international', 'ville et capitale', 'monument historique', 'empereur des Français', 'physicienne et chimiste'][i % 5],
     atk: 1000 + ((i * 7919) % 8000), def: 1000 + ((i * 104729) % 8000),
     image_url: i % 5 === 3 ? null : `https://picsum.photos/seed/wmh${i}/320/240`,
     lang: 'fr',

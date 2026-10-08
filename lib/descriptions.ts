@@ -13,15 +13,15 @@ const BATCH = 50;
 /** Titre d'article → description ('' = aucune, pour ne pas redemander). */
 const descriptionsItem = storage.defineItem<Record<string, string>>('local:cardDescriptions', { fallback: {} });
 
-export async function fillDescriptions(cards: OwnedCard[]) {
+/** Descriptions des titres demandés (cache d'abord, puis Wikipédia par lots) ; '' quand l'article n'en a pas. */
+export async function describeTitles(titles: string[]): Promise<Record<string, string>> {
   const cache = await descriptionsItem.getValue();
-  const missing = cards.filter((c) => !c.description);
-  const toFetch = [...new Set(missing.map(articleTitle).filter((t) => !(t in cache)))];
+  const toFetch = [...new Set(titles.filter((t) => t && !(t in cache)))];
 
   for (let i = 0; i < toFetch.length; i += BATCH) {
-    const titles = toFetch.slice(i, i + BATCH);
+    const batch = toFetch.slice(i, i + BATCH);
     try {
-      const params = new URLSearchParams({ format: 'json', origin: '*', action: 'query', prop: 'description', redirects: '1', titles: titles.join('|') });
+      const params = new URLSearchParams({ format: 'json', origin: '*', action: 'query', prop: 'description', redirects: '1', titles: batch.join('|') });
       const response = await fetch(`${FRWIKI}?${params}`);
       if (!response.ok) break;
       const json = await response.json();
@@ -33,7 +33,7 @@ export async function fillDescriptions(cards: OwnedCard[]) {
         for (let n = 0; n < 3 && alias.has(t); n++) t = alias.get(t)!;
         return t;
       };
-      for (const title of titles) cache[title] = '';
+      for (const title of batch) cache[title] = '';
       for (const page of Object.values<any>(json.query?.pages ?? {})) {
         if (page.description) cache[origin(page.title)] = page.description;
       }
@@ -44,5 +44,11 @@ export async function fillDescriptions(cards: OwnedCard[]) {
   }
 
   if (toFetch.length) await descriptionsItem.setValue(cache);
-  for (const card of missing) card.description = cache[articleTitle(card)] || null;
+  return Object.fromEntries(titles.map((t) => [t, cache[t] ?? '']));
+}
+
+export async function fillDescriptions(cards: OwnedCard[]) {
+  const missing = cards.filter((c) => !c.description);
+  const found = await describeTitles(missing.map(articleTitle));
+  for (const card of missing) card.description = found[articleTitle(card)] || null;
 }

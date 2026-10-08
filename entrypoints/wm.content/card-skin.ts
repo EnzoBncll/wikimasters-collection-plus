@@ -1,4 +1,5 @@
 import cardCss from '@/assets/wm-card.css?inline';
+import { describeTitles } from '@/lib/descriptions';
 import { RARITY_LABEL, type Rarity } from '@/lib/types';
 import { ctx, esc } from './ctx';
 
@@ -42,11 +43,26 @@ const firstNumber = (...v: unknown[]) => {
   return f === undefined ? null : Number(f);
 };
 
+const cardDesc = (card: any) =>
+  firstString(card?.description, card?.short_description, card?.wikidata_description, card?.wiki_description, card?.subtitle);
+const articleOf = (card: any) => String(card?.wikipedia_title ?? card?.name ?? '').replace(/_/g, ' ').trim();
+
+/**
+ * Le paquet renvoyé par le site n'a pas toujours la description (le site ne la charge qu'au clic sur la carte) :
+ * on la complète depuis Wikipédia, en un seul appel pour tout le paquet. Modifie les cartes reçues.
+ */
+export async function fillPackDescriptions(cards: any[]) {
+  const missing = cards.filter((c) => c && !cardDesc(c) && articleOf(c));
+  if (!missing.length) return;
+  const found = await describeTitles(missing.map(articleOf));
+  for (const card of missing) if (found[articleOf(card)]) card.description = found[articleOf(card)];
+}
+
 /** Carte au format Collection+ à partir des données d'une carte du site. */
 export function skinHtml(card: any): string {
   const rarity = (['C', 'PC', 'R', 'SR', 'UR', 'L'] as Rarity[]).includes(card?.rarity) ? (card.rarity as Rarity) : null;
   const title = String(card?.wikipedia_title ?? card?.name ?? '');
-  const desc = firstString(card?.description, card?.short_description, card?.wikidata_description, card?.wiki_description, card?.subtitle);
+  const desc = cardDesc(card);
   const atk = firstNumber(card?.atk, card?.attack, card?.stats?.attack);
   const def = firstNumber(card?.def, card?.defense, card?.stats?.defense);
   const image = !card?.hide_image && card?.image_url ? String(card.image_url) : null;
@@ -88,8 +104,14 @@ export function applySkin(flip: HTMLElement, card: any) {
     host?.remove();
     return;
   }
-  const key = `${card.id}|${ctx.settings.cardStyle}`;
+  const key = `${card.id}|${ctx.settings.cardStyle}|${cardDesc(card) ? 'd' : ''}`;
   if (host?.dataset.key === key) return;
+  // Description encore inconnue : on la cherche, puis on redessine si la carte est toujours affichée.
+  if (!cardDesc(card)) {
+    void fillPackDescriptions([card]).then(() => {
+      if (cardDesc(card) && host?.isConnected && host.dataset.key === key) applySkin(flip, card);
+    });
+  }
   if (!host) {
     host = document.createElement('wmt-card-skin');
     const root = host.attachShadow({ mode: 'open' });
