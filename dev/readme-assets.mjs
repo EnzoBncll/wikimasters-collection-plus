@@ -45,8 +45,10 @@ function shoot(url, file, [width, height], { scale = 1, wait = 6000 } = {}) {
 /**
  * Capture en temps réel par le protocole DevTools : le temps virtuel de --screenshot fige les animations
  * (Web Animations) à mi-course, ce qui gâche le révélé. Ici on attend vraiment `wait` ms.
+ * `setup` s'exécute une fois la page chargée, puis chaque `steps` [script, attente] (clics d'une démo) ;
+ * `clip` recadre la capture.
  */
-async function shootLive(url, file, [width, height], { wait = 12000 } = {}) {
+async function shootLive(url, file, [width, height], { wait = 12000, setup = '', steps = [], clip = null } = {}) {
   const port = 9300 + Math.floor(Math.random() * 500);
   const chrome = spawn(CHROME, ['--headless', '--hide-scrollbars', '--disable-gpu', `--remote-debugging-port=${port}`, `--window-size=${width},${height}`, `--user-data-dir=${join(TMP, `live-${port}`)}`, 'about:blank'], { stdio: 'ignore' });
   try {
@@ -69,9 +71,16 @@ async function shootLive(url, file, [width, height], { wait = 12000 } = {}) {
         ws.send(JSON.stringify({ id: n, method, params }));
       });
     await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+    const run = (expression) => send('Runtime.evaluate', { expression: `(async () => { ${expression} })()`, awaitPromise: true });
     await send('Page.navigate', { url });
+    if (setup || steps.length) await new Promise((r) => setTimeout(r, 2500));
+    if (setup) await run(setup);
+    for (const [script, pause] of steps) {
+      await run(script);
+      await new Promise((r) => setTimeout(r, pause));
+    }
     await new Promise((r) => setTimeout(r, wait));
-    const { data } = await send('Page.captureScreenshot', { format: 'png' });
+    const { data } = await send('Page.captureScreenshot', { format: 'png', ...(clip && { clip: { ...clip, scale: 1 } }) });
     await writeFile(file, Buffer.from(data, 'base64'));
     ws.close();
     console.log('  ✓', file.replace(OUT + '/', ''));
@@ -112,6 +121,58 @@ function raritiesPage() {
   return `<!doctype html><meta charset="utf-8"><link rel="stylesheet" href="/assets/${css}"><style>${force}body{margin:0;padding:28px 36px;background:#0b0b1a}</style>${row(false, 50, 50)}${row(true, 32, 30)}`;
 }
 
+/** Historique simulé de la page d'ouverture : ~110 paquets sur quatre semaines, quelques Pack ++. */
+const SEED_PULLS = `
+  const R = ['C','C','C','C','PC','PC','PC','R','R','SR','C','PC','C','R','UR','C','PC','C','C','R','C','C','PC','SR','L'];
+  const names = ['Paris','Zinédine Zidane','Tokyo','Zeus','Wolfgang Amadeus Mozart','Pikachu','Albert Einstein','Lionel Messi','Marie Curie','Rome','Tour Eiffel','Napoléon Ier'];
+  let seed = 11; const rnd = () => ((seed = (seed * 16807) % 2147483647), seed / 2147483647);
+  const now = Date.now(); const pulls = [];
+  for (let d = 27; d >= 0; d--) { const n = Math.floor(rnd() * 8); for (let k = 0; k < n; k++) pulls.push({ t: now - d * 864e5 - (n - k) * 12e5, src: k === 0 && d % 4 === 0 ? 'pro-daily' : 'open',
+    cards: Array.from({ length: 5 }, () => ({ r: R[Math.floor(rnd() * R.length)], name: names[Math.floor(rnd() * names.length)], s: rnd() < 0.03, o: rnd() < 0.3 ? 1 : 2 })) }); }
+  await chrome.storage.local.set({ pulls });
+`;
+
+/** Assistant d'album à objectif : « J'ai déjà ma liste », une liste en parties, jusqu'à l'étape `until` (Cartes ou Aperçu). */
+const ROIS = `# Capétiens directs
+Hugues Capet
+Robert II le Pieux
+Henri Ier
+Philippe Ier
+Louis VI le Gros
+Louis VII le Jeune
+Philippe Auguste
+Saint Louis
+Philippe le Bel
+# Valois
+Charles V le Sage
+Louis XI
+François Ier
+# Bourbons
+Henri IV
+Louis XIII
+Louis XIV
+Louis XV
+Louis XVI`;
+function wizardSteps(until) {
+  const button = (re, last = false) => `[...document.querySelectorAll('button')].filter((b) => ${re}.test(b.textContent)).at(${last ? -1 : 0}).click();`;
+  const type = (sel, proto, text) =>
+    `const el = document.querySelector('${sel}'); Object.getOwnPropertyDescriptor(${proto}.prototype, 'value').set.call(el, ${JSON.stringify(text)}); el.dispatchEvent(new Event('input', { bubbles: true }));`;
+  const steps = [
+    [`[...document.querySelectorAll('button')].find((b) => /Passer la visite/.test(b.textContent))?.click();`, 500],
+    [button('/^\\s*Nouveau/'), 800],
+    [`[...document.querySelectorAll('button')].find((b) => /^Album à objectif/.test(b.textContent.trim())).click();`, 1200],
+    [button('/déjà ma liste/'), 800],
+    [type('textarea[aria-label="Ta liste"]', 'HTMLTextAreaElement', ROIS), 600],
+    [button('/Trouver les pages/'), 6000],
+    [button('/Continuer/', true), 4000],
+  ];
+  if (until === 'apercu') {
+    steps.push([button('/Continuer/', true), 3000]);
+    steps.push([`[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Grimoire').click(); ${type('textarea[aria-label^="Nom de l"]', 'HTMLTextAreaElement', 'Rois de France')}`, 2000]);
+  }
+  return steps;
+}
+
 await mkdir(OUT, { recursive: true });
 await mkdir(TMP, { recursive: true });
 
@@ -134,6 +195,28 @@ try {
   await shootLive(`${BASE}/pulls?palette=nuit-violette`, join(OUT, 'site-pulls.png'), [1440, 900], { wait: 5000 });
   // ?nodesc : descriptions venues de Wikipédia, comme sur le vrai site.
   await shootLive(`${BASE}/pulls?palette=nuit-violette&style=foil&open=0&rarities=SR,R,L,PC,C&nodesc`, join(OUT, 'site-reveal.png'), [1440, 900], { wait: 14000 });
+  // Nouveautés 0.9 : livres Grimoire et Herbier, bibliothèque, assistant d'album à objectif, mode revue, ouverture des paquets.
+  // ?demo=groups&lib=1 : albums à objectif de styles variés, dont des collections finies.
+  const lib = (query, hash) => app(`theme=dark&demo=groups&lib=1&${query}`, hash);
+  await shootLive(lib('', '#album=t-byz'), join(OUT, 'album-grimoire.png'), [1440, 900], { wait: 8000 });
+  await shootLive(lib('', '#album=t-herb'), join(OUT, 'album-herbier.png'), [1440, 900], { wait: 8000 });
+  await shootLive(lib('', '#tags'), join(OUT, 'library.png'), [1440, 900], { wait: 6000, clip: { x: 150, y: 190, width: 1140, height: 620 } });
+  await shootLive(app('theme=dark&demo=groups', '#tags'), join(OUT, 'goal-cards.png'), [1440, 900], { wait: 500, steps: wizardSteps('cartes') });
+  await shootLive(app('theme=dark&demo=groups', '#tags'), join(OUT, 'goal-preview.png'), [1440, 900], { wait: 500, steps: wizardSteps('apercu') });
+  await shootLive(app('theme=dark'), join(OUT, 'review-deck.png'), [1440, 900], {
+    wait: 4000,
+    steps: [
+      [`[...document.querySelectorAll('button')].find((b) => /Passer la visite/.test(b.textContent))?.click();`, 800],
+      [`window.dispatchEvent(new KeyboardEvent('keydown', { key: 'r', bubbles: true }));`, 2500],
+      [`[...document.querySelectorAll('button')].find((b) => /Commencer/.test(b.textContent)).click();`, 0],
+    ],
+  });
+  await shootLive(`${BASE}/pulls?palette=nuit-violette`, join(OUT, 'site-stats.png'), [1440, 1400], {
+    setup: SEED_PULLS,
+    wait: 2500,
+    steps: [[`document.querySelector('wmt-pack-stats').shadowRoot.querySelector('[data-p="all"]').click();`, 800]],
+  });
+  await shootLive(`${BASE}/pulls?palette=nuit-violette&style=fullart&open=0&rarities=L,SR,R,PC,C`, join(OUT, 'site-fullart.png'), [1440, 900], { wait: 12000 });
   shoot(app('theme=light&onboarding=2'), join(OUT, 'onboarding.png'), [1440, 900], { wait: 12000 });
   shoot(`${BASE}/popup.html?static&theme=dark`, join(OUT, 'popup.png'), [360, 325], { scale: 2 });
   for (const [palette, theme] of [['abysse', 'dark'], ['aube', 'light'], ['coucher-de-soleil', 'dark'], ['emeraude', 'light']]) {
@@ -153,10 +236,10 @@ shoot(
       <div style="position:absolute;left:84px;top:150px;width:520px">
         <div style="width:132px;height:132px;filter:drop-shadow(0 18px 40px rgba(124,58,237,.55))">${brandIconSvg(main)}</div>
         <h1 style="margin:34px 0 12px;font-size:64px;letter-spacing:-2px;font-weight:800">Collection<span style="background:${holoGradient(main)};-webkit-background-clip:text;color:transparent">+</span></h1>
-        <p style="margin:0;font-size:24px;line-height:1.4;color:#c4b5fd">Range ta collection WikiMasters&nbsp;: Trade / Not Trade, étiquettes, suggestions et export.</p>
+        <p style="margin:0;font-size:24px;line-height:1.4;color:#c4b5fd">Range ta collection WikiMasters&nbsp;: albums à objectif, livres 3D, ouverture des paquets redessinée.</p>
         <div style="margin-top:28px;height:6px;width:240px;border-radius:9px;background:${holoGradient(main, 90)}"></div>
       </div>
-      <img src="file://${join(OUT, 'review-dark.png')}" style="position:absolute;left:640px;top:96px;width:900px;border-radius:18px;
+      <img src="file://${join(OUT, 'album-grimoire.png')}" style="position:absolute;left:640px;top:96px;width:900px;border-radius:18px;
         box-shadow:0 40px 90px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.08);transform:perspective(1800px) rotateY(-16deg) rotateX(6deg);transform-origin:left center">
     </div>`,
   ),
