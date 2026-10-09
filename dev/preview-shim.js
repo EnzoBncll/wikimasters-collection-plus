@@ -120,6 +120,34 @@
     for (let i = 10; i < 22; i++) uct.push([`own-${i}`, i % 2 ? 't-myth' : 't-ciné']);
     for (let i = 22; i < 30; i++) uct.push([`own-${i}`, i % 2 ? 't-trier' : 't-div']);
   }
+  // ?demo=groups&lib=1 : une bibliothèque garnie (styles variés, albums finis) pour la page Albums.
+  if (params.get('demo') === 'groups' && params.get('lib')) {
+    const LIB = [
+      ['t-byz', '◇ Empereurs byzantins', '#8b2a2a', 'grimoire', 40, 27, ['Constantiniens', 'Justiniens', 'Héraclides', 'Macédoniens', 'Comnènes', 'Anges', 'Paléologues'], '♛'],
+      ['t-herb', '◇ Plantes médicinales', '#6f8f5a', 'herbier', 24, 20, ['Fleurs', 'Racines', 'Feuilles'], '🌿'],
+      ['t-papes', '◇ Papes', '#4b2a7a', 'grimoire', 30, 6, ['Antiquité', 'Moyen Âge'], '⚜'],
+      ['t-paris', '◇ Monuments de Paris', '#b8860b', 'relie', 12, 12, ['Rive droite', 'Rive gauche'], null],
+      ['t-alpes', '◇ Herbier des Alpes', '#4f7f8a', 'herbier', 16, 16, ['Prairies', 'Sommets'], '❦'],
+      ['t-rois', '◇ Rois de France', '#2f5fb8', 'classeur', 45, 18, ['Mérovingiens', 'Carolingiens', 'Capétiens'], null],
+    ];
+    let next = 200;
+    store.albumStyles = {};
+    store.albumLooks = {};
+    LIB.forEach(([id, name, color, style, n, have, parts, emblem], g) => {
+      tags.push({ id, name, color });
+      store.albumStyles[id] = style;
+      if (emblem) store.albumLooks[id] = { emblem };
+      const first = next;
+      next += n;
+      store.goalAlbums[id] = {
+        entries: Array.from({ length: n }, (_, k) => ({ title: `Carte ${first + k}`, qid: null, description: null, section: parts[Math.floor((k * parts.length) / n)] })),
+        source: { kind: 'list', label: name.slice(2) }, annex: false, at: Date.now() - g * 86400e3,
+      };
+      for (let k = 0; k < have; k++) uct.push([`own-${first + k}`, id]);
+    });
+    tags.push({ id: 't-myth-done', name: '🏛️ Mythologie grecque ✓', color: '#eab308' });
+    for (let i = 30; i < 40; i++) uct.push([`own-${i}`, 't-myth-done']);
+  }
   window.__calls = [];
   const wished = ['card-2'];
   const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });

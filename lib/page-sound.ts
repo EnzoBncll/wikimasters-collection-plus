@@ -90,3 +90,12 @@ export function playStick() {
     // Audio indisponible.
   }
 }
+
+/** Froissement bref des pages quand on tire un livre de l'étagère (page Albums). */
+export function playRustle() {
+  try {
+    noiseBurst(0.25, [2800, 2200], 0.12, 1);
+  } catch {
+    // Audio indisponible.
+  }
+}

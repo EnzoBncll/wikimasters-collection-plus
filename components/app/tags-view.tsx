@@ -1,4 +1,4 @@
-import { Archive, ArrowRight, BookOpen, Folder, Share2, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Sparkles, Target, Trash2, Trophy, type LucideIcon } from 'lucide-react';
+import { Archive, ArrowRight, BookOpen, Library, Folder, Share2, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Sparkles, Target, Trash2, Trophy, type LucideIcon } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatedFolder, type Project } from '@/components/ui/3d-folder';
@@ -21,7 +21,8 @@ import { systemTagIds } from '@/lib/trade';
 import { byKind, goalName, hasGoalPrefix, isStorage, kindOf, switchKind, toggleFinished } from '@/lib/album-kind';
 import { goalAlbumsItem, matchEntries, saveGoalAlbum, type GoalAlbum } from '@/lib/goal-albums';
 import { useSuggestions } from '@/hooks/use-suggestions';
-import { GoalBinder } from './goal-binder';
+import { LIBRARY_ORDERS, LibraryShelf, type ShelfBook } from './library-shelf';
+import { albumLooksItem, albumStylesItem, type AlbumLook } from '@/lib/album';
 import { decodeAlbumCode, encodeAlbumCode, resolveSharedEntries } from '@/lib/album-code';
 import { factsItem } from '@/lib/wikidata';
 import { useImproveCounts } from './consolidate-view';
@@ -156,6 +157,18 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
     void goalAlbumsItem.getValue().then((all) => setGoalAlbums(all ?? {}));
     return goalAlbumsItem.watch((all) => setGoalAlbums(all ?? {}));
   }, []);
+  const [albumLooks, setAlbumLooks] = useState<Record<string, AlbumLook>>({});
+  const [albumStyles, setAlbumStyles] = useState<Record<string, 'relie' | 'classeur' | 'grimoire' | 'herbier'>>({});
+  useEffect(() => {
+    void albumLooksItem.getValue().then(setAlbumLooks);
+    void albumStylesItem.getValue().then(setAlbumStyles);
+    const offLooks = albumLooksItem.watch((v) => setAlbumLooks(v ?? {}));
+    const offStyles = albumStylesItem.watch((v) => setAlbumStyles(v ?? {}));
+    return () => {
+      offLooks();
+      offStyles();
+    };
+  }, []);
   const goalIds = useMemo(() => new Set(Object.keys(goalAlbums)), [goalAlbums]);
   const facts = useSuggestions((s) => s.facts);
 
@@ -273,6 +286,54 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
   const openAlbum = (tag: SiteTag | 'none', focus = false) =>
     setAlbum(tag === 'none' ? { key: 'none', title: 'Sans étiquette', gradient: UNTAGGED_GRADIENT } : { key: tag.id, title: tag.name, gradient: folderGradient(tag.color), focus });
 
+  /** Renommer, finir, partager, passer en rangement, supprimer : menu ⋯ des dossiers, de la liste et de la bibliothèque. */
+  const tagMenuItems = (tag: SiteTag) => (
+    <>
+      <DropdownMenuItem
+        onSelect={() => {
+          setRenameDraft(tag.name);
+          setToRename(tag);
+        }}
+      >
+        <Pencil className="size-4" /> Renommer
+      </DropdownMenuItem>
+      {!isStorage(tag) && (
+        <DropdownMenuItem onSelect={() => markFinished(tag)}>
+          {kindOf(tag) === 'finished' ? (
+            <>
+              <RotateCcw className="size-4" /> Rouvrir la collection
+            </>
+          ) : (
+            <>
+              <Trophy className="size-4" /> Marquer comme finie
+            </>
+          )}
+        </DropdownMenuItem>
+      )}
+      {goalIds.has(tag.id) && (
+        <DropdownMenuItem onSelect={() => void shareGoal(tag)}>
+          <Share2 className="size-4" /> Copier le code de partage
+        </DropdownMenuItem>
+      )}
+      {/* Toujours proposé : la page Albums sépare les rangements même sans le réglage collection / rangement. */}
+      <DropdownMenuItem onSelect={() => toggleKind(tag)}>
+        {!isStorage(tag) ? (
+          <>
+            <Archive className="size-4" /> Passer en rangement
+          </>
+        ) : (
+          <>
+            <Sparkles className="size-4" /> Passer en collection
+          </>
+        )}
+      </DropdownMenuItem>
+      <DropdownMenuSeparator />
+      <DropdownMenuItem variant="destructive" onSelect={() => setToDelete(tag)}>
+        <Trash2 className="size-4" /> Supprimer
+      </DropdownMenuItem>
+    </>
+  );
+
   /** Couleur, « Voir » dans la Revue et menu (renommer / supprimer) : communs aux dossiers et à la liste. */
   const tagControls = (tag: SiteTag, system: boolean) => (
     <div className="flex items-center gap-1.5">
@@ -301,50 +362,7 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
               <MoreHorizontal className="size-4" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onSelect={() => {
-                setRenameDraft(tag.name);
-                setToRename(tag);
-              }}
-            >
-              <Pencil className="size-4" /> Renommer
-            </DropdownMenuItem>
-            {!isStorage(tag) && (
-              <DropdownMenuItem onSelect={() => markFinished(tag)}>
-                {kindOf(tag) === 'finished' ? (
-                  <>
-                    <RotateCcw className="size-4" /> Rouvrir la collection
-                  </>
-                ) : (
-                  <>
-                    <Trophy className="size-4" /> Marquer comme finie
-                  </>
-                )}
-              </DropdownMenuItem>
-            )}
-            {goalIds.has(tag.id) && (
-              <DropdownMenuItem onSelect={() => void shareGoal(tag)}>
-                <Share2 className="size-4" /> Copier le code de partage
-              </DropdownMenuItem>
-            )}
-            {/* Toujours proposé : la page Albums sépare les rangements même sans le réglage collection / rangement. */}
-            <DropdownMenuItem onSelect={() => toggleKind(tag)}>
-              {!isStorage(tag) ? (
-                <>
-                  <Archive className="size-4" /> Passer en rangement
-                </>
-              ) : (
-                <>
-                  <Sparkles className="size-4" /> Passer en collection
-                </>
-              )}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onSelect={() => setToDelete(tag)}>
-              <Trash2 className="size-4" /> Supprimer
-            </DropdownMenuItem>
-          </DropdownMenuContent>
+          <DropdownMenuContent align="end">{tagMenuItems(tag)}</DropdownMenuContent>
         </DropdownMenu>
       )}
     </div>
@@ -370,52 +388,108 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
     );
   };
 
-  /** Album à objectif en vue Dossiers : classeur à onglets avec sa jauge. */
-  const binder = (tag: SiteTag) => {
-    const goal = goalAlbums[tag.id];
-    const tagCards = byTag.get(tag.id) ?? [];
-    const match = goal ? matchEntries(goal.entries, cards, facts) : new Map<number, OwnedCard>();
-    const inAlbum = [...match.values()].filter((c) => c.tagIds.includes(tag.id)).length;
-    return (
-      <GoalBinder
-        tag={tag}
-        goal={goal}
-        cards={tagCards}
-        collected={goal ? inAlbum : tagCards.length}
-        toStick={match.size - inAlbum}
-        onOpen={() => openAlbum(tag)}
-        footer={tagControls(tag, false)}
-      />
-    );
-  };
+  /** Livres de la bibliothèque : albums à objectif et collections finies. */
+  const books = useMemo((): ShelfBook[] => {
+    const list = [...goals, ...finished.filter((t) => !goals.includes(t))];
+    return list.map((tag) => {
+      const goal = goalAlbums[tag.id];
+      const tagCards = byTag.get(tag.id) ?? [];
+      const look = albumLooks[tag.id] ?? {};
+      const emblemCard = look.emblem?.startsWith('card:') ? cards.find((c) => c.cardId === look.emblem!.slice(5)) : undefined;
+      const lead = /^\p{Extended_Pictographic}\uFE0F?/u.exec(tag.name.replace(/^◇\s*/, ''))?.[0];
+      const name = tag.name.replace(/^◇\s*/, '').replace(/^\p{Extended_Pictographic}\uFE0F?\s*/u, '').replace(/\s*✓$/, '') || tag.name;
+      const base = {
+        tag,
+        name,
+        color: /^#[0-9a-f]{6}$/i.test(tag.color ?? '') ? tag.color! : '#8b5cf6',
+        style: albumStyles[tag.id] ?? settings.albumStyle,
+        emblem: look.emblem && !emblemCard ? look.emblem : lead ?? '◇',
+        image: emblemCard ? cardImage(emblemCard) : undefined,
+      };
+      if (!goal) {
+        return { ...base, total: tagCards.length, have: tagCards.length, toStick: 0, at: 0, done: true, parts: [] };
+      }
+      const match = matchEntries(goal.entries, cards, facts);
+      const stuck = (i: number) => match.get(i)?.tagIds.includes(tag.id) ?? false;
+      const parts: ShelfBook['parts'] = [];
+      goal.entries.forEach((e, i) => {
+        if (!e.section) return;
+        let part = parts.find((p) => p.name === e.section);
+        if (!part) parts.push((part = { name: e.section, total: 0, have: 0 }));
+        part.total++;
+        if (stuck(i)) part.have++;
+      });
+      const have = goal.entries.filter((_, i) => stuck(i)).length;
+      const total = goal.entries.length;
+      return { ...base, total, have, toStick: match.size - have, at: goal.at, done: kindOf(tag) === 'finished' || (total > 0 && have >= total), parts };
+    });
+  }, [goals, finished, goalAlbums, albumLooks, albumStyles, byTag, cards, facts, settings.albumStyle]);
 
+  const prefixButton = unprefixedGoals.length > 0 && (
+    <Button variant="outline" size="sm" className="h-7 rounded-full px-2.5 text-xs" onClick={prefixGoals}>
+      Ajouter « ◇ » à {unprefixedGoals.length} album{unprefixedGoals.length > 1 ? 's' : ''}
+    </Button>
+  );
+
+  /** Vue Dossiers : albums à objectif et collections finies en livres sur l'étagère. */
+  const librarySection = books.length > 0 && (
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-primary uppercase">
+          <Library className="size-3.5" /> Bibliothèque · {books.length}
+        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          {prefixButton}
+          <div className="flex rounded-full border bg-card p-1" role="radiogroup" aria-label="Ranger la bibliothèque">
+            {LIBRARY_ORDERS.map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={settings.libraryOrder === value}
+                onClick={() => updateSettings({ libraryOrder: value })}
+                className={cn(
+                  'cursor-pointer rounded-full px-2.5 py-1 text-xs font-medium transition',
+                  settings.libraryOrder === value ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <LibraryShelf
+        books={books}
+        order={settings.libraryOrder}
+        onOpen={(book) => openAlbum(book.tag)}
+        menu={(book) => (
+          <>
+            <DropdownMenuItem onSelect={() => showInReview(book.tag)}>
+              <ArrowRight className="size-4" /> Voir dans Cartes
+            </DropdownMenuItem>
+            {tagMenuItems(book.tag)}
+          </>
+        )}
+        sound={settings.sound}
+      />
+    </section>
+  );
+
+  /** Vue Liste : albums à objectif puis collections finies. */
   const goalSection = goals.length > 0 && (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-primary uppercase">
           <Target className="size-3.5" /> Albums à objectif · {goals.length}
         </h2>
-        {unprefixedGoals.length > 0 && (
-          <Button variant="outline" size="sm" className="h-7 rounded-full px-2.5 text-xs" onClick={prefixGoals}>
-            Ajouter « ◇ » à {unprefixedGoals.length} album{unprefixedGoals.length > 1 ? 's' : ''}
-          </Button>
-        )}
+        {prefixButton}
       </div>
-      {layout === 'list' ? (
-        <div className="divide-y overflow-hidden rounded-2xl border bg-card">
-          {goals.map((tag) => (
-            <TagRow key={tag.id} name={tag.name} color={tag.color} cards={byTag.get(tag.id) ?? []} onOpen={() => openAlbum(tag)} controls={tagControls(tag, false)} icon={Target} />
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-8">
-          {goals.map((tag, i) => (
-            <div key={tag.id} className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both duration-700" style={{ animationDelay: `${i * 60}ms` }}>
-              {binder(tag)}
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="divide-y overflow-hidden rounded-2xl border bg-card">
+        {goals.map((tag) => (
+          <TagRow key={tag.id} name={tag.name} color={tag.color} cards={byTag.get(tag.id) ?? []} onOpen={() => openAlbum(tag)} controls={tagControls(tag, false)} icon={Target} />
+        ))}
+      </div>
     </section>
   );
 
@@ -456,28 +530,18 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
         </div>
       </header>
 
-      {goalSection}
+      {layout === 'list' ? goalSection : librarySection}
 
-      {finished.length > 0 && (
+      {layout === 'list' && finished.length > 0 && (
         <section className="space-y-4">
           <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-amber-600 uppercase dark:text-amber-400">
             <Trophy className="size-3.5" /> Collections finies · {finished.length}
           </h2>
-          {layout === 'list' ? (
-            <div className="divide-y overflow-hidden rounded-2xl border border-amber-400/40 bg-card shadow-[0_0_0_1px_rgb(234_179_8/0.08),0_10px_30px_-18px_rgb(234_179_8/0.6)]">
-              {finished.map((tag) => (
-                <TagRow key={tag.id} name={tag.name} color={tag.color} cards={byTag.get(tag.id) ?? []} onOpen={() => openAlbum(tag)} controls={tagControls(tag, false)} icon={Trophy} />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-8">
-              {finished.map((tag, i) => (
-                <div key={tag.id} className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both duration-700" style={{ animationDelay: `${i * 60}ms` }}>
-                  {folder(tag)}
-                </div>
-              ))}
-            </div>
-          )}
+          <div className="divide-y overflow-hidden rounded-2xl border border-amber-400/40 bg-card shadow-[0_0_0_1px_rgb(234_179_8/0.08),0_10px_30px_-18px_rgb(234_179_8/0.6)]">
+            {finished.map((tag) => (
+              <TagRow key={tag.id} name={tag.name} color={tag.color} cards={byTag.get(tag.id) ?? []} onOpen={() => openAlbum(tag)} controls={tagControls(tag, false)} icon={Trophy} />
+            ))}
+          </div>
         </section>
       )}
 

@@ -27,6 +27,8 @@ export interface Settings {
   albumStyle: 'relie' | 'classeur' | 'grimoire' | 'herbier';
   /** Page Étiquettes : dossiers animés ou liste. */
   tagsLayout: 'folders' | 'list';
+  /** Page Albums : rangement de la bibliothèque (albums à objectif et collections finies). */
+  libraryOrder: 'progress' | 'style' | 'recent' | 'color' | 'alpha';
   /** Distingue les albums de collection (emoji, couleur vive) des albums de rangement (« · Nom », gris). */
   albumKinds: boolean;
   /** Affichage des étiquettes sur les cartes, partout dans l'app. */
@@ -102,6 +104,7 @@ export const DEFAULT_SETTINGS: Settings = {
   palette: DEFAULT_PALETTE,
   albumStyle: 'relie',
   tagsLayout: 'folders',
+  libraryOrder: 'progress',
   albumKinds: false,
   cardTagStyle: 'dots',
   cardStyle: 'classic',
