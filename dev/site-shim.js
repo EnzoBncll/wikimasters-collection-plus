@@ -95,6 +95,14 @@
       return json({ cards, owned_copies, packs_remaining: packs, packs_last_regen_at: new Date(Date.now() - 120e3).toISOString() });
     }
     if (url.pathname.startsWith('/api/my-collection')) return json({ collection: [] });
+    // Échanges : deux offres, cartes de chaque côté (la 4e sans image).
+    if (url.pathname === '/api/trades') {
+      const item = (i, rarity, by) => ({ id: `ti-${i}`, card_id: 1000 + i, offered_by: by, snapshot_rarity: rarity, card: card(i, rarity) });
+      return json({ trades: [
+        { id: 'tr-1', status: 'pending', initiator_id: 'user-2', recipient_id: 'user-1', items: [item(7, 'SR', 'user-2'), item(8, 'UR', 'user-2'), item(1, 'C', 'user-1')] },
+        { id: 'tr-2', status: 'pending', initiator_id: 'user-1', recipient_id: 'user-3', items: [item(3, 'R', 'user-1'), item(13, 'L', 'user-3'), item(10, 'PC', 'user-3')] },
+      ] });
+    }
     if (url.hostname.includes('supabase')) {
       const path = url.pathname.replace('/rest/v1/', '');
       const body = init.body ? JSON.parse(init.body) : null;

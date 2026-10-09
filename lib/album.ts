@@ -44,8 +44,8 @@ export function swapSlots(slots: (string | null)[], from: number, to: number): (
 }
 
 /** Nombre de pages : de quoi tout ranger, plus une page libre pour réorganiser ; toujours pair (doubles pages). */
-export function pageCount(slotCount: number): number {
-  const pages = Math.ceil(slotCount / SLOTS_PER_PAGE) + 1;
+export function pageCount(slotCount: number, perPage = SLOTS_PER_PAGE): number {
+  const pages = Math.ceil(slotCount / perPage) + 1;
   return Math.max(2, pages + (pages % 2));
 }
 
@@ -53,6 +53,56 @@ export function pageCount(slotCount: number): number {
 export const albumDescriptionsItem = storage.defineItem<Record<string, string>>('local:albumDescriptions', {
   fallback: {},
 });
+
+/** Style de livre propre à un album (même clé que la disposition) ; absent = style par défaut des réglages. */
+export const albumStylesItem = storage.defineItem<Record<string, 'relie' | 'classeur' | 'grimoire' | 'herbier'>>('local:albumStyles', { fallback: {} });
+
+/**
+ * Apparence d'un album (menu pinceau), par album ; chaque champ absent prend sa valeur par défaut.
+ * Le style du livre, le relief, les parties et l'ordre ont leurs propres entrées (plus anciennes).
+ */
+export interface AlbumLook {
+  /** Emblème de couverture : « ◇ », un emoji, « card:<id> » (carte en médaillon) ou '' (aucun). */
+  emblem?: string;
+  /** Couverture du grimoire. */
+  grimoireCover?: 'a' | 'b' | 'c';
+  /** Cases par page : 4 grandes (2 × 2), 9 (3 × 3) ou 16 petites (4 × 4). */
+  perPage?: 4 | 9 | 16;
+  /** Case à trouver (album à objectif) : son nom, une silhouette, ou l'image de l'article floutée. */
+  missing?: 'name' | 'silhouette' | 'blur';
+  numbers?: boolean;
+  /** Motif de fond des pages (Grimoire, Herbier). */
+  pattern?: boolean;
+  /** Habillage des cartes dans cet album ; absent = celui des réglages. */
+  cardStyle?: string;
+  /** Cartes collées légèrement de travers. */
+  tilted?: boolean;
+  /** Reflets et animations des cartes rares. */
+  shine?: boolean;
+  /** Bruit de page qui tourne. */
+  sound?: boolean;
+  speed?: 'normal' | 'fast' | 'none';
+}
+
+export const DEFAULT_LOOK: Required<Omit<AlbumLook, 'cardStyle' | 'emblem'>> = {
+  grimoireCover: 'b',
+  perPage: 9,
+  missing: 'name',
+  numbers: true,
+  pattern: true,
+  tilted: true,
+  shine: true,
+  sound: false,
+  speed: 'normal',
+};
+
+export const albumLooksItem = storage.defineItem<Record<string, AlbumLook>>('local:albumLooks', { fallback: {} });
+
+/** Relief propre à un album : true = 3D (incliné, épaisseur), false = 2D ; absent = selon le style. */
+export const albumDepthItem = storage.defineItem<Record<string, boolean>>('local:albumDepth', { fallback: {} });
+
+/** Mise en page des parties d'un album à objectif (voir goal-layout.ts), par album ; absent = « tile ». */
+export const albumSectionsItem = storage.defineItem<Record<string, 'tile' | 'row' | 'page' | 'color'>>('local:albumSections', { fallback: {} });
 
 /** Vue de l'album : rangement manuel (enregistré) ou tri par rareté, sans toucher au rangement. Par album. */
 export type AlbumOrder = 'manual' | 'rarity';

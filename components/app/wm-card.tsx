@@ -1,9 +1,10 @@
 import { Shield, Swords } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useCollection } from '@/hooks/use-collection';
 import type { CardStyle, CardTagStyle } from '@/lib/store';
 import { RARITY_LABEL, type OwnedCard } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { articleUrl, queuedIntro } from '@/lib/wiki-intro';
 import { cardImage } from './card-image';
 import { CardTagsFooter, CardTagsOverlay, useCardTags } from './card-tags';
 
@@ -35,6 +36,35 @@ function reset(e: React.PointerEvent<HTMLElement>) {
   for (const v of ['--mx', '--my', '--cx', '--cy', '--hue', '--holo-angle', '--rx', '--ry']) el.style.removeProperty(v);
 }
 
+/** Premier paragraphe de l'article, demandé quand la carte approche de l'écran (habillage full-art seulement). */
+function useArticleIntro(card: OwnedCard, enabled: boolean) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [intro, setIntro] = useState<string | null>(null);
+  const url = enabled ? articleUrl(card.title, card.wikipediaUrl) : null;
+  useEffect(() => {
+    setIntro(null);
+    const el = ref.current;
+    if (!url || !el) return;
+    let alive = true;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        io.disconnect();
+        queuedIntro(url)
+          .then((text) => alive && setIntro(text?.split('\n')[0] || null))
+          .catch(() => {});
+      },
+      { rootMargin: '300px' },
+    );
+    io.observe(el);
+    return () => {
+      alive = false;
+      io.disconnect();
+    };
+  }, [url]);
+  return [ref, intro] as const;
+}
+
 export interface WmCardProps {
   card: OwnedCard;
   /** Inclinaison 3D au survol (désactivée pour les vignettes collées dans l'album). */
@@ -61,8 +91,11 @@ export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFoo
   const allTags = useCardTags(card);
   const tags = showTags ? allTags : [];
   const hasStats = card.attack != null || card.defense != null;
+  const [cardRef, intro] = useArticleIntro(card, cardStyle === 'fullart');
+  const text = intro ?? card.description;
   return (
     <div
+      ref={cardRef}
       className={cn('wm-card select-none', className)}
       data-rarity={card.rarity ?? undefined}
       data-style={cardStyle}
@@ -73,7 +106,7 @@ export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFoo
       {/* Face imprimée : toute la carte en « Actuel », à l'intérieur de la bordure pour les autres habillages. */}
       <div className="wm-face">
       <div className="wm-paper" />
-      <div className="wm-art absolute inset-x-0 top-0 z-20 h-[45%] bg-black/20">
+      <div className="wm-art absolute inset-x-0 top-0 z-20 h-[45%] bg-black/20" style={{ '--art': `url(${JSON.stringify(cardImage(card))})` } as CSSProperties}>
         <img src={cardImage(card)} alt="" loading="lazy" draggable={false} className="pointer-events-none absolute inset-0 size-full object-cover" />
         <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-black/50 to-transparent" />
         {imageOverlay}
@@ -101,7 +134,7 @@ export function WmCard({ card, tilt = true, className, imageOverlay, fallbackFoo
         <h3 className="wm-title line-clamp-2 shrink-0 text-[7.5cqw] leading-tight font-bold text-black" title={card.title}>
           {card.title}
         </h3>
-        {card.description && <p className="wm-desc mt-[1.5cqw] line-clamp-2 shrink-0 text-[5.8cqw] leading-snug text-neutral-900/85">{card.description}</p>}
+        {text && <p className="wm-desc mt-[1.5cqw] line-clamp-2 shrink-0 text-[5.8cqw] leading-snug text-neutral-900/85">{text}</p>}
         {tagStyle === 'footer' && <CardTagsFooter tags={tags} />}
         <div
           className={cn(

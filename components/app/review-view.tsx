@@ -1,4 +1,4 @@
-import { CheckCircle2, Copy, Loader2, PanelLeft, Search, SearchX, Sparkles } from 'lucide-react';
+import { CheckCircle2, Copy, Layers, Loader2, PanelLeft, Search, SearchX, Sparkles } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -11,6 +11,8 @@ import { CardGrid, type CardGridHandle } from './card-grid';
 import { DuplicatesDialog } from './duplicates-dialog';
 import { FilterSidebar } from './filter-sidebar';
 import { SelectionBar } from './selection-bar';
+import { ReviewDeck } from './review-deck';
+import type { OwnedCard } from '@/lib/types';
 
 const SORT_LABEL: Record<SortKey, string> = { rarity: 'Rareté', date: 'Date d’obtention', title: 'Titre', count: 'Exemplaires' };
 
@@ -22,6 +24,9 @@ export function ReviewView() {
   const searchRef = useRef<HTMLInputElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [dupsOpen, setDupsOpen] = useState(false);
+  /** Mode revue ouvert : sur la sélection si elle existe, sinon on choisit le lot en entrant. */
+  const [deck, setDeck] = useState<OwnedCard[] | null>(null);
+  const openDeck = () => setDeck(review.selected.size ? visible.filter((c) => review.selected.has(c.cardId)) : []);
   const dupCount = useMemo(() => cards.filter((c) => c.count > 1).length, [cards]);
 
   // La sélection ne garde que les cartes encore visibles.
@@ -82,6 +87,7 @@ export function ReviewView() {
         if (!state.selected.size && targets[0]) state.set({ selected: new Set([targets[0].cardId]) });
         state.set({ tagPickerOpen: true });
       } else if (key === 'a') state.set({ selected: new Set(visible.map((c) => c.cardId)) });
+      else if (key === 'r') openDeck();
       else if (e.key === '/') searchRef.current?.focus();
       else return;
       e.preventDefault();
@@ -128,6 +134,18 @@ export function ReviewView() {
             <span className={cn('rounded-full px-1.5 text-xs tabular-nums', review.onlyNew ? 'bg-primary-foreground/20' : 'bg-muted')}>
               {newIds.size}
             </span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 rounded-full"
+            onClick={openDeck}
+            title="Revoir les cartes une par une, comme à l'ouverture des paquets (R)"
+          >
+            <Layers className="size-3.5" />
+            Revue
+            {review.selected.size > 0 && <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums">{review.selected.size}</span>}
           </Button>
 
           <Button variant="outline" size="sm" className="h-9 rounded-full" onClick={() => setDupsOpen(true)} title="Tes cartes en double, et la défausse des exemplaires en trop">
@@ -187,6 +205,7 @@ export function ReviewView() {
         <SelectionBar targets={targets} visible={visible} />
       </div>
       <DuplicatesDialog open={dupsOpen} onClose={() => setDupsOpen(false)} />
+      {deck && <ReviewDeck selection={deck} onClose={() => setDeck(null)} />}
     </div>
   );
 }

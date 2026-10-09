@@ -83,6 +83,16 @@
       const step = (n) => n > 0 && setTimeout(() => (main.querySelector('.next')?.click(), step(n - 1)), 400);
       setTimeout(() => step(Number(auto) || 0), 3500);
     }
+  } else if (route.startsWith('/trades')) {
+    // Offres d'échange : puces au nom tronqué, colorées par la rareté (comme sur le site).
+    const chip = (title, r) => `<span title="${title}" style="background-color:color-mix(in srgb, var(--color-rarity-${r}) 25%, transparent);color:var(--color-rarity-${r});padding:2px 8px;border-radius:6px;max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block">${title}</span>`;
+    const offer = (who, give, get) => `<div class="card-frame" style="margin:16px auto;max-width:640px"><b>${who}</b>
+      <div class="flex gap-4" style="margin-top:10px"><div style="flex:1"><small>Propose</small><div class="flex flex-wrap" style="gap:6px;margin-top:6px">${give}</div></div>
+      <div style="flex:1"><small>Demande</small><div class="flex flex-wrap" style="gap:6px;margin-top:6px">${get}</div></div></div></div>`;
+    main.innerHTML = `<style>:root{--color-rarity-c:#b8f2d5;--color-rarity-pc:#b1cff2;--color-rarity-r:#c6a7f2;--color-rarity-sr:#ed6fa3;--color-rarity-ur:#fa9931;--color-rarity-l:#ffe144}</style>
+      <h1 style="text-align:center">Échanges</h1>
+      ${offer('marie_42', chip('Wolfgang Amadeus Mozart', 'sr') + chip('Zeus', 'ur'), chip('Lionel Messi', 'c'))}
+      ${offer('toi → paulo', chip('Napoléon Ier', 'r'), chip('Jupiter (planète)', 'l') + chip('Daft Punk', 'pc'))}`;
   } else if (route.startsWith('/collection') || route.startsWith('/marketplace') || route.startsWith('/global-collection')) {
     const grid = document.createElement('div');
     grid.className = 'flex flex-wrap justify-center grid';

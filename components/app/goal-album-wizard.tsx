@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Check, ChevronDown, ChevronRight, Database, ListOrdered, Loader2, MessageSquareText, Plus, RotateCcw, Search, Target, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, ClipboardList, Database, ListOrdered, Loader2, MessageSquareText, Pencil, Plus, RotateCcw, Search, Sparkles, Target, Upload, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCollection } from '@/hooks/use-collection';
@@ -13,6 +13,7 @@ import {
   findListPages,
   matchEntries,
   readListPage,
+  titleKey,
   saveGoalAlbum,
   searchArticles,
   type Criterion,
@@ -23,12 +24,17 @@ import {
 } from '@/lib/goal-albums';
 import { canQuery, resolveNames, resolvePlan, runPlan, understandFree, type FreeEntry, type QueryPlan, type Resolved } from '@/lib/free-query';
 import { candidatesFor, relatedCriteria, scoreCandidates, searchEntities, understand, type Candidate, type Constraints, type WdEntity } from '@/lib/goal-search';
-import type { SiteTag } from '@/lib/types';
+import { RARITY_LABEL, RARITY_ORDER, type OwnedCard, type Rarity, type SiteTag } from '@/lib/types';
+import { catalogInfo, GOAL_SORTS, sortEntries, wikidataInfo, type CatalogInfo, type GoalSort, type WikidataInfo } from '@/lib/goal-enrich';
+import { Switch } from '@/components/ui/switch';
+import { matchedEntries, matchLines, parseList, searchCandidates, type LineMatch, type MatchStatus } from '@/lib/list-import';
+import { ALBUM_STYLE_ICONS, ALBUM_STYLE_IDS, ALBUM_STYLES, type AlbumStyleId } from './album-styles';
+import { albumStylesItem } from '@/lib/album';
+import { RARITY_VAR } from './rarity';
 import { cn } from '@/lib/utils';
 import { randomTagColor, TAG_COLORS } from '@/lib/tag-colors';
 import { useThumbnails, WikiPeek } from './wiki-peek';
 
-const TRIES = ['les rois de France', 'les empereurs en Europe après 1600', 'les papes', "les recettes à l'orange confite"];
 const PER_PAGE = 9;
 /** Cartes affichées à la fois dans la grille de sélection. */
 const SHOWN = 120;
@@ -55,7 +61,8 @@ type Draft =
   | { kind: 'free'; label: string; entries: FreeEntry[]; picked: Set<string> }
   /** Demande libre en mode noms : liste proposée par l'IA, à corriger puis verrouiller avant de chercher les articles. */
   | { kind: 'names'; label: string; names: string[] }
-  | { kind: 'criteria' | 'search'; label: string; items: Pickable[]; picked: Set<string>; next?: number | null; query?: string }
+  /** « import » : ta propre liste, rapprochée de Wikipédia à l'étape 1.5. */
+  | { kind: 'criteria' | 'search' | 'import'; label: string; items: Pickable[]; picked: Set<string>; next?: number | null; query?: string }
   | ScoredDraft;
 
 function activeConstraints(d: ScoredDraft): Constraints {
@@ -110,7 +117,14 @@ const pct = (n: number) => n.toFixed(2).replace('.', ',');
 export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; onCreated: (tag: SiteTag) => void }) {
   const { cards, tags, createTag, updateTag, stageIntoAlbum } = useCollection();
   const facts = useSuggestions((s) => s.facts);
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  // 1,5 : ta propre liste (écrite, collée ou importée) et son rapprochement avec Wikipédia.
+  const [step, setStep] = useState<1 | 1.5 | 2 | 3>(1);
+  const [importText, setImportText] = useState('');
+  const [importCsv, setImportCsv] = useState(false);
+  const [importColumn, setImportColumn] = useState<number | undefined>(undefined);
+  const [matches, setMatches] = useState<LineMatch[] | null>(null);
+  /** Éléments ajoutés à la main à l'étape 2. */
+  const [added, setAdded] = useState<GoalEntry[]>([]);
   const [query, setQuery] = useState('');
   const [asked, setAsked] = useState('');
   const [lists, setLists] = useState<Async<ListPage[]> | null>(null);
@@ -121,10 +135,16 @@ export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; o
   const [free, setFree] = useState<Async<FreeState> | null>(null);
   const geminiKey = useCollection((s) => s.settings.geminiApiKey);
   const [opening, setOpening] = useState<string | null>(null);
+  /** Premières listes Wikipédia lues d'avance : leur nombre de cases et leurs miniatures s'affichent dans les propositions. */
+  const [listReads, setListReads] = useState<Record<string, Async<ListSection[]>>>({});
   const [draft, setDraft] = useState<Draft | null>(null);
   const [name, setName] = useState('');
   const [color, setColor] = useState(randomTagColor);
   const [annex, setAnnex] = useState(true);
+  const [sort, setSort] = useState<GoalSort>('source');
+  const [albumStyle, setAlbumStyle] = useState<AlbumStyleId>(() => useCollection.getState().settings.albumStyle);
+  const [catalog, setCatalog] = useState<Async<Map<string, CatalogInfo>> | null>(null);
+  const [wikidata, setWikidata] = useState<Async<Map<string, WikidataInfo>> | null>(null);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -152,7 +172,20 @@ export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; o
       ({ plan, warning }) => build(plan, warning),
       () => setFree({ status: 'error' }),
     );
-    findListPages(text).then((value) => setLists({ status: 'done', value }), () => setLists({ status: 'error' }));
+    setListReads({});
+    findListPages(text).then(
+      (value) => {
+        setLists({ status: 'done', value });
+        for (const p of value.slice(0, 3)) {
+          setListReads((r) => ({ ...r, [p.title]: { status: 'loading' } }));
+          readListPage(p.title).then(
+            (sections) => setListReads((r) => ({ ...r, [p.title]: { status: 'done', value: sections } })),
+            () => setListReads((r) => ({ ...r, [p.title]: { status: 'error' } })),
+          );
+        }
+      },
+      () => setLists({ status: 'error' }),
+    );
     findCriteria(text).then((value) => setCriteria({ status: 'done', value }), () => setCriteria({ status: 'error' }));
     searchArticles(text).then(
       (value) => {
@@ -221,7 +254,62 @@ export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; o
       cleanQuery(asked) || entity.label,
     );
 
-  const entries = useMemo(() => draftEntries(draft), [draft]);
+  const picked = useMemo(() => {
+    const base = draftEntries(draft);
+    const seen = new Set(base.map((e) => e.title));
+    return [...base, ...added.filter((e) => !seen.has(e.title))];
+  }, [draft, added]);
+  /** Texte saisi d'origine des éléments de ta liste dont la page a un autre titre. */
+  const origins = useMemo(() => {
+    const m = new Map<string, string>();
+    if (draft?.kind === 'import' && matches) for (const x of matches) if (x.choice && x.choice.toLowerCase() !== x.text.toLowerCase()) m.set(x.choice, x.text);
+    return m;
+  }, [draft, matches]);
+  const dropTitles = (titles: string[]) => {
+    setAdded((a) => a.filter((e) => !titles.includes(e.title)));
+    setDraft((d) =>
+      !d || d.kind === 'names'
+        ? d
+        : d.kind === 'list'
+          ? { ...d, off: new Set([...d.off, ...titles]) }
+          : { ...d, picked: new Set([...d.picked].filter((t) => !titles.includes(t))) },
+    );
+  };
+  // Aperçu : carte WikiMasters (rareté, existence) et données Wikidata (date, notoriété) des cases, lues une fois.
+  useEffect(() => {
+    if (step !== 3 || !picked.length) return;
+    let alive = true;
+    const known = catalog?.status === 'done' ? catalog.value : null;
+    const titles = picked.map((e) => e.title).filter((t) => !known || !known.has(titleKey(t)));
+    if (!known || titles.length) {
+      setCatalog((c) => (c?.status === 'done' ? c : { status: 'loading' }));
+      catalogInfo(titles).then(
+        (found) => alive && setCatalog((c) => ({ status: 'done', value: new Map([...(c?.status === 'done' ? c.value : []), ...found]) })),
+        () => alive && setCatalog({ status: 'error' }),
+      );
+    }
+    const qids = picked.map((e) => e.qid).filter((q): q is string => Boolean(q));
+    const wdKnown = wikidata?.status === 'done' ? wikidata.value : null;
+    const wdMissing = qids.filter((q) => !wdKnown?.has(q));
+    if (wdMissing.length) {
+      setWikidata((w) => (w?.status === 'done' ? w : { status: 'loading' }));
+      wikidataInfo(wdMissing).then(
+        (found) => alive && setWikidata((w) => ({ status: 'done', value: new Map([...(w?.status === 'done' ? w.value : []), ...found]) })),
+        () => alive && setWikidata({ status: 'error' }),
+      );
+    } else if (!qids.length && !wikidata) setWikidata({ status: 'error' });
+    return () => {
+      alive = false;
+    };
+  }, [step, picked]); // eslint-disable-line react-hooks/exhaustive-deps
+  const entries = useMemo(() => {
+    const cat = catalog?.status === 'done' ? catalog.value : null;
+    const wd = wikidata?.status === 'done' ? wikidata.value : null;
+    // Tant que les données du tri ne sont pas là, l'ordre de la liste reste affiché.
+    const needs = GOAL_SORTS.find((x) => x.id === sort)?.needs;
+    const ready = needs === 'catalog' ? cat : needs === 'wikidata' ? wd : true;
+    return sortEntries(picked, ready ? sort : 'source', cat, wd);
+  }, [picked, sort, catalog, wikidata]);
   const owned = useMemo(() => matchEntries(entries, cards, facts), [entries, cards, facts]);
   const ownedTitles = useMemo(() => {
     if (!draft) return new Set<string>();
@@ -243,7 +331,8 @@ export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; o
       const tag = existing ?? (await createTag(full, color));
       if (!tag) return;
       if (existing && existing.name !== full) await updateTag(existing.id, { name: full });
-      await saveGoalAlbum(tag.id, { entries, source: { kind: draft.kind === 'list' ? 'list' : draft.kind === 'search' ? 'search' : 'criteria', label: draft.label }, annex, at: Date.now() });
+      await albumStylesItem.setValue({ ...(await albumStylesItem.getValue()), [tag.id]: albumStyle });
+      await saveGoalAlbum(tag.id, { entries, source: { kind: draft.kind === 'list' || draft.kind === 'import' ? 'list' : draft.kind === 'search' ? 'search' : 'criteria', label: draft.label }, annex, at: Date.now() });
       const toStick = [...owned.values()].filter((c) => !c.tagIds.includes(tag.id));
       if (toStick.length) stageIntoAlbum(toStick, tag);
       toast(`Album « ${tag.name} » créé : ${entries.length} cases${toStick.length ? `, ${toStick.length} carte(s) à coller dans la boîte d'envoi` : ''}`, 'success');
@@ -253,11 +342,8 @@ export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; o
     }
   };
 
-  const steps = [
-    [1, 'Sujet'],
-    [2, 'Cartes'],
-    [3, 'Aperçu'],
-  ] as const;
+  const ownList = step === 1.5 || draft?.kind === 'import';
+  const steps: [1 | 1.5 | 2 | 3, string][] = [[1, 'Sujet'], ...(ownList ? ([[1.5, 'Ma liste']] as [1.5, string][]) : []), [2, 'Cartes'], [3, 'Aperçu']];
 
   return createPortal(
     <motion.div
@@ -269,24 +355,33 @@ export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; o
       <motion.div
         initial={{ y: 16 }}
         animate={{ y: 0 }}
-        className="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-2xl"
+        className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border bg-popover text-popover-foreground shadow-2xl"
       >
         <header className="flex flex-wrap items-center gap-3 border-b px-5 py-3">
           <span className="flex items-center gap-2 text-sm font-semibold">
             <Target className="size-4 text-muted-foreground" /> Nouvel album à objectif
           </span>
-          <nav className="ml-auto flex items-center gap-4 text-xs" aria-label="Étapes">
-            {steps.map(([n, label]) => (
-              <button
-                key={n}
-                type="button"
-                disabled={n > step || (n > 1 && !draft)}
-                onClick={() => setStep(n)}
-                aria-current={n === step ? 'step' : undefined}
-                className={cn('cursor-pointer font-medium text-muted-foreground disabled:cursor-default', n === step && 'text-foreground', n < step && 'hover:text-foreground')}
-              >
-                {n}. {label}
-              </button>
+          <nav className="ml-auto flex items-center gap-1 text-xs" aria-label="Étapes">
+            {steps.map(([n, label], i) => (
+              <span key={n} className="flex items-center gap-1">
+                {i > 0 && <span className={cn('h-px w-5 bg-border', n <= step && 'bg-primary')} />}
+                <button
+                  type="button"
+                  disabled={n > step || (n > 1.5 && !draft)}
+                  onClick={() => setStep(n)}
+                  aria-current={n === step ? 'step' : undefined}
+                  className={cn(
+                    'flex cursor-pointer items-center gap-1.5 rounded-full py-1 pr-2.5 pl-1 font-medium text-muted-foreground transition disabled:cursor-default',
+                    n === step && 'bg-primary/10 text-foreground',
+                    n < step && 'hover:text-foreground',
+                  )}
+                >
+                  <span className={cn('grid size-5 place-items-center rounded-full border text-[10px] font-bold', n === step && 'border-primary bg-primary text-primary-foreground', n < step && 'border-primary text-primary')}>
+                    {n < step ? <Check className="size-3" /> : i + 1}
+                  </span>
+                  {label}
+                </button>
+              </span>
             ))}
           </nav>
           <button type="button" onClick={onClose} aria-label="Fermer" className="grid size-8 cursor-pointer place-items-center rounded-full text-muted-foreground transition hover:bg-muted hover:text-foreground">
@@ -302,6 +397,8 @@ export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; o
               asked={asked}
               run={run}
               lists={lists}
+              listReads={listReads}
+              ownedOf={(list) => matchEntries(list, cards, facts).size}
               criteria={criteria}
               search={search}
               broad={broad}
@@ -323,7 +420,11 @@ export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; o
               onList={(p) =>
                 open(
                   `list:${p.title}`,
-                  async () => ({ kind: 'list', label: p.title, sections: (await readListPage(p.title)).map((s) => ({ ...s, on: s.suggested })), off: new Set() }),
+                  async () => {
+                    const read = listReads[p.title];
+                    const sections = read?.status === 'done' ? read.value : await readListPage(p.title);
+                    return { kind: 'list', label: p.title, sections: sections.map((s) => ({ ...s, on: s.suggested })), off: new Set() };
+                  },
                   p.title.replace(/^Liste (des |de la |de l'|du |de |d')/i, ''),
                 )
               }
@@ -344,6 +445,7 @@ export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; o
                 setStep(2);
               }}
               onEntity={openEntity}
+              onOwnList={() => setStep(1.5)}
               onSearch={() => {
                 if (search?.status !== 'done') return;
                 const { results, next } = search.value;
@@ -353,7 +455,33 @@ export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; o
               }}
             />
           )}
-          {step === 2 && draft && <StepCards draft={draft} setDraft={setDraft} ownedTitles={ownedTitles} />}
+          {step === 1.5 && (
+            <StepImport
+              text={importText}
+              setText={(t) => (setImportText(t), setMatches(null))}
+              csvFile={importCsv}
+              setCsvFile={setImportCsv}
+              column={importColumn}
+              setColumn={setImportColumn}
+              matches={matches}
+              setMatches={setMatches}
+              onContinue={(m) => {
+                const items = matchedEntries(m);
+                setDraft({ kind: 'import', label: 'Ma liste', items, picked: new Set(items.map((e) => e.title)) });
+                setAdded([]);
+                if (!name.trim()) setName('Ma liste');
+                setStep(2);
+              }}
+            />
+          )}
+          {step === 2 && draft && (
+            <>
+              <StepCards draft={draft} setDraft={setDraft} ownedTitles={ownedTitles} />
+              {draft.kind !== 'names' && (
+                <EntryList entries={picked} ownedTitles={ownedTitles} origins={origins} onRemove={(t) => dropTitles([t])} onAdd={(e) => setAdded((a) => [...a, { ...e, section: null }])} />
+              )}
+            </>
+          )}
           {step === 3 && draft && (
             <StepPreview
               name={name}
@@ -364,18 +492,20 @@ export function GoalAlbumWizard({ onClose, onCreated }: { onClose: () => void; o
               setAnnex={setAnnex}
               entries={entries}
               owned={owned}
-              onDrop={(title) =>
-                setDraft((d) =>
-                  !d || d.kind === 'names' ? d : d.kind === 'list' ? { ...d, off: new Set([...d.off, title]) } : { ...d, picked: new Set([...d.picked].filter((t) => t !== title)) },
-                )
-              }
+              sort={sort}
+              setSort={setSort}
+              catalog={catalog}
+              wikidata={wikidata}
+              albumStyle={albumStyle}
+              setAlbumStyle={setAlbumStyle}
+              onDrop={dropTitles}
             />
           )}
         </div>
 
-        {step > 1 && draft && (
+        {step > 1.5 && draft && (
           <footer className="flex flex-wrap items-center gap-3 border-t px-5 py-3">
-            <button type="button" onClick={() => setStep((s) => (s - 1) as 1 | 2)} className="h-9 cursor-pointer rounded-lg px-3 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground">
+            <button type="button" onClick={() => setStep((s) => (s === 2 && draft.kind === 'import' ? 1.5 : s === 3 ? 2 : 1))} className="h-9 cursor-pointer rounded-lg px-3 text-sm font-medium text-muted-foreground transition hover:bg-muted hover:text-foreground">
               Retour
             </button>
             <p className="flex-1 text-sm text-muted-foreground tabular-nums">
@@ -425,38 +555,6 @@ function Row({ title, detail, busy, onClick }: { title: string; detail: string; 
       </span>
       {busy ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : <ChevronRight className="size-4 text-muted-foreground opacity-0 transition group-hover:opacity-100" />}
     </button>
-  );
-}
-
-function Group({
-  icon: Icon,
-  title,
-  hint,
-  summary,
-  open,
-  onToggle,
-  children,
-}: {
-  icon: typeof Search;
-  title: string;
-  hint: string;
-  /** Résumé affiché dans l'en-tête (« 3 listes », « Recherche… »). */
-  summary: React.ReactNode;
-  open: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="rounded-xl border">
-      <button type="button" onClick={onToggle} aria-expanded={open} className="flex w-full cursor-pointer items-center gap-2 px-3 py-2.5 text-left text-sm">
-        <Icon className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="font-semibold">{title}</span>
-        <span className="hidden truncate text-xs text-muted-foreground sm:inline">{hint}</span>
-        <span className="ml-auto flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground tabular-nums">{summary}</span>
-        <ChevronDown className={cn('size-4 shrink-0 text-muted-foreground transition-transform', !open && '-rotate-90')} />
-      </button>
-      {open && <div className="border-t p-1">{children}</div>}
-    </section>
   );
 }
 
@@ -598,17 +696,6 @@ function FreeBlock({
   );
 }
 
-function Pending({ state, empty, children }: { state: Async<unknown> | null; empty: string; children: React.ReactNode }) {
-  if (state?.status === 'loading')
-    return (
-      <p className="flex items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground">
-        <Loader2 className="size-3.5 animate-spin" /> Recherche…
-      </p>
-    );
-  if (state?.status === 'error') return <p className="px-3 py-2.5 text-sm text-muted-foreground">Recherche impossible pour le moment.</p>;
-  return <>{children || <p className="px-3 py-2.5 text-sm text-muted-foreground">{empty}</p>}</>;
-}
-
 function describe(c: Constraints) {
   return [c.place?.label, c.from && c.to ? (c.from === c.to ? `en ${c.from}` : `${c.from}–${c.to}`) : c.from ? `après ${c.from}` : c.to ? `avant ${c.to}` : null]
     .filter(Boolean)
@@ -648,12 +735,99 @@ function EntityPicker({ onPick, opening }: { onPick: (e: WdEntity) => void; open
   );
 }
 
+/** Une façon de construire l'album, telle qu'on la propose à l'étape 1. */
+interface Proposal {
+  key: string;
+  source: keyof typeof SOURCES;
+  title: string;
+  detail: string;
+  /** Nombre de cases ; null quand on ne le connaît pas encore. */
+  count: number | null;
+  owned: number | null;
+  sample: string[];
+  loading?: boolean;
+  onPick: () => void;
+}
+
+/** Les sources en clair : d'où vient la liste et ce qu'on peut en attendre. */
+const SOURCES = {
+  list: { icon: ListOrdered, label: 'Liste Wikipédia', tone: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300', why: 'liste toute faite, nombre et ordre exacts' },
+  free: { icon: MessageSquareText, label: 'D’après ta phrase', tone: 'bg-violet-500/15 text-violet-600 dark:text-violet-300', why: 'ta demande traduite en règles' },
+  names: { icon: Sparkles, label: 'Proposée par l’IA', tone: 'bg-violet-500/15 text-violet-600 dark:text-violet-300', why: 'noms à vérifier un par un' },
+  criteria: { icon: Database, label: 'Wikidata', tone: 'bg-sky-500/15 text-sky-600 dark:text-sky-300', why: 'tous les articles qui ont ce point commun' },
+  broad: { icon: Database, label: 'Wikidata, large', tone: 'bg-sky-500/15 text-sky-600 dark:text-sky-300', why: 'beaucoup de candidats, triés par pertinence' },
+  search: { icon: Search, label: 'Recherche', tone: 'bg-amber-500/15 text-amber-600 dark:text-amber-300', why: 'articles qui en parlent, à trier à la main' },
+} as const;
+
+const EXAMPLES: [string, string][] = [
+  ['👑', 'les rois de France'],
+  ['🏛️', 'les empereurs en Europe après 1600'],
+  ['⛪', 'les papes'],
+  ['🎮', 'les jeux Nintendo sortis sur GameCube'],
+  ['🍊', "les recettes à l'orange confite"],
+  ['🗼', 'les monuments de Paris'],
+];
+
+function ProposalCard({ p, best, busy }: { p: Proposal; best: boolean; busy: boolean }) {
+  const meta = SOURCES[p.source];
+  const Icon = meta.icon;
+  const thumbOf = useThumbnails(p.sample);
+  return (
+    <button
+      type="button"
+      onClick={p.onPick}
+      disabled={busy}
+      className={cn(
+        'group relative flex w-full cursor-pointer flex-col gap-3 rounded-2xl border bg-card p-4 text-left transition hover:-translate-y-0.5 hover:border-primary/60 hover:shadow-lg disabled:cursor-progress',
+        best && 'border-primary/50 ring-1 ring-primary/30',
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <span className={cn('flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-semibold', meta.tone)}>
+          <Icon className="size-3" /> {meta.label}
+        </span>
+        {best && <span className="rounded-full bg-primary px-2 py-0.5 text-[11px] font-semibold text-primary-foreground">Conseillée</span>}
+        <span className="ml-auto text-muted-foreground">{busy || p.loading ? <Loader2 className="size-4 animate-spin" /> : <ChevronRight className="size-4 transition group-hover:translate-x-0.5" />}</span>
+      </div>
+      <div className="min-w-0">
+        <p className="truncate font-semibold">{p.title}</p>
+        <p className="truncate text-xs text-muted-foreground">{p.detail || meta.why}</p>
+      </div>
+      <div className="flex items-end gap-3">
+        <div className="flex -space-x-2">
+          {p.sample.slice(0, 5).map((t) => {
+            const src = thumbOf(t);
+            return (
+              <span key={t} title={t} className="relative aspect-[5/7] w-8 overflow-hidden rounded-md bg-muted ring-2 ring-card">
+                {src ? <img src={src} alt="" loading="lazy" className="size-full object-cover" /> : <span className="grid size-full place-items-center text-[10px] font-bold text-muted-foreground">{t.charAt(0)}</span>}
+              </span>
+            );
+          })}
+          {!p.sample.length && <span className="h-11" />}
+        </div>
+        <p className="ml-auto text-right text-xs text-muted-foreground tabular-nums">
+          {p.count !== null ? (
+            <>
+              <b className="block font-heading text-xl leading-none font-bold text-foreground">{p.count}</b>
+              cases{p.owned ? ` · ${p.owned} à toi` : ''}
+            </>
+          ) : (
+            p.loading && 'lecture…'
+          )}
+        </p>
+      </div>
+    </button>
+  );
+}
+
 function StepSubject({
   query,
   setQuery,
   asked,
   run,
   lists,
+  listReads,
+  ownedOf,
   criteria,
   search,
   broad,
@@ -669,7 +843,9 @@ function StepSubject({
   onBroad,
   onEntity,
   onSearch,
+  onOwnList,
 }: {
+  onOwnList: () => void;
   free: Async<FreeState> | null;
   hasKey: boolean;
   onRebuild: (plan: QueryPlan) => void;
@@ -680,6 +856,8 @@ function StepSubject({
   asked: string;
   run: (q: string) => void;
   lists: Async<ListPage[]> | null;
+  listReads: Record<string, Async<ListSection[]>>;
+  ownedOf: (entries: GoalEntry[]) => number;
   criteria: Async<Criterion[]> | null;
   search: Async<{ results: SearchResult[]; next: number | null }> | null;
   broad: Async<{ subject: WdEntity; constraints: Constraints; candidates: Candidate[] } | null> | null;
@@ -691,162 +869,193 @@ function StepSubject({
   onEntity: (e: WdEntity) => void;
   onSearch: () => void;
 }) {
-  const listValues = lists?.status === 'done' ? lists.value : [];
-  const critValues = criteria?.status === 'done' ? criteria.value : [];
-  const results = search?.status === 'done' ? search.value.results : [];
-  const broadValue = broad?.status === 'done' ? broad.value : null;
-  const relatedValues = related?.status === 'done' ? related.value : [];
-  const wikidataLoading = criteria?.status === 'loading' || broad?.status === 'loading';
-  const [opened, setOpened] = useState<Record<string, boolean>>({});
-  useEffect(() => setOpened({}), [asked]);
-  const isOpen = (id: string, fallback: boolean) => opened[id] ?? fallback;
-  const toggle = (id: string, fallback: boolean) => setOpened((o) => ({ ...o, [id]: !(o[id] ?? fallback) }));
+  const [refine, setRefine] = useState(false);
+  const [other, setOther] = useState(false);
+  useEffect(() => (setRefine(false), setOther(false)), [asked]);
   const freeValue = free?.status === 'done' ? free.value : null;
-  const freeSummary =
-    free?.status === 'loading' ? (
-      <Spin text="analyse" />
-    ) : freeValue?.plan.mode === 'names' ? (
-      `${freeValue.plan.names.length} noms proposés`
-    ) : freeValue?.entries?.status === 'loading' ? (
-      <Spin text="construction" />
-    ) : freeValue?.entries?.status === 'done' ? (
-      `${freeValue.entries.value.length} articles`
-    ) : (
-      '—'
-    );
+  const relatedValues = related?.status === 'done' ? related.value : [];
+  const pending = [lists, free, criteria, search, broad].filter((x) => x?.status === 'loading').length;
+
+  // Propositions, de la plus sûre à la plus large ; les sources vides ne sont pas montrées.
+  const proposals: Proposal[] = [];
+  for (const p of lists?.status === 'done' ? lists.value : []) {
+    const read = listReads[p.title];
+    const all = read?.status === 'done' ? read.value.filter((x) => x.suggested).flatMap((x) => x.entries) : [];
+    if (read?.status === 'done' && !all.length) continue;
+    proposals.push({
+      key: `list:${p.title}`,
+      source: 'list',
+      title: p.title,
+      detail: read?.status === 'done' ? `${read.value.filter((x) => x.suggested).length} partie(s) · ${SOURCES.list.why}` : (p.description ?? ''),
+      count: read?.status === 'done' ? all.length : null,
+      owned: read?.status === 'done' ? ownedOf(all) : null,
+      sample: all.slice(0, 5).map((e) => e.title),
+      loading: read?.status === 'loading',
+      onPick: () => onList(p),
+    });
+  }
+  if (freeValue?.plan.mode === 'names' && freeValue.plan.names.length)
+    proposals.push({ key: 'names', source: 'names', title: freeValue.plan.summary || asked, detail: '', count: freeValue.plan.names.length, owned: null, sample: [], onPick: () => onNames(freeValue.plan) });
+  const freeEntries = freeValue?.entries?.status === 'done' ? freeValue.entries.value : null;
+  if (freeEntries?.length)
+    proposals.push({
+      key: 'free',
+      source: 'free',
+      title: freeValue!.plan.summary || capitalize(cleanQuery(asked)),
+      detail: `${RANKING_LABEL[freeValue!.plan.ranking]} · ${freeValue!.plan.source === 'gemini' ? 'comprise par Gemini' : 'analyse sans IA'}`,
+      count: freeEntries.filter((e) => e.status !== 'missing').length,
+      owned: ownedOf(freeEntries),
+      sample: freeEntries.slice(0, 5).map((e) => e.title),
+      onPick: () => onFree(freeEntries, freeValue!.plan),
+    });
+  for (const c of (criteria?.status === 'done' ? criteria.value : []).slice(0, 3))
+    proposals.push({
+      key: `crit:${c.prop}:${c.qid}`,
+      source: 'criteria',
+      title: `${capitalize(c.propLabel)} : ${c.label}`,
+      detail: c.description ?? '',
+      count: c.count,
+      owned: null,
+      sample: [],
+      onPick: () => onCriterion(c),
+    });
+  const broadValue = broad?.status === 'done' ? broad.value : null;
+  if (broadValue)
+    proposals.push({
+      key: 'broad',
+      source: 'broad',
+      title: `Tout « ${broadValue.subject.label} »${describe(broadValue.constraints) ? ` · ${describe(broadValue.constraints)}` : ''}`,
+      detail: '',
+      count: broadValue.candidates.length,
+      owned: ownedOf(broadValue.candidates),
+      sample: broadValue.candidates.slice(0, 5).map((c) => c.title),
+      onPick: onBroad,
+    });
+  const results = search?.status === 'done' ? search.value.results : [];
+  if (results.length)
+    proposals.push({
+      key: 'search',
+      source: 'search',
+      title: `Articles sur « ${cleanQuery(asked)} »`,
+      detail: '',
+      count: results.length,
+      owned: ownedOf(results),
+      sample: results.slice(0, 5).map((r) => r.title),
+      onPick: onSearch,
+    });
+
   return (
-    <div className="space-y-5">
-      <div>
-        <h2 className="font-heading text-xl font-bold">Que veux-tu réunir ?</h2>
-        <p className="text-sm text-muted-foreground">Un sujet, avec des dates ou un lieu si besoin. Les sources viennent de Wikipédia et de Wikidata.</p>
-      </div>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          run(query);
-        }}
-        className="flex h-12 items-center gap-3 rounded-xl border bg-background pr-1.5 pl-3.5 transition focus-within:border-primary"
-      >
-        <Search className="size-4 shrink-0 text-muted-foreground" />
-        <input
-          autoFocus
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="ex. les empereurs en Europe après 1600"
-          aria-label="Sujet de l'album"
-          className="min-w-0 flex-1 bg-transparent outline-none"
-        />
-        <button type="submit" disabled={!query.trim()} className="h-9 cursor-pointer rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground disabled:opacity-40">
-          Chercher
-        </button>
-      </form>
-      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-        Exemples :
-        {TRIES.map((t) => (
-          <button key={t} type="button" onClick={() => run(t)} className="cursor-pointer text-foreground underline decoration-border underline-offset-4 hover:decoration-foreground">
-            {t}
+    <div className="space-y-6">
+      <div className={cn('space-y-4 text-center', asked ? 'pt-0' : 'pt-6')}>
+        {!asked && (
+          <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-primary/15 text-primary">
+            <Target className="size-6" />
+          </span>
+        )}
+        <div>
+          <h2 className="font-heading text-2xl font-bold">Quel album veux-tu compléter ?</h2>
+          <p className="mx-auto max-w-lg text-sm text-muted-foreground">Décris-le comme tu le dirais à quelqu’un : un thème, une époque, un lieu. On cherche les listes et les articles sur Wikipédia et Wikidata.</p>
+        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            run(query);
+          }}
+          className="mx-auto flex h-14 max-w-2xl items-center gap-3 rounded-2xl border-2 bg-background pr-2 pl-4 shadow-sm transition focus-within:border-primary"
+        >
+          <Search className="size-5 shrink-0 text-muted-foreground" />
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="ex. les empereurs en Europe après 1600"
+            aria-label="Sujet de l'album"
+            className="min-w-0 flex-1 bg-transparent text-base outline-none"
+          />
+          <button type="submit" disabled={!query.trim()} className="h-10 cursor-pointer rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-40">
+            Chercher
           </button>
-        ))}
-      </p>
+        </form>
+        <button
+          type="button"
+          onClick={onOwnList}
+          className="mx-auto flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium text-primary transition hover:bg-primary/10"
+        >
+          <ClipboardList className="size-4" /> J’ai déjà ma liste : l’écrire, la coller ou importer un CSV
+          <ChevronRight className="size-4" />
+        </button>
+        {!asked && (
+          <div className="mx-auto flex max-w-2xl flex-wrap justify-center gap-2 pt-1">
+            {EXAMPLES.map(([emoji, t]) => (
+              <button key={t} type="button" onClick={() => run(t)} className="flex cursor-pointer items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-sm transition hover:border-primary/50 hover:bg-muted">
+                <span aria-hidden="true">{emoji}</span> {t}
+              </button>
+            ))}
+          </div>
+        )}
+        {!asked && !hasKey && (
+          <p className="text-xs text-muted-foreground">Astuce : pour les demandes complexes (« le top 50 des… »), ajoute une clé Gemini gratuite dans Paramètres › Rangement.</p>
+        )}
+      </div>
 
       {asked && (
-        <div className="space-y-2">
-          <Group
-            icon={MessageSquareText}
-            title="Demande libre"
-            hint="ta phrase traduite en règles, puis une liste exacte"
-            summary={freeSummary}
-            open={isOpen('free', true)}
-            onToggle={() => toggle('free', true)}
-          >
-            <FreeBlock free={free} hasKey={hasKey} onRebuild={onRebuild} onFree={onFree} onNames={onNames} />
-          </Group>
-
-          <Group
-            icon={ListOrdered}
-            title="Listes Wikipédia"
-            hint="nombre exact, ordre déjà prêt"
-            summary={lists?.status === 'loading' ? <Spin text="recherche" /> : listValues.length ? `${listValues.length} liste${listValues.length > 1 ? 's' : ''}` : 'aucune'}
-            open={isOpen('lists', false)}
-            onToggle={() => toggle('lists', false)}
-          >
-            <Pending state={lists} empty="Pas de page « Liste de… » sur ce sujet.">
-              {listValues.length > 0 &&
-                listValues.map((p) => <Row key={p.title} title={p.title} detail={p.description ?? 'Page de liste'} busy={opening === `list:${p.title}`} onClick={() => onList(p)} />)}
-            </Pending>
-          </Group>
-
-          <Group
-            icon={Database}
-            title="Wikidata"
-            hint="liste large, chaque carte notée de 0 à 1"
-            summary={
-              wikidataLoading ? (
-                <Spin text="recherche" />
-              ) : broadValue ? (
-                `${broadValue.candidates.length} candidats`
-              ) : critValues.length ? (
-                `${critValues.length} critère${critValues.length > 1 ? 's' : ''}`
-              ) : (
-                'à composer'
-              )
-            }
-            open={isOpen('wikidata', false)}
-            onToggle={() => toggle('wikidata', false)}
-          >
-            {wikidataLoading && (
-              <p className="flex items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground">
-                <Loader2 className="size-3.5 animate-spin" /> Recherche…
-              </p>
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm">
+            <h3 className="font-semibold">Propositions</h3>
+            {pending > 0 ? (
+              <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Loader2 className="size-3.5 animate-spin" /> encore {pending} source{pending > 1 ? 's' : ''} à interroger…
+              </span>
+            ) : (
+              <span className="text-xs text-muted-foreground">{proposals.length} trouvée{proposals.length > 1 ? 's' : ''}</span>
             )}
-            {broadValue && (
-              <Row
-                title={`Tous les articles « ${broadValue.subject.label} »${describe(broadValue.constraints) ? ` · ${describe(broadValue.constraints)}` : ''}`}
-                detail={`${broadValue.candidates.length} candidats, notés selon le lien avec « ${broadValue.subject.label} »${describe(broadValue.constraints) ? ', les dates et le lieu' : ''}`}
-                onClick={onBroad}
-              />
-            )}
-            {critValues.map((c) => (
-              <Row
-                key={`${c.prop}:${c.qid}`}
-                title={`${c.propLabel} : ${c.label}`}
-                detail={`${c.count} articles${c.description ? ` · ${c.description}` : ''}`}
-                busy={opening === `crit:${c.prop}:${c.qid}`}
-                onClick={() => onCriterion(c)}
-              />
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            {proposals.map((p, i) => (
+              <ProposalCard key={p.key} p={p} best={i === 0 && pending === 0} busy={opening === p.key} />
             ))}
-            {!wikidataLoading && !broadValue && !critValues.length && <p className="px-3 pt-2.5 text-sm text-muted-foreground">Wikidata ne reconnaît pas cette demande telle quelle.</p>}
-            {!wikidataLoading && !critValues.length && relatedValues.length > 0 && (
-              <>
-                <p className="px-3 pt-2 text-xs text-muted-foreground">Sujets communs aux articles trouvés :</p>
-                {relatedValues.map((r) => (
-                  <Row
-                    key={`${r.prop}:${r.qid}`}
-                    title={r.label}
-                    detail={`partagé par ${r.shared} des articles trouvés`}
-                    busy={opening === `entity:${r.qid}`}
-                    onClick={() => onEntity({ qid: r.qid, label: r.label, description: null })}
-                  />
-                ))}
-              </>
-            )}
-            {!wikidataLoading && <EntityPicker onPick={onEntity} opening={opening} />}
-          
-          </Group>
+            {pending > 0 &&
+              Array.from({ length: Math.max(0, 2 - proposals.length) }, (_, i) => <div key={i} className="h-[150px] animate-pulse rounded-2xl border bg-muted/40" />)}
+          </div>
+          {!pending && !proposals.length && <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">Rien de solide pour cette demande. Reformule-la, ou essaie un sujet plus large.</p>}
 
-          <Group
-            icon={Search}
-            title="Recherche Wikipédia"
-            hint="les articles qui en parlent, à cocher"
-            summary={search?.status === 'loading' ? <Spin text="recherche" /> : `${results.length} articles`}
-            open={isOpen('search', false)}
-            onToggle={() => toggle('search', false)}
-          >
-            <Pending state={search} empty="Aucun article trouvé : essaie d'autres mots.">
-              {results.length > 0 && <Row title={`Articles sur « ${cleanQuery(asked)} »`} detail={results.slice(0, 6).map((r) => r.title).join(', ')} onClick={onSearch} />}
-            </Pending>
-          
-          </Group>
+          <div className="flex flex-wrap gap-2 pt-1">
+            {freeValue?.plan.mode === 'rules' && (
+              <button type="button" onClick={() => setRefine((v) => !v)} aria-expanded={refine} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition hover:bg-muted">
+                <MessageSquareText className="size-3.5" /> Affiner les règles de ta phrase
+                <ChevronDown className={cn('size-3.5 transition-transform', refine && 'rotate-180')} />
+              </button>
+            )}
+            <button type="button" onClick={() => setOther((v) => !v)} aria-expanded={other} className="flex cursor-pointer items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition hover:bg-muted">
+              <Database className="size-3.5" /> Partir d’un autre sujet
+              <ChevronDown className={cn('size-3.5 transition-transform', other && 'rotate-180')} />
+            </button>
+          </div>
+          {refine && (
+            <div className="rounded-2xl border">
+              <FreeBlock free={free} hasKey={hasKey} onRebuild={onRebuild} onFree={onFree} onNames={onNames} />
+            </div>
+          )}
+          {other && (
+            <div className="space-y-1 rounded-2xl border p-1">
+              {relatedValues.length > 0 && (
+                <>
+                  <p className="px-3 pt-2 text-xs text-muted-foreground">Sujets communs aux articles trouvés :</p>
+                  {relatedValues.map((r) => (
+                    <Row
+                      key={`${r.prop}:${r.qid}`}
+                      title={r.label}
+                      detail={`partagé par ${r.shared} des articles trouvés`}
+                      busy={opening === `entity:${r.qid}`}
+                      onClick={() => onEntity({ qid: r.qid, label: r.label, description: null })}
+                    />
+                  ))}
+                </>
+              )}
+              <EntityPicker onPick={onEntity} opening={opening} />
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -1296,6 +1505,12 @@ function StepPreview({
   setAnnex,
   entries,
   owned,
+  sort,
+  setSort,
+  catalog,
+  wikidata,
+  albumStyle,
+  setAlbumStyle,
   onDrop,
 }: {
   name: string;
@@ -1304,65 +1519,214 @@ function StepPreview({
   setColor: (c: string) => void;
   annex: boolean;
   setAnnex: (a: boolean) => void;
+  /** Cases dans l'ordre choisi. */
   entries: GoalEntry[];
-  owned: Map<number, unknown>;
-  onDrop: (title: string) => void;
+  owned: Map<number, OwnedCard>;
+  sort: GoalSort;
+  setSort: (s: GoalSort) => void;
+  catalog: Async<Map<string, CatalogInfo>> | null;
+  wikidata: Async<Map<string, WikidataInfo>> | null;
+  albumStyle: AlbumStyleId;
+  setAlbumStyle: (s: AlbumStyleId) => void;
+  onDrop: (titles: string[]) => void;
 }) {
+  const look = ALBUM_STYLES[albumStyle];
+  const gradient = `linear-gradient(135deg, ${color}, color-mix(in oklab, ${color} 55%, black))`;
+  const custom = !TAG_COLORS.some((c) => c.toLowerCase() === color.toLowerCase());
   const pages = Math.ceil(entries.length / PER_PAGE);
   const ambiguous = entries.filter((e) => e.disambiguation);
+  const cat = catalog?.status === 'done' ? catalog.value : null;
+  const rarityOf = (e: GoalEntry, i: number): Rarity | null => owned.get(i)?.rarity ?? cat?.get(titleKey(e.title))?.rarity ?? null;
+  const absent = cat ? entries.filter((e, i) => !owned.has(i) && !cat.has(titleKey(e.title)) && !e.disambiguation) : [];
+  const [showAbsent, setShowAbsent] = useState(false);
+  const counts = useMemo(() => {
+    const by = new Map<Rarity, { all: number; mine: number }>();
+    entries.forEach((e, i) => {
+      const r = rarityOf(e, i);
+      if (!r) return;
+      const c = by.get(r) ?? { all: 0, mine: 0 };
+      c.all++;
+      if (owned.has(i)) c.mine++;
+      by.set(r, c);
+    });
+    return RARITY_ORDER.filter((r) => by.has(r)).map((r) => ({ r, ...by.get(r)! }));
+  }, [entries, owned, cat]); // eslint-disable-line react-hooks/exhaustive-deps
+  const loadingFor = (needs?: 'catalog' | 'wikidata') => (needs === 'catalog' ? catalog?.status === 'loading' : needs === 'wikidata' ? wikidata?.status === 'loading' : false);
+  const failedFor = (needs?: 'catalog' | 'wikidata') => (needs === 'catalog' ? catalog?.status === 'error' : needs === 'wikidata' ? wikidata?.status === 'error' : false);
+  // Début de chaque partie, pour l'écrire au-dessus de la page où elle commence.
+  const sectionsByPage = useMemo(() => {
+    const m = new Map<number, string[]>();
+    entries.forEach((e, i) => {
+      if (e.section && (i === 0 || entries[i - 1]!.section !== e.section)) {
+        const p = Math.floor(i / PER_PAGE);
+        m.set(p, [...(m.get(p) ?? []), e.section]);
+      }
+    });
+    return m;
+  }, [entries]);
+
   return (
-    <div className="grid gap-7 md:grid-cols-[220px_1fr]">
-      <div className="space-y-3">
+    <div className="grid gap-8 md:grid-cols-[230px_1fr]">
+      <div className="mx-auto w-full max-w-[300px] space-y-4">
+        {/* Couverture au rendu du style choisi (--u : unité de mesure des styles d'album). */}
         <div
-          className="relative flex aspect-[3/4] flex-col items-center justify-center gap-2 overflow-hidden rounded-[6px_16px_16px_6px] p-5 text-center text-white shadow-lg"
-          style={{ background: `linear-gradient(150deg, ${color}, color-mix(in oklab, ${color} 45%, black))` }}
+          className="relative mx-auto flex aspect-[3/4] w-full max-w-[230px] flex-col items-center justify-center gap-2 overflow-hidden rounded-[6px_16px_16px_6px] p-5 text-center text-white shadow-xl"
+          style={{ ['--u' as string]: '2.4px', ...look.cover(gradient) }}
         >
           <span className="absolute inset-y-0 left-0 w-3 bg-black/25" />
-          <span className="text-[10px] font-semibold tracking-[0.25em] uppercase opacity-75">Album</span>
+          <span className="text-[10px] font-semibold tracking-[0.25em] uppercase opacity-75">◇ Album à compléter</span>
           <textarea
             value={name}
             onChange={(e) => setName(e.target.value.replace(/\n/g, ' '))}
             rows={2}
             aria-label="Nom de l'album"
-            className="w-full resize-none overflow-hidden rounded-md bg-transparent px-1 text-center font-heading text-lg leading-tight font-bold outline-none [field-sizing:content] hover:bg-black/15 focus:bg-black/20"
+            title="Clique pour renommer"
+            className={cn(
+              'w-full resize-none overflow-hidden rounded-md bg-transparent px-1 text-center text-lg leading-tight outline-none [field-sizing:content] hover:bg-black/15 focus:bg-black/20',
+              look.coverTitle,
+            )}
           />
           <span className="text-sm tabular-nums opacity-90">
             {owned.size} / {entries.length}
           </span>
+          {/* Répartition des raretés, en bas de la couverture. */}
+          {counts.length > 0 && (
+            <span className="absolute inset-x-5 bottom-5 flex h-1.5 overflow-hidden rounded-full bg-black/25">
+              {counts.map(({ r, all }) => (
+                <span key={r} style={{ width: `${(all / entries.length) * 100}%`, backgroundColor: RARITY_VAR[r] }} />
+              ))}
+            </span>
+          )}
         </div>
-        <div className="flex flex-wrap justify-center gap-1.5" role="group" aria-label="Couleur">
-          {TAG_COLORS.filter((_, i) => i % 2 === 0).map((c) => (
-            <button
-              key={c}
-              type="button"
-              onClick={() => setColor(c)}
-              aria-label={`Couleur ${c}`}
-              aria-pressed={c === color}
-              className={cn('size-5 cursor-pointer rounded-full ring-offset-2 ring-offset-popover', c === color && 'ring-2 ring-foreground')}
-              style={{ backgroundColor: c }}
-            />
-          ))}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Couleur</p>
+          <div className="grid grid-cols-10 justify-items-center gap-1.5" role="group" aria-label="Couleur">
+            {TAG_COLORS.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setColor(c)}
+                aria-label={`Couleur ${c}`}
+                aria-pressed={c === color}
+                className={cn('size-5 cursor-pointer rounded-full ring-offset-2 ring-offset-popover transition hover:scale-110', c === color && 'ring-2 ring-foreground')}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+            {/* Couleur libre : la pastille arc-en-ciel ouvre le sélecteur du système. */}
+            <label
+              title="Choisir ma couleur"
+              className={cn(
+                'relative size-5 cursor-pointer overflow-hidden rounded-full ring-offset-2 ring-offset-popover transition hover:scale-110',
+                custom && 'ring-2 ring-foreground',
+              )}
+              style={{ background: custom ? color : 'conic-gradient(#ef4444, #eab308, #22c55e, #06b6d4, #6366f1, #d946ef, #ef4444)' }}
+            >
+              <input type="color" value={color} onChange={(e) => setColor(e.target.value)} aria-label="Couleur personnalisée" className="absolute inset-0 cursor-pointer opacity-0" />
+            </label>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Style de l’album</p>
+          <div className="grid grid-cols-2 gap-1.5" role="radiogroup" aria-label="Style de l'album">
+            {ALBUM_STYLE_IDS.map((id) => {
+              const Icon = ALBUM_STYLE_ICONS[id];
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={id === albumStyle}
+                  onClick={() => setAlbumStyle(id)}
+                  className={cn(
+                    'flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-2.5 text-xs font-medium transition',
+                    id === albumStyle ? 'border-primary bg-primary/10 text-foreground' : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                  )}
+                >
+                  <Icon className="size-3.5" /> {ALBUM_STYLES[id].name}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
-      <div className="min-w-0 space-y-4">
+
+      <div className="min-w-0 space-y-5">
         <div>
           <h2 className="font-heading text-xl font-bold">Aperçu</h2>
           <p className="text-sm text-muted-foreground">
-            {pages} page{pages > 1 ? 's' : ''} de {PER_PAGE} cases, dans l'ordre. Survole une case pour voir la carte.
+            {pages} page{pages > 1 ? 's' : ''} de {PER_PAGE} cases. Survole une case pour voir la carte.
           </p>
         </div>
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(76px,1fr))] gap-2">
+
+        <div className="space-y-2">
+          <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">Ranger par</p>
+          <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Ordre des cases">
+            {GOAL_SORTS.map(({ id, label, hint, needs }) => (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={sort === id}
+                title={failedFor(needs) ? 'Données indisponibles pour le moment' : hint}
+                disabled={failedFor(needs)}
+                onClick={() => setSort(id)}
+                className={cn(
+                  'flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40',
+                  sort === id ? 'border-primary bg-primary text-primary-foreground' : 'hover:border-primary/50 hover:bg-muted',
+                )}
+              >
+                {sort === id && loadingFor(needs) && <Loader2 className="size-3 animate-spin" />}
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {counts.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {counts.map(({ r, all, mine }) => (
+              <span key={r} className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs tabular-nums">
+                <span className="size-2.5 rounded-full" style={{ backgroundColor: RARITY_VAR[r] }} />
+                <b className="font-semibold">{r}</b> {mine > 0 ? `${mine} / ${all}` : all}
+              </span>
+            ))}
+            {absent.length > 0 && (
+              <span className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs tabular-nums">
+                <span className="size-2.5 rounded-full bg-[repeating-linear-gradient(45deg,var(--muted-foreground)_0_2px,transparent_2px_4px)]" /> hors jeu {absent.length}
+              </span>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(84px,1fr))] gap-2.5">
           {Array.from({ length: pages }, (_, p) => (
-            <div key={p} className="flex flex-col gap-1 rounded-md border bg-muted/40 p-1.5">
-              <div className="grid grid-cols-3 gap-[3px]">
+            <div key={p} className="flex min-w-0 flex-col gap-1">
+              <span className="h-3.5 truncate text-[10px] font-semibold text-muted-foreground" title={sectionsByPage.get(p)?.join(' · ')}>
+                {sectionsByPage.get(p)?.join(' · ')}
+              </span>
+              <div className="grid grid-cols-3 gap-[3px] rounded-md border bg-muted/40 p-1.5">
                 {Array.from({ length: PER_PAGE }, (_, i) => {
                   const n = p * PER_PAGE + i;
                   const e = entries[n];
+                  if (!e) return <i key={i} className="block aspect-[5/7]" />;
+                  const r = rarityOf(e, n);
+                  const mine = owned.has(n);
+                  const out = cat && !mine && !cat.has(titleKey(e.title));
                   return (
                     <i
                       key={i}
-                      title={e ? `${n + 1}. ${e.title}` : undefined}
-                      className={cn('block aspect-[5/7] rounded-[2px]', !e ? 'bg-transparent' : owned.has(n) ? 'bg-emerald-500' : e.disambiguation ? 'bg-rose-500' : 'bg-muted-foreground/25')}
+                      title={`${n + 1}. ${e.title}${r ? ` · ${RARITY_LABEL[r]}` : ''}${mine ? ' · à toi' : out ? ' · pas de carte dans le jeu' : ''}`}
+                      className={cn(
+                        'block aspect-[5/7] rounded-[2px]',
+                        e.disambiguation
+                          ? 'bg-rose-500'
+                          : out
+                            ? 'bg-[repeating-linear-gradient(45deg,color-mix(in_oklab,var(--muted-foreground)_45%,transparent)_0_2px,transparent_2px_4px)]'
+                            : !r && !mine && 'bg-muted-foreground/25',
+                        mine && 'ring-1 ring-foreground/70',
+                        mine && !r && 'bg-emerald-500',
+                      )}
+                      style={r && !e.disambiguation ? { backgroundColor: RARITY_VAR[r], opacity: mine ? 1 : 0.45 } : undefined}
                     />
                   );
                 })}
@@ -1371,6 +1735,29 @@ function StepPreview({
             </div>
           ))}
         </div>
+        <p className="text-xs text-muted-foreground">
+          Couleur = rareté de la carte dans WikiMasters · plein et cerclé : déjà à toi · pâle : à trouver
+          {catalog?.status === 'loading' && ' · lecture du catalogue…'}
+        </p>
+
+        {absent.length > 0 && (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/5 p-3 text-sm">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="min-w-0 flex-1">
+                <b>{absent.length}</b> case{absent.length > 1 ? 's n’ont' : ' n’a'} pas de carte dans WikiMasters
+                <span className="block text-xs text-muted-foreground">Elles resteraient vides, sauf si le jeu les ajoute un jour.</span>
+              </p>
+              <button type="button" onClick={() => setShowAbsent((v) => !v)} className="cursor-pointer rounded-md px-2.5 py-1 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground">
+                {showAbsent ? 'Masquer' : 'Voir'}
+              </button>
+              <button type="button" onClick={() => onDrop(absent.map((e) => e.title))} className="cursor-pointer rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted">
+                Retirer ces cases
+              </button>
+            </div>
+            {showAbsent && <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{absent.map((e) => e.title).join(' · ')}</p>}
+          </div>
+        )}
+
         {ambiguous.length > 0 && (
           <div className="divide-y rounded-xl border">
             {ambiguous.map((e) => (
@@ -1379,21 +1766,438 @@ function StepPreview({
                   « {e.title} » est une page d'homonymie
                   <span className="block text-xs text-muted-foreground">Aucune carte n'y correspondra.</span>
                 </p>
-                <button type="button" onClick={() => onDrop(e.title)} className="cursor-pointer rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted">
+                <button type="button" onClick={() => onDrop([e.title])} className="cursor-pointer rounded-md border px-2.5 py-1 text-xs font-medium hover:bg-muted">
                   Retirer
                 </button>
               </div>
             ))}
           </div>
         )}
-        <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-          <input type="checkbox" checked={annex} onChange={(e) => setAnnex(e.target.checked)} className="mt-1 accent-[var(--primary)]" />
+
+        <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border px-3 py-2.5 text-sm">
           <span>
-            Annexe pour les autres cartes de l'étiquette
-            <span className="block text-xs text-muted-foreground">Après la dernière page, sans compter dans l'objectif.</span>
+            Ranger les autres cartes de l'étiquette à la fin
+            <span className="block text-xs text-muted-foreground">Sur des pages en plus, sans compter dans l'objectif.</span>
           </span>
+          <Switch checked={annex} onCheckedChange={setAnnex} aria-label="Pages en plus pour les autres cartes" />
         </label>
       </div>
     </div>
+  );
+}
+
+/* ---------- Étape 1.5 : ma propre liste ---------- */
+
+const MATCH_LOOK: Record<MatchStatus, { label: string; dot: string; text: string }> = {
+  exact: { label: 'Exact', dot: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-300' },
+  likely: { label: 'Probable', dot: 'bg-sky-500', text: 'text-sky-600 dark:text-sky-300' },
+  check: { label: 'À vérifier', dot: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-300' },
+  none: { label: 'Introuvable', dot: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-300' },
+};
+
+const SAMPLE = `# Mérovingiens
+- Clovis Ier
+- Dagobert Ier
+# Carolingiens
+- Pépin le Bref
+- Charlemagne`;
+
+/** Une ligne du rapprochement : texte saisi → article choisi, confiance, autres pages possibles. */
+function MatchRow({ m, n, onChange }: { m: LineMatch; n: number; onChange: (m: LineMatch) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState(m.text);
+  const [busy, setBusy] = useState(false);
+  const look = MATCH_LOOK[m.status];
+  const chosen = m.candidates.find((c) => c.title === m.choice);
+  const rematch = async (value: string) => {
+    setBusy(true);
+    try {
+      const [again] = await matchLines([{ text: value, section: m.section }]);
+      onChange(again!);
+      setEditing(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const more = async () => {
+    setBusy(true);
+    try {
+      const found = (await searchCandidates(m.text)).map((c) => ({ ...c, section: m.section }));
+      const seen = new Set(m.candidates.map((c) => c.title));
+      onChange({ ...m, searched: true, candidates: [...m.candidates, ...found.filter((c) => !seen.has(c.title))] });
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className={cn('grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1.3fr)_6.5rem] items-center gap-3 px-3 py-2 text-sm', !m.choice && 'opacity-60')}>
+      <span className="text-xs text-muted-foreground tabular-nums">{n}</span>
+      {editing ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (text.trim()) void rematch(text.trim());
+          }}
+          className="flex items-center gap-1"
+        >
+          <input autoFocus value={text} onChange={(e) => setText(e.target.value)} className="h-8 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm outline-none focus:border-primary" aria-label="Élément" />
+          <button type="submit" className="h-8 cursor-pointer rounded-md bg-primary px-2 text-xs font-semibold text-primary-foreground">OK</button>
+        </form>
+      ) : (
+        <button type="button" onClick={() => setEditing(true)} title="Corriger le texte et chercher à nouveau" className="flex min-w-0 cursor-pointer items-center gap-1.5 text-left hover:text-primary">
+          <span className="truncate">{m.text}</span>
+          <Pencil className="size-3 shrink-0 opacity-40" />
+        </button>
+      )}
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="relative aspect-[5/7] w-7 shrink-0 overflow-hidden rounded bg-muted">
+          {chosen?.thumbnail && <img src={chosen.thumbnail} alt="" loading="lazy" className="size-full object-cover" />}
+        </span>
+        <select
+          value={m.choice ?? ''}
+          disabled={busy}
+          onChange={(e) => {
+            if (e.target.value === '__more') void more();
+            else onChange({ ...m, choice: e.target.value || null });
+          }}
+          aria-label={`Article Wikipédia pour « ${m.text} »`}
+          className="h-8 min-w-0 flex-1 cursor-pointer rounded-md border bg-background px-2 text-sm outline-none focus:border-primary"
+        >
+          {m.candidates.map((c) => (
+            <option key={c.title} value={c.title}>
+              {c.title}
+              {c.description ? ` — ${c.description}` : ''}
+            </option>
+          ))}
+          <option value="">— Ignorer cet élément —</option>
+          {!m.searched && <option value="__more">Chercher d’autres pages…</option>}
+        </select>
+      </div>
+      <span className={cn('flex items-center gap-1.5 text-xs font-medium', look.text)}>
+        {busy ? <Loader2 className="size-3 animate-spin" /> : <span className={cn('size-2 rounded-full', look.dot)} />}
+        {m.choice ? look.label : 'Ignoré'}
+      </span>
+    </div>
+  );
+}
+
+function StepImport({
+  text,
+  setText,
+  csvFile,
+  setCsvFile,
+  column,
+  setColumn,
+  matches,
+  setMatches,
+  onContinue,
+}: {
+  text: string;
+  setText: (t: string) => void;
+  csvFile: boolean;
+  setCsvFile: (b: boolean) => void;
+  column: number | undefined;
+  setColumn: (c: number | undefined) => void;
+  matches: LineMatch[] | null;
+  setMatches: (m: LineMatch[] | null) => void;
+  onContinue: (matches: LineMatch[]) => void;
+}) {
+  const parsed = useMemo(() => parseList(text, { csvFile, column }), [text, csvFile, column]);
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [filter, setFilter] = useState<MatchStatus | 'all'>('all');
+  const sections = new Set(parsed.lines.map((l) => l.section).filter(Boolean)).size;
+
+  const start = async () => {
+    setProgress({ done: 0, total: parsed.lines.length });
+    try {
+      setMatches(await matchLines(parsed.lines, (done, total) => setProgress({ done, total })));
+      setFilter('all');
+    } catch (error) {
+      toast(`Rapprochement impossible : ${error instanceof Error ? error.message : String(error)}`, 'error');
+    } finally {
+      setProgress(null);
+    }
+  };
+
+  if (progress)
+    return (
+      <div className="flex min-h-[380px] flex-col items-center justify-center gap-4 text-center">
+        <Loader2 className="size-7 animate-spin text-primary" />
+        <div>
+          <p className="font-heading text-lg font-bold">Recherche des pages Wikipédia…</p>
+          <p className="text-sm text-muted-foreground tabular-nums">
+            {progress.done} / {progress.total} éléments
+          </p>
+        </div>
+        <div className="h-1.5 w-64 overflow-hidden rounded-full bg-muted">
+          <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${(progress.done / Math.max(1, progress.total)) * 100}%` }} />
+        </div>
+      </div>
+    );
+
+  if (matches) {
+    const counts = Object.fromEntries((Object.keys(MATCH_LOOK) as MatchStatus[]).map((k) => [k, matches.filter((m) => m.status === k).length])) as Record<MatchStatus, number>;
+    const kept = matches.filter((m) => m.choice).length;
+    let lastSection: string | null = null;
+    return (
+      <div className="space-y-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="min-w-0 flex-1">
+            <h2 className="font-heading text-xl font-bold">Chaque élément et sa page Wikipédia</h2>
+            <p className="text-sm text-muted-foreground">Vérifie les éléments « à vérifier » et « introuvables » : choisis une autre page dans la liste, corrige le texte (crayon) ou ignore l’élément.</p>
+          </div>
+          <button type="button" onClick={() => setMatches(null)} className="h-8 cursor-pointer rounded-lg border px-3 text-xs font-medium hover:bg-muted">
+            Modifier la liste
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          <button type="button" onClick={() => setFilter('all')} className={cn('h-8 cursor-pointer rounded-full border px-3 text-xs font-medium', filter === 'all' ? 'border-primary bg-primary text-primary-foreground' : 'hover:bg-muted')}>
+            Tout · {matches.length}
+          </button>
+          {(Object.keys(MATCH_LOOK) as MatchStatus[]).map(
+            (k) =>
+              counts[k] > 0 && (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setFilter(k)}
+                  className={cn('flex h-8 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-xs font-medium', filter === k ? 'border-primary bg-primary/10' : 'hover:bg-muted')}
+                >
+                  <span className={cn('size-2 rounded-full', MATCH_LOOK[k].dot)} /> {MATCH_LOOK[k].label} · {counts[k]}
+                </button>
+              ),
+          )}
+        </div>
+        <div className="divide-y rounded-xl border">
+          <div className="grid grid-cols-[2rem_minmax(0,1fr)_minmax(0,1.3fr)_6.5rem] gap-3 px-3 py-2 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+            <span>#</span>
+            <span>Ta liste</span>
+            <span>Page Wikipédia</span>
+            <span>Confiance</span>
+          </div>
+          {matches.map((m, i) => {
+            if (filter !== 'all' && m.status !== filter) return null;
+            const head = m.section && m.section !== lastSection ? m.section : null;
+            lastSection = m.section;
+            return (
+              <div key={`${i}:${m.text}`}>
+                {head && <p className="bg-muted/50 px-3 py-1.5 text-xs font-semibold">{head}</p>}
+                <MatchRow m={m} n={i + 1} onChange={(next) => setMatches(matches.map((x, j) => (j === i ? next : x)))} />
+              </div>
+            );
+          })}
+        </div>
+        <div className="sticky bottom-0 flex items-center gap-3 border-t bg-popover pt-3">
+          <p className="flex-1 text-sm text-muted-foreground tabular-nums">
+            <b className="font-semibold text-foreground">{kept}</b> élément{kept > 1 ? 's' : ''} retenu{kept > 1 ? 's' : ''} sur {matches.length}
+          </p>
+          <button
+            type="button"
+            disabled={!kept}
+            onClick={() => onContinue(matches)}
+            className="flex h-9 cursor-pointer items-center gap-1 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-40"
+          >
+            Continuer <ChevronRight className="size-4" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="font-heading text-xl font-bold">Ta propre liste</h2>
+        <p className="text-sm text-muted-foreground">
+          Écris ou colle ta liste, un élément par ligne (puces et numéros acceptés). Une ligne « # Titre » ou « Titre : » commence une partie. Tu peux aussi coller des colonnes depuis un tableur ou importer un fichier CSV.
+        </p>
+      </div>
+      <textarea
+        autoFocus
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder={SAMPLE}
+        rows={12}
+        spellCheck={false}
+        aria-label="Ta liste"
+        className="w-full resize-y rounded-xl border bg-background px-4 py-3 font-mono text-sm leading-relaxed outline-none focus:border-primary"
+      />
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex h-9 cursor-pointer items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition hover:bg-muted">
+          <Upload className="size-4" /> Importer un fichier
+          <input
+            type="file"
+            accept=".csv,.tsv,.txt,text/csv,text/plain"
+            className="hidden"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setCsvFile(/\.(csv|tsv)$/i.test(file.name));
+              setColumn(undefined);
+              setText(await file.text());
+              e.target.value = '';
+            }}
+          />
+        </label>
+        {parsed.columns && (
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
+            Colonne du nom
+            <select value={parsed.column} onChange={(e) => setColumn(Number(e.target.value))} className="h-9 cursor-pointer rounded-lg border bg-background px-2 text-sm text-foreground">
+              {parsed.columns.map((c, i) => (
+                <option key={i} value={i}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <p className="flex-1 text-right text-sm text-muted-foreground tabular-nums">
+          {parsed.lines.length} élément{parsed.lines.length > 1 ? 's' : ''}
+          {sections > 0 && ` · ${sections} partie${sections > 1 ? 's' : ''}`}
+        </p>
+        <button
+          type="button"
+          disabled={!parsed.lines.length}
+          onClick={start}
+          className="flex h-9 cursor-pointer items-center gap-1 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:brightness-110 disabled:opacity-40"
+        >
+          Trouver les pages Wikipédia <ChevronRight className="size-4" />
+        </button>
+      </div>
+      {parsed.lines.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Aperçu : {parsed.lines.slice(0, 8).map((l) => l.text).join(' · ')}
+          {parsed.lines.length > 8 && ' …'}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Étape 2 : liste complète, dépliable ---------- */
+
+function EntryList({
+  entries,
+  ownedTitles,
+  origins,
+  onRemove,
+  onAdd,
+}: {
+  entries: GoalEntry[];
+  ownedTitles: Set<string>;
+  /** Texte saisi d'origine, quand l'élément vient de ta liste et que la page a un autre titre. */
+  origins: Map<string, string>;
+  onRemove: (title: string) => void;
+  onAdd: (entry: GoalEntry) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [filter, setFilter] = useState('');
+  const [adding, setAdding] = useState('');
+  const [found, setFound] = useState<GoalEntry[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const shown = filter.trim() ? entries.filter((e) => e.title.toLowerCase().includes(filter.trim().toLowerCase())) : entries;
+  const thumbOf = useThumbnails(open ? shown.slice(0, 200).filter((e) => !e.thumbnail).map((e) => e.title) : []);
+  const has = new Set(entries.map((e) => e.title));
+  let lastSection: string | null = null;
+
+  return (
+    <section className="mt-6 rounded-2xl border">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-left">
+        <ListOrdered className="size-4 text-muted-foreground" />
+        <span className="font-semibold">Tous les éléments</span>
+        <span className="text-sm text-muted-foreground tabular-nums">{entries.length}</span>
+        <span className="ml-auto text-xs text-muted-foreground">vérifier, retirer, ajouter</span>
+        <ChevronDown className={cn('size-4 text-muted-foreground transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div className="space-y-3 border-t p-3">
+          <div className="flex flex-wrap gap-2">
+            <div className="flex h-9 min-w-48 flex-1 items-center gap-2 rounded-lg border bg-background px-2.5 text-sm">
+              <Search className="size-3.5 text-muted-foreground" />
+              <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Filtrer…" aria-label="Filtrer les éléments" className="min-w-0 flex-1 bg-transparent outline-none" />
+            </div>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!adding.trim()) return;
+                setBusy(true);
+                try {
+                  setFound(await searchCandidates(adding.trim()));
+                } finally {
+                  setBusy(false);
+                }
+              }}
+              className="flex h-9 min-w-56 flex-1 items-center gap-2 rounded-lg border bg-background pr-1 pl-2.5 text-sm"
+            >
+              <Plus className="size-3.5 text-muted-foreground" />
+              <input value={adding} onChange={(e) => (setAdding(e.target.value), setFound(null))} placeholder="Ajouter un élément…" aria-label="Ajouter un élément" className="min-w-0 flex-1 bg-transparent outline-none" />
+              <button type="submit" disabled={!adding.trim() || busy} className="h-7 cursor-pointer rounded-md bg-primary px-2.5 text-xs font-semibold text-primary-foreground disabled:opacity-40">
+                {busy ? <Loader2 className="size-3.5 animate-spin" /> : 'Chercher'}
+              </button>
+            </form>
+          </div>
+          {found && (
+            <div className="rounded-xl border bg-muted/30 p-1">
+              {found.length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">Aucune page trouvée.</p>}
+              {found.map((c) => (
+                <button
+                  key={c.title}
+                  type="button"
+                  disabled={has.has(c.title)}
+                  onClick={() => {
+                    onAdd(c);
+                    setFound(null);
+                    setAdding('');
+                  }}
+                  className="flex w-full cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm hover:bg-muted disabled:cursor-default disabled:opacity-50"
+                >
+                  <span className="relative aspect-[5/7] w-7 shrink-0 overflow-hidden rounded bg-muted">{c.thumbnail && <img src={c.thumbnail} alt="" className="size-full object-cover" />}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{c.title}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{c.description ?? ''}</span>
+                  </span>
+                  {has.has(c.title) ? <span className="text-xs text-muted-foreground">déjà dans la liste</span> : <Plus className="size-4 text-primary" />}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className="max-h-[420px] divide-y overflow-y-auto rounded-xl border">
+            {shown.map((e) => {
+              const head = !filter && e.section && e.section !== lastSection ? e.section : null;
+              lastSection = e.section;
+              const src = e.thumbnail ?? thumbOf(e.title);
+              const origin = origins.get(e.title);
+              return (
+                <div key={e.title}>
+                  {head && <p className="bg-muted/50 px-3 py-1.5 text-xs font-semibold">{head}</p>}
+                  <div className="group flex items-center gap-3 px-3 py-1.5 text-sm">
+                    <span className="w-7 shrink-0 text-xs text-muted-foreground tabular-nums">{entries.indexOf(e) + 1}</span>
+                    <span className="relative aspect-[5/7] w-7 shrink-0 overflow-hidden rounded bg-muted">{src && <img src={src} alt="" loading="lazy" className="size-full object-cover" />}</span>
+                    <span className="min-w-0 flex-1">
+                      <a href={`https://fr.wikipedia.org/wiki/${encodeURIComponent(e.title.replace(/ /g, '_'))}`} target="_blank" rel="noopener" className="block truncate font-medium hover:underline">
+                        {e.title}
+                      </a>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {origin && <span className="mr-1">« {origin} » →</span>}
+                        {e.description ?? ''}
+                      </span>
+                    </span>
+                    {ownedTitles.has(e.title) && <span className="shrink-0 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-300">à toi</span>}
+                    <button
+                      type="button"
+                      onClick={() => onRemove(e.title)}
+                      aria-label={`Retirer ${e.title}`}
+                      className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-full text-muted-foreground opacity-50 transition group-hover:opacity-100 hover:bg-rose-500/15 hover:text-rose-600"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </section>
   );
 }

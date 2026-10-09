@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 import { randomTagColor } from '@/lib/tag-colors';
 import { ColorPicker } from './color-picker';
 
-type Choice = 'collection' | 'goal' | 'storage';
+type Choice = 'collection' | 'goal' | 'storage' | 'import';
 
 /** Chaque choix a une pastille tirée des reflets de la palette choisie dans les paramètres (index dans `icon.iri`). */
 const CHOICES: { id: Choice; dot: number; title: string; text: string }[] = [
@@ -31,16 +31,25 @@ const CHOICES: { id: Choice; dot: number; title: string; text: string }[] = [
     title: 'Étiquette de rangement',
     text: 'Pour ranger sans chercher à compléter (doublons, à échanger…). Grise et nommée « · Nom » sur le site.',
   },
+  {
+    id: 'import',
+    dot: 6,
+    title: 'Importer un album',
+    text: 'Colle le code « CP1-… » qu’on t’a envoyé : l’album à objectif est recréé avec toutes ses cases.',
+  },
 ];
 
 /** Un seul bouton « Nouveau » : étiquette de collection, album à objectif ou étiquette de rangement, chacun expliqué. */
 export function CreateMenu({
   onCreate,
   onGoal,
+  onImport,
   albumKinds,
 }: {
   onCreate: (name: string, color: string) => Promise<boolean>;
   onGoal: () => void;
+  /** Importe un code d'album ; renvoie le message d'erreur, ou null si c'est fait. */
+  onImport: (code: string) => Promise<string | null>;
   /** L'option « collection / rangement » est activée dans les paramètres. */
   albumKinds: boolean;
 }) {
@@ -49,10 +58,12 @@ export function CreateMenu({
   const [name, setName] = useState('');
   const [color, setColor] = useState(randomTagColor);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const iri = getPalette(useCollection((s) => s.settings.palette)).icon.iri;
 
   const reset = () => {
     setChoice(null);
+    setError(null);
     setName('');
     setColor(randomTagColor());
   };
@@ -69,6 +80,22 @@ export function CreateMenu({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (choice === 'import') {
+      if (!name.trim() || busy) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const failure = await onImport(name.trim());
+        if (failure) setError(failure);
+        else {
+          setOpen(false);
+          reset();
+        }
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     const bare = name.trim().replace(/^·\s*/, '');
     if (!bare || busy) return;
     setBusy(true);
@@ -118,7 +145,25 @@ export function CreateMenu({
                   </span>
                   {id === 'goal' && <ChevronRight className="mt-1.5 size-4 shrink-0 text-muted-foreground" />}
                 </button>
-                {active && (
+                {active && choice === 'import' && (
+                  <form onSubmit={submit} className="space-y-2 px-2.5 pb-2.5">
+                    <textarea
+                      autoFocus
+                      value={name}
+                      onChange={(e) => (setName(e.target.value), setError(null))}
+                      placeholder="CP1-…"
+                      aria-label="Code de l'album"
+                      rows={3}
+                      spellCheck={false}
+                      className="w-full resize-none rounded-md border bg-background px-2.5 py-2 font-mono text-xs break-all outline-none focus:border-primary"
+                    />
+                    {error && <p className="text-xs text-destructive">{error}</p>}
+                    <Button type="submit" size="sm" className="h-8 w-full" disabled={!name.trim() || busy}>
+                      {busy ? <Loader2 className="size-4 animate-spin" /> : 'Importer'}
+                    </Button>
+                  </form>
+                )}
+                {active && choice !== 'import' && (
                   <form onSubmit={submit} className="flex items-center gap-2 px-2.5 pb-2.5">
                     {choice === 'collection' ? (
                       <ColorPicker value={color} onChange={setColor} className="size-5 shrink-0" />

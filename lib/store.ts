@@ -5,8 +5,8 @@ import { DEFAULT_PALETTE, type PaletteId } from './palettes';
 export type CardTagStyle = 'dots' | 'ribbon' | 'footer' | 'bookmarks';
 
 /** Habillage des cartes (la disposition intérieure ne change pas). */
-export const CARD_STYLE_IDS = ['classic', 'printed', 'printed-b', 'foil', 'foil-b', 'foil-c', 'material', 'material-b', 'material-c'] as const;
-/** Habillage : « printed » / « foil » / « material » sont les variantes A, « -b » / « -c » les suivantes. */
+export const CARD_STYLE_IDS = ['classic', 'printed', 'printed-b', 'foil', 'foil-b', 'foil-c', 'material', 'material-b', 'material-c', 'fullart'] as const;
+/** Habillage : « printed » / « foil » / « material » sont les variantes A, « -b » / « -c » les suivantes ; « fullart » : photo sur toute la carte. */
 export type CardStyle = (typeof CARD_STYLE_IDS)[number];
 
 export interface Settings {
@@ -24,7 +24,7 @@ export interface Settings {
   /** Palette de couleurs (charte Holo) de l'interface et de l'icône. */
   palette: PaletteId;
   /** Style de livre des albums. */
-  albumStyle: 'relie' | 'classeur';
+  albumStyle: 'relie' | 'classeur' | 'grimoire' | 'herbier';
   /** Page Étiquettes : dossiers animés ou liste. */
   tagsLayout: 'folders' | 'list';
   /** Distingue les albums de collection (emoji, couleur vive) des albums de rangement (« · Nom », gris). */
@@ -73,6 +73,10 @@ export interface Settings {
   freeImages: boolean;
   /** Liste de souhaits mise en avant sur le marché et les échanges, cœur pour ajouter depuis le marché. */
   wishHighlight: boolean;
+  /** Page Échanges : mini-cartes (image, rareté, titre complet) à la place des noms tronqués. */
+  tradePreviews: boolean;
+  /** Mode revue (page Cards) : mise en scène par rareté, comme à l'ouverture des paquets. */
+  reviewFullStage: boolean;
   /** (n/10) dans le titre de l'onglet WikiMasters. */
   tabTitle: boolean;
   /** Nombre de paquets sur l'icône de l'extension. */
@@ -120,6 +124,8 @@ export const DEFAULT_SETTINGS: Settings = {
   cardFullscreen: true,
   freeImages: false,
   wishHighlight: true,
+  tradePreviews: true,
+  reviewFullStage: false,
   tabTitle: true,
   iconBadge: true,
   notifyFull: true,

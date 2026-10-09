@@ -94,13 +94,7 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
         <div className="h-full w-full overflow-y-auto">
           {view === 'review' && <ReviewView />}
           {view === 'tags' && (
-            <TagsView
-              onOpenReview={() => setView('review')}
-              onOpenEnhance={(section) => {
-                setEnhanceSection(section);
-                setView('suggestions');
-              }}
-            />
+            <TagsView onOpenReview={() => setView('review')} />
           )}
           {view === 'wishes' && <WishlistView />}
           {view === 'suggestions' && <EnhanceView section={enhanceSection} onSection={setEnhanceSection} />}

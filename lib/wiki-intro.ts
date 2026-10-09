@@ -11,6 +11,8 @@ const TTL = 30 * 24 * 60 * 60 * 1000;
 const introCacheItem = storage.defineItem<Record<string, { text: string; at: number }>>('local:wikiIntros', { fallback: {} });
 
 const memory = new Map<string, Promise<string | null>>();
+/** Écritures du cache l'une après l'autre : plusieurs introductions peuvent arriver en même temps. */
+let writes = Promise.resolve();
 
 function apiUrl(articleUrl: string): string | null {
   try {
@@ -48,8 +50,11 @@ async function load(articleUrl: string): Promise<string | null> {
     .map((p) => p.trim())
     .filter(Boolean)
     .join('\n');
-  const latest = await introCacheItem.getValue();
-  await introCacheItem.setValue({ ...latest, [articleUrl]: { text, at: Date.now() } });
+  writes = writes.then(async () => {
+    const latest = await introCacheItem.getValue();
+    await introCacheItem.setValue({ ...latest, [articleUrl]: { text, at: Date.now() } });
+  }).catch(() => {});
+  await writes;
   return text || null;
 }
 
@@ -71,4 +76,27 @@ export function condense(intro: string): string {
   const first = intro.split('\n')[0] ?? '';
   const sentences = first.split(/(?<=[.!?…])\s+(?=[A-ZÀ-ÖØ-Þ«"(])/u);
   return sentences.slice(0, 2).join(' ');
+}
+
+/** Lien de l'article d'une carte : celui du site, sinon l'article frwiki du même titre. */
+export function articleUrl(title: string, wikipediaUrl?: string | null): string | null {
+  if (wikipediaUrl) return wikipediaUrl;
+  const t = title.trim().replace(/ /g, '_');
+  return t ? `https://fr.wikipedia.org/wiki/${encodeURIComponent(t)}` : null;
+}
+
+/** File de quelques requêtes à la fois, pour les grilles qui demandent beaucoup d'introductions d'un coup. */
+const QUEUE_LIMIT = 3;
+let running = 0;
+const waiting: (() => void)[] = [];
+
+export async function queuedIntro(url: string): Promise<string | null> {
+  if (running >= QUEUE_LIMIT) await new Promise<void>((resolve) => waiting.push(resolve));
+  running++;
+  try {
+    return await wikiIntro(url);
+  } finally {
+    running--;
+    waiting.shift()?.();
+  }
 }

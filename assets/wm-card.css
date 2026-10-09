@@ -453,3 +453,121 @@
 }
 
 .wm-card[data-style='material-b'] .wm-rarity { display: none; }
+
+/*
+ * ── Full-art : la photo occupe toute la carte (même photo floutée derrière pour remplir les bords), texte sur un
+ * dégradé sombre avec l'introduction de l'article, nom et liseré métallique de la couleur d'accent, halo qui grandit
+ * avec la rareté et reflet holographique au survol ; pas d'attaque / défense. --art (url de l'image) est posé en ligne
+ * par WmCard et par le skin du site.
+ */
+.wm-card[data-style='fullart'] {
+  --acc: #b7c1ce;
+  --foil-o: 0.22;
+  --glow: 10px;
+  background: linear-gradient(#2e3135, #0c0f13);
+  box-shadow: 0 10px 24px -12px rgb(0 0 0 / 0.55), 0 0 var(--glow) color-mix(in srgb, var(--acc) 30%, transparent);
+}
+.wm-card[data-style='fullart'][data-tilting] {
+  box-shadow: 0 22px 40px -14px rgb(0 0 0 / 0.6), 0 0 calc(var(--glow) * 1.7) color-mix(in srgb, var(--acc) 55%, transparent);
+}
+/* Couleurs d'accent propres à ce style : gris, vert, bleu, violet, orange, or. */
+.wm-card[data-style='fullart'][data-rarity='PC'] { --acc: #6ee7ad; --foil-o: 0.28; --glow: 13px; }
+.wm-card[data-style='fullart'][data-rarity='R'] { --acc: #64bfff; --foil-o: 0.34; --glow: 17px; }
+.wm-card[data-style='fullart'][data-rarity='SR'] { --acc: #c98cff; --foil-o: 0.42; --glow: 22px; }
+.wm-card[data-style='fullart'][data-rarity='UR'] { --acc: #ff9f43; --foil-o: 0.5; --glow: 28px; }
+.wm-card[data-style='fullart'][data-rarity='L'] { --acc: #ffd45a; --foil-o: 0.58; --glow: 32px; }
+
+.wm-card[data-style='fullart'] :is(.wm-paper, .wm-art > img + div, .wm-art > .fade),
+.wm-card[data-style='fullart'] > :is(.wm-shine, .wm-holo, .wm-foil, .wm-glitter, .wm-rim),
+.wm-card[data-style='fullart'] .wm-stats { display: none; }
+
+.wm-card[data-style='fullart'] .wm-art {
+  inset: 0;
+  height: 100%;
+  overflow: hidden;
+  background: linear-gradient(#bec3c6, #2e3135 58%, #0c0f13);
+}
+.wm-card[data-style='fullart'] .wm-art::before {
+  content: '';
+  position: absolute;
+  inset: -14%;
+  background: var(--art, none) center 30% / cover no-repeat;
+  filter: blur(3.5cqw) saturate(1.08) brightness(0.9);
+  pointer-events: none;
+}
+.wm-card[data-style='fullart'] .wm-art img {
+  inset: 0 0 auto;
+  height: 76%;
+  object-position: center 30%;
+  mask-image: linear-gradient(transparent, rgb(0 0 0 / 0.7) 7%, #000 16%, #000 48%, rgb(0 0 0 / 0.86) 62%, rgb(0 0 0 / 0.5) 82%, transparent);
+  filter: saturate(1.05) contrast(1.035);
+  transition: transform 0.45s cubic-bezier(0.2, 0.75, 0.25, 1);
+}
+.wm-card[data-style='fullart']:hover .wm-art img { transform: scale(1.015); }
+
+.wm-card[data-style='fullart'] .wm-body {
+  top: auto;
+  height: 56%;
+  padding: 5cqw 5.5cqw 5.5cqw;
+  justify-content: flex-end;
+  background: linear-gradient(to top, rgb(12 15 19 / 0.99), rgb(12 15 19 / 0.88) 25%, rgb(12 15 19 / 0.6) 55%, rgb(12 15 19 / 0.25) 82%, transparent);
+}
+.wm-card[data-style='fullart'] .wm-title {
+  color: var(--acc);
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  text-shadow: 0 0.3cqw 0.6cqw #000, 0 1cqw 3cqw rgb(0 0 0 / 0.88), 0 0 3cqw color-mix(in srgb, var(--acc) 15%, transparent);
+}
+.wm-card[data-style='fullart'] .wm-title { font-size: 7cqw; line-height: 1.05; }
+/* Introduction de l'article (WmCard / skin du site), sinon la description courte : autant de lignes que la place le permet. */
+.wm-card[data-style='fullart'] .wm-desc {
+  margin-top: 1.5cqw;
+  color: rgb(255 255 255 / 0.84);
+  font-size: 4.9cqw;
+  line-height: 1.2;
+  -webkit-line-clamp: 7;
+  text-shadow: 0 0.3cqw 1cqw #000;
+}
+
+/* Pastille de rareté métallique (style en ligne de WmCard, d'où !important). */
+.wm-card[data-style='fullart'] .wm-rarity {
+  background: linear-gradient(145deg, color-mix(in srgb, var(--acc) 88%, white), color-mix(in srgb, var(--acc) 72%, #76540a)) !important;
+  color: #111318;
+  font-weight: 900;
+  box-shadow: 0 0.6cqw 2.5cqw rgb(0 0 0 / 0.36), 0 0 3cqw color-mix(in srgb, var(--acc) 44%, transparent), inset 0 0 0 0.35cqw rgb(255 255 255 / 0.5) !important;
+}
+
+/* Liseré métallique de la couleur de rareté. */
+.wm-card[data-style='fullart']::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 36;
+  pointer-events: none;
+  border-radius: inherit;
+  padding: 1.1%;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--acc) 78%, white), var(--acc) 28%, color-mix(in srgb, var(--acc) 78%, black) 52%, var(--acc) 72%, color-mix(in srgb, var(--acc) 70%, white));
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0.96;
+}
+
+/* Reflet holographique : invisible au repos, éclat blanc et arc-en-ciel qui suivent le pointeur au survol. */
+.wm-card[data-style='fullart']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 34;
+  pointer-events: none;
+  opacity: 0;
+  background:
+    radial-gradient(circle at var(--mx) var(--my), rgb(255 255 255 / 0.86) 0%, rgb(255 255 255 / 0.34) 5%, rgb(255 255 255 / 0.1) 13%, transparent 28%),
+    linear-gradient(var(--holo-angle, 112deg), transparent 8%, rgb(255 72 151 / 0.1) 18%, rgb(255 126 76 / 0.3) 28%, rgb(255 232 112 / 0.38) 38%, rgb(100 255 190 / 0.34) 48%, rgb(85 213 255 / 0.38) 58%, rgb(122 124 255 / 0.34) 68%, rgb(211 107 255 / 0.3) 78%, rgb(255 92 160 / 0.12) 88%, transparent 96%),
+    repeating-linear-gradient(var(--holo-angle, 112deg), transparent 0 9%, rgb(255 255 255 / 0.055) 10% 10.8%, transparent 12% 20%);
+  background-size: 100% 100%, 185% 185%, 145% 145%;
+  background-position: center, var(--mx) var(--my), var(--my) var(--mx);
+  mix-blend-mode: screen;
+  filter: saturate(1.28) contrast(1.08);
+  transition: opacity 0.12s ease;
+}
+.wm-card[data-style='fullart']:hover::before { opacity: var(--foil-o); }

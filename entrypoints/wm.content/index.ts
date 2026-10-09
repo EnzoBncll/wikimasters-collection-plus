@@ -16,6 +16,7 @@ import { startAlbumFx } from './album-fx';
 import { startPanels } from './panels';
 import { startReveal } from './reveal';
 import { startStage } from './stage';
+import { startTradePreviews } from './trade-previews';
 import { startWishlist } from './wishlist';
 
 const FAB_CSS = `
@@ -72,6 +73,7 @@ export default defineContentScript({
     startPackStats();
     startCardTools();
     startWishlist();
+    startTradePreviews();
     startTabTitle();
 
     const host = document.createElement('wmt-root');

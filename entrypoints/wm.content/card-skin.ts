@@ -1,5 +1,6 @@
 import cardCss from '@/assets/wm-card.css?inline';
 import { describeTitles } from '@/lib/descriptions';
+import { articleUrl, wikiIntro } from '@/lib/wiki-intro';
 import { RARITY_LABEL, type Rarity } from '@/lib/types';
 import { ctx, esc } from './ctx';
 
@@ -70,7 +71,7 @@ export function skinHtml(card: any): string {
   return `<div class="wm-card" data-rarity="${rarity ?? ''}" data-style="${esc(ctx.settings.cardStyle)}" data-rarity-label="${rarity ? esc(RARITY_LABEL[rarity]) : ''}">
     <div class="wm-face">
       <div class="wm-paper"></div>
-      <div class="wm-art art">${image ? `<img src="${esc(image)}" alt="" draggable="false">` : `<div class="ph">${esc(title.charAt(0).toUpperCase())}</div>`}<div class="fade"></div></div>
+      <div class="wm-art art"${image ? ` style="--art:url(${esc(JSON.stringify(image))})"` : ''}>${image ? `<img src="${esc(image)}" alt="" draggable="false">` : `<div class="ph">${esc(title.charAt(0).toUpperCase())}</div>`}<div class="fade"></div></div>
       <div class="rar">${rarity ? `<span class="wm-rarity" style="background-color:var(--rarity-${r});box-shadow:0 0 10px color-mix(in srgb, var(--rarity-${r}) 60%, transparent)">${rarity}</span>` : ''}</div>
       <div class="wm-body body">
         <h3 class="wm-title">${esc(title)}</h3>
@@ -129,7 +130,25 @@ export function applySkin(flip: HTMLElement, card: any) {
     target.append(host);
   }
   host.dataset.key = key;
-  host.shadowRoot!.querySelector('.slot')!.innerHTML = skinHtml(card);
+  const slot = host.shadowRoot!.querySelector('.slot')!;
+  slot.innerHTML = skinHtml(card);
+  // Full-art : l'introduction de l'article remplace la description courte, si la carte est toujours affichée.
+  const url = ctx.settings.cardStyle === 'fullart' ? articleUrl(articleOf(card), card.wikipedia_url) : null;
+  if (url) {
+    void wikiIntro(url)
+      .then((intro) => {
+        const text = intro?.split('\n')[0];
+        if (!text || !host?.isConnected || host.dataset.key !== key) return;
+        let p = slot.querySelector('.wm-desc');
+        if (!p) {
+          p = document.createElement('p');
+          p.className = 'wm-desc';
+          slot.querySelector('.wm-title')?.after(p);
+        }
+        p.textContent = text;
+      })
+      .catch(() => {});
+  }
 }
 
 /** Copie visuelle autonome (pour l'animation de l'album). */

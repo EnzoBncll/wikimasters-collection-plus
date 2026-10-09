@@ -54,12 +54,6 @@ const STEPS: Step[] = [
     text: 'Chaque étiquette s’ouvre en album à feuilleter. Range les cartes à la main ou vois-les par rareté, retire-en d’un clic, et trouve sous l’album les cartes à ajouter.',
   },
   {
-    view: 'tags',
-    target: 'improve',
-    title: 'Améliorer',
-    text: 'Des pistes calculées sur ta collection : cartes à ranger dans tes albums, nouveaux albums possibles, fiches d’album à faire rédiger par l’IA.',
-  },
-  {
     view: 'suggestions',
     target: 'enhance',
     title: 'Enhance',

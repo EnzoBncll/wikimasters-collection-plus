@@ -1,4 +1,4 @@
-import { Archive, ArrowRight, Bot, BookOpen, Layers, Folder, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Sparkles, Target, Trash2, Trophy, type LucideIcon } from 'lucide-react';
+import { Archive, ArrowRight, BookOpen, Folder, Share2, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Sparkles, Target, Trash2, Trophy, type LucideIcon } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
 import { useEffect, useMemo, useState } from 'react';
 import { AnimatedFolder, type Project } from '@/components/ui/3d-folder';
@@ -19,12 +19,12 @@ import { useReview } from '@/hooks/use-review';
 import { RARITY_LABEL, type OwnedCard, type SiteTag } from '@/lib/types';
 import { systemTagIds } from '@/lib/trade';
 import { byKind, goalName, hasGoalPrefix, isStorage, kindOf, switchKind, toggleFinished } from '@/lib/album-kind';
-import { goalAlbumsItem } from '@/lib/goal-albums';
-import { sheetOutdated } from '@/lib/album-sheet';
+import { goalAlbumsItem, matchEntries, saveGoalAlbum, type GoalAlbum } from '@/lib/goal-albums';
 import { useSuggestions } from '@/hooks/use-suggestions';
+import { GoalBinder } from './goal-binder';
+import { decodeAlbumCode, encodeAlbumCode, resolveSharedEntries } from '@/lib/album-code';
+import { factsItem } from '@/lib/wikidata';
 import { useImproveCounts } from './consolidate-view';
-import type { EnhanceSection } from './enhance-view';
-import { useAiAvailability, useAlbumSheets, useCollectionAlbums } from './sheets-view';
 import { cn } from '@/lib/utils';
 import { toast } from '@/hooks/use-toast';
 import { Album } from './album';
@@ -143,44 +143,24 @@ function TagRow({
   );
 }
 
-/** Pastille « Améliorer » de la page Albums, qui mène à une section de l'onglet Enhance. */
-function ImprovePill({ icon: Icon, text, onClick }: { icon: LucideIcon; text: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex cursor-pointer items-center gap-1.5 rounded-full border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
-    >
-      <Icon className="size-3.5 text-primary" /> {text} <ArrowRight className="size-3" />
-    </button>
-  );
-}
-
-export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => void; onOpenEnhance: (section: EnhanceSection) => void }) {
-  const { tags, cards, tradeTags, createTag, updateTag, deleteTag, statusOf, version, settings, updateSettings } = useCollection();
+export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
+  const { tags, cards, tradeTags, createTag, updateTag, deleteTag, statusOf, version, settings, updateSettings, stageIntoAlbum } = useCollection();
   const layout = settings.tagsLayout;
   const [toDelete, setToDelete] = useState<SiteTag | null>(null);
   const [toRename, setToRename] = useState<SiteTag | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
   const [album, setAlbum] = useState<{ key: string; title: string; gradient: string; focus?: boolean } | null>(null);
   const [goalWizard, setGoalWizard] = useState(false);
-  const [goalIds, setGoalIds] = useState<Set<string>>(new Set());
+  const [goalAlbums, setGoalAlbums] = useState<Record<string, GoalAlbum>>({});
   useEffect(() => {
-    void goalAlbumsItem.getValue().then((all) => setGoalIds(new Set(Object.keys(all ?? {}))));
-    return goalAlbumsItem.watch((all) => setGoalIds(new Set(Object.keys(all ?? {}))));
+    void goalAlbumsItem.getValue().then((all) => setGoalAlbums(all ?? {}));
+    return goalAlbumsItem.watch((all) => setGoalAlbums(all ?? {}));
   }, []);
+  const goalIds = useMemo(() => new Set(Object.keys(goalAlbums)), [goalAlbums]);
+  const facts = useSuggestions((s) => s.facts);
 
-  // Pistes d'amélioration : cartes à ranger (par album), nouveaux albums possibles, fiches IA à rédiger.
+  // Cartes à ranger, par album (pastille « +N » à côté de chaque album).
   const improve = useImproveCounts();
-  const { facts, rules, dismissed: dismissedThemes } = useSuggestions();
-  const themeCount = useMemo(
-    () => useSuggestions.getState().suggestions().filter((s) => !s.existingTag).length,
-    [facts, rules, dismissedThemes, tags, version], // eslint-disable-line react-hooks/exhaustive-deps
-  );
-  const aiAvailability = useAiAvailability();
-  const sheets = useAlbumSheets();
-  const collectionAlbums = useCollectionAlbums();
-  const sheetsToWrite = collectionAlbums.filter((a) => !sheets[a.tag.id] || sheetOutdated(sheets[a.tag.id]!, a.cards.length)).length;
 
   // Lien direct : review.html#album=<id> ouvre l'album dès que les étiquettes sont chargées.
   const [albumLink, setAlbumLink] = useState(() => (location.hash.startsWith('#album=') ? decodeURIComponent(location.hash.slice(7)) : null));
@@ -224,6 +204,44 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
     const next = await switchKind(tag, randomTagColor);
     if (await updateTag(tag.id, next)) {
       toast(!isStorage(tag) ? `« ${next.name} » passe en rangement` : `« ${next.name} » passe en collection`, 'success');
+    }
+  };
+
+  /** Copie le code de partage d'un album à objectif. */
+  const shareGoal = async (tag: SiteTag) => {
+    const goal = (await goalAlbumsItem.getValue())[tag.id];
+    if (!goal) return;
+    try {
+      const code = await encodeAlbumCode(tag.name, tag.color, goal);
+      await navigator.clipboard.writeText(code);
+      toast(`Code de « ${tag.name} » copié (${goal.entries.length} cases, ${code.length} caractères)`, 'success');
+    } catch (e) {
+      toast(`Copie impossible : ${(e as Error).message}`, 'error');
+    }
+  };
+
+  /** Crée l'album à objectif d'un code partagé, et met les cartes déjà possédées dans la boîte d'envoi. */
+  const importGoal = async (code: string): Promise<string | null> => {
+    try {
+      const shared = await decodeAlbumCode(code);
+      const { entries, dropped } = await resolveSharedEntries(shared);
+      if (!entries.length) return 'Aucune case n’a pu être retrouvée sur Wikipédia.';
+      const full = goalName(shared.name);
+      if (tags.some((t) => t.name.toLowerCase() === full.toLowerCase())) return `Tu as déjà un album « ${full} ».`;
+      const tag = await createTag(full, shared.color ?? randomTagColor());
+      if (!tag) return 'Création de l’étiquette impossible.';
+      await saveGoalAlbum(tag.id, { entries, source: shared.source, annex: shared.annex, at: Date.now() });
+      const owned = matchEntries(entries, cards, await factsItem.getValue());
+      const toStick = [...owned.values()].filter((c) => !c.tagIds.includes(tag.id));
+      if (toStick.length) stageIntoAlbum(toStick, tag);
+      toast(
+        `Album « ${tag.name} » importé : ${entries.length} cases${dropped ? ` (${dropped} introuvable(s))` : ''}${toStick.length ? `, ${toStick.length} carte(s) à coller dans la boîte d'envoi` : ''}`,
+        'success',
+      );
+      setAlbum({ key: tag.id, title: tag.name, gradient: folderGradient(tag.color) });
+      return null;
+    } catch (e) {
+      return (e as Error).message;
     }
   };
 
@@ -305,6 +323,11 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
                 )}
               </DropdownMenuItem>
             )}
+            {goalIds.has(tag.id) && (
+              <DropdownMenuItem onSelect={() => void shareGoal(tag)}>
+                <Share2 className="size-4" /> Copier le code de partage
+              </DropdownMenuItem>
+            )}
             {/* Toujours proposé : la page Albums sépare les rangements même sans le réglage collection / rangement. */}
             <DropdownMenuItem onSelect={() => toggleKind(tag)}>
               {!isStorage(tag) ? (
@@ -347,6 +370,55 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
     );
   };
 
+  /** Album à objectif en vue Dossiers : classeur à onglets avec sa jauge. */
+  const binder = (tag: SiteTag) => {
+    const goal = goalAlbums[tag.id];
+    const tagCards = byTag.get(tag.id) ?? [];
+    const match = goal ? matchEntries(goal.entries, cards, facts) : new Map<number, OwnedCard>();
+    const inAlbum = [...match.values()].filter((c) => c.tagIds.includes(tag.id)).length;
+    return (
+      <GoalBinder
+        tag={tag}
+        goal={goal}
+        cards={tagCards}
+        collected={goal ? inAlbum : tagCards.length}
+        toStick={match.size - inAlbum}
+        onOpen={() => openAlbum(tag)}
+        footer={tagControls(tag, false)}
+      />
+    );
+  };
+
+  const goalSection = goals.length > 0 && (
+    <section className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-primary uppercase">
+          <Target className="size-3.5" /> Albums à objectif · {goals.length}
+        </h2>
+        {unprefixedGoals.length > 0 && (
+          <Button variant="outline" size="sm" className="h-7 rounded-full px-2.5 text-xs" onClick={prefixGoals}>
+            Ajouter « ◇ » à {unprefixedGoals.length} album{unprefixedGoals.length > 1 ? 's' : ''}
+          </Button>
+        )}
+      </div>
+      {layout === 'list' ? (
+        <div className="divide-y overflow-hidden rounded-2xl border bg-card">
+          {goals.map((tag) => (
+            <TagRow key={tag.id} name={tag.name} color={tag.color} cards={byTag.get(tag.id) ?? []} onOpen={() => openAlbum(tag)} controls={tagControls(tag, false)} icon={Target} />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-8">
+          {goals.map((tag, i) => (
+            <div key={tag.id} className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both duration-700" style={{ animationDelay: `${i * 60}ms` }}>
+              {binder(tag)}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+
   return (
     <div className="mx-auto w-full max-w-6xl space-y-10 px-4 py-6 sm:px-6">
       <header className="flex flex-wrap items-end justify-between gap-4">
@@ -357,7 +429,7 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
           </p>
         </div>
         <div className="flex w-full max-w-3xl flex-wrap items-center gap-3 sm:w-auto">
-          <CreateMenu onCreate={async (n, c) => Boolean(await createTag(n, c))} onGoal={() => setGoalWizard(true)} albumKinds={kinds} />
+          <CreateMenu onCreate={async (n, c) => Boolean(await createTag(n, c))} onGoal={() => setGoalWizard(true)} onImport={importGoal} albumKinds={kinds} />
           <div className="flex shrink-0 rounded-full border bg-card p-1" role="radiogroup" aria-label="Affichage">
             {(
               [
@@ -384,18 +456,7 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
         </div>
       </header>
 
-      {(Boolean(improve?.total) || themeCount > 0 || (sheetsToWrite > 0 && aiAvailability && aiAvailability !== 'unavailable')) && (
-        <div data-tour="improve" className="-mt-4 flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-xs font-semibold tracking-wider text-muted-foreground uppercase">Améliorer</span>
-          {Boolean(improve?.total) && (
-            <ImprovePill icon={Layers} text={`${improve!.total} carte${improve!.total > 1 ? 's' : ''} à ranger dans tes albums`} onClick={() => onOpenEnhance('consolidate')} />
-          )}
-          {themeCount > 0 && <ImprovePill icon={Sparkles} text={`${themeCount} nouvel${themeCount > 1 ? 's' : ''} album${themeCount > 1 ? 's' : ''} possible${themeCount > 1 ? 's' : ''}`} onClick={() => onOpenEnhance('themes')} />}
-          {sheetsToWrite > 0 && aiAvailability && aiAvailability !== 'unavailable' && (
-            <ImprovePill icon={Bot} text={`${sheetsToWrite} fiche${sheetsToWrite > 1 ? 's' : ''} IA à rédiger`} onClick={() => onOpenEnhance('sheets')} />
-          )}
-        </div>
-      )}
+      {goalSection}
 
       {finished.length > 0 && (
         <section className="space-y-4">
@@ -411,36 +472,6 @@ export function TagsView({ onOpenReview, onOpenEnhance }: { onOpenReview: () => 
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-8">
               {finished.map((tag, i) => (
-                <div key={tag.id} className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both duration-700" style={{ animationDelay: `${i * 60}ms` }}>
-                  {folder(tag)}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
-
-      {goals.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-primary uppercase">
-              <Target className="size-3.5" /> Albums à objectif · {goals.length}
-            </h2>
-            {unprefixedGoals.length > 0 && (
-              <Button variant="outline" size="sm" className="h-7 rounded-full px-2.5 text-xs" onClick={prefixGoals}>
-                Ajouter « ◇ » à {unprefixedGoals.length} album{unprefixedGoals.length > 1 ? 's' : ''}
-              </Button>
-            )}
-          </div>
-          {layout === 'list' ? (
-            <div className="divide-y overflow-hidden rounded-2xl border bg-card">
-              {goals.map((tag) => (
-                <TagRow key={tag.id} name={tag.name} color={tag.color} cards={byTag.get(tag.id) ?? []} onOpen={() => openAlbum(tag)} controls={tagControls(tag, false)} icon={Target} />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-8">
-              {goals.map((tag, i) => (
                 <div key={tag.id} className="animate-in fade-in slide-in-from-bottom-6 fill-mode-both duration-700" style={{ animationDelay: `${i * 60}ms` }}>
                   {folder(tag)}
                 </div>

@@ -18,7 +18,8 @@
     "postinstall": "wxt prepare",
     "preview:mock": "wxt build && node dev/preview.mjs",
     "icons": "node dev/icons.mjs",
-    "readme:assets": "wxt build && node dev/readme-assets.mjs"
+    "readme:assets": "wxt build && node dev/readme-assets.mjs",
+    "store:assets": "wxt build && node dev/store-assets.mjs"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -38,6 +39,7 @@
     "clsx": "^2.1.1",
     "cn": "^0.4.0",
     "framer-motion": "^13.4.4",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^1.48.0",
     "radix-ui": "^1.6.7",
     "react": "^19.3.0",

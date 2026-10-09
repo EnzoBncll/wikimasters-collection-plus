@@ -78,6 +78,7 @@ export const SITE_GROUPS: { title: string; rows: Row[] }[] = [
     rows: [
       { key: 'cardFullscreen', title: 'Plein écran', text: 'Bouton sur les cartes : carte agrandie, inclinaison 3D qui suit la souris.' },
       { key: 'wishHighlight', title: 'Liste de souhaits', text: 'Cartes souhaitées mises en avant sur le marché et les échanges, cœur pour en ajouter depuis le marché.' },
+      { key: 'tradePreviews', title: 'Aperçu des cartes échangées', text: 'Page Échanges : les noms tronqués deviennent des mini-cartes avec image, rareté et titre complet.' },
       { key: 'freeImages', title: 'Images libres', text: 'Pour les cartes sans image : photo Wikipédia ou Commons sous licence libre, avec son auteur.' },
     ],
   },

@@ -125,7 +125,7 @@ function CardTagStylePicker({ value, onChange }: { value: Settings['cardTagStyle
   );
 }
 
-/** Habillages dans l'ordre du sélecteur : « Défaut » puis Style 1 à 8. */
+/** Habillages dans l'ordre du sélecteur : « Défaut » puis Style 1 à 9. */
 const CARD_STYLES = CARD_STYLE_IDS;
 const styleLabel = (i: number) => (i === 0 ? 'Défaut' : `Style ${i}`);
 
@@ -158,7 +158,7 @@ function CardFan({ cards, style }: { cards: OwnedCard[]; style: Settings['cardSt
  * en rapetissant. On passe d'un style à l'autre au clic, aux flèches, en glissant ou à la molette ;
  * chaque changement s'applique tout de suite. Dessous, un aperçu repliable des six raretés en éventail.
  */
-function CardStylePicker({ value, onChange }: { value: Settings['cardStyle']; onChange: (id: Settings['cardStyle']) => void }) {
+export function CardStylePicker({ value, onChange }: { value: Settings['cardStyle']; onChange: (id: Settings['cardStyle']) => void }) {
   const cards = useCollection((s) => s.cards);
   const pick = useMemo(() => (r: string) => cards.find((c) => c.rarity === r && c.attack != null) ?? cards.find((c) => c.rarity === r), [cards]);
   const showcase = useMemo(() => pick('SR') ?? cards[0], [pick, cards]);
@@ -361,7 +361,7 @@ function AppearanceSection() {
       </Group>
 
       <Group title="Albums">
-        <SettingRow title="Livre" text="Style des albums qu'on feuillette.">
+        <SettingRow title="Livre" text="Style par défaut des albums ; chaque album peut avoir le sien (en-tête de l'album).">
           <Segmented
             value={settings.albumStyle}
             onChange={(albumStyle) => updateSettings({ albumStyle })}
