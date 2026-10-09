@@ -12,40 +12,86 @@
 
 > Extension Chrome **non officielle** pour [WikiMasters](https://www.wiki-masters.com), sans lien avec l'équipe du jeu.
 
-Range ta collection de cartes Wikipédia : tri **Trade / Not Trade** en quelques clics, **étiquettes** (celles du site), **albums** à feuilleter façon Panini, **albums à objectif** (les rois de France, le top 50 des…) avec les cartes qu'il te reste à trouver, ouverture des paquets redessinée sur WikiMasters, suggestions des meilleures cartes à chercher, **synchronisation entre tes ordinateurs** et **export** CSV / Google Sheets.
+Range ta collection de cartes Wikipédia comme de vrais livres. **Albums à objectif** (les rois de France, le top 50 des…) qui te montrent les cartes qu'il te reste à trouver, **livres en 3D** (relié, classeur, grimoire, herbier) rangés dans une **bibliothèque**, **ouverture des paquets redessinée** sur WikiMasters avec statistiques de tirage, tri **Trade / Not Trade** en quelques clics, **étiquettes**, **synchronisation entre tes ordinateurs** et **export** CSV / Google Sheets.
 
 <p align="center">
-  <img src="docs/images/review-light.png" alt="Vue Revue en mode clair" width="49%">
-  <img src="docs/images/review-dark.png" alt="Vue Revue en mode sombre" width="49%">
+  <img src="docs/images/album-grimoire.png" alt="Album à objectif « Empereurs byzantins » en style Grimoire 3D, avec ses parties" width="100%">
 </p>
+
+## Nouveautés de la 0.9
+
+### Ouverture des paquets sur WikiMasters
+
+<p align="center">
+  <img src="docs/images/site-fullart.png" alt="Révélé d'une carte Légendaire en habillage full-art" width="49%">
+  <img src="docs/images/site-stats.png" alt="Page d'ouverture : paquets en éventail et statistiques de tirage" width="49%">
+</p>
+
+La page d'ouverture de WikiMasters est redessinée : un bouton rond entouré de tes paquets en 3D, le compteur et le temps avant la réserve pleine, puis un **révélé animé par rareté** (sons, confettis, pastille « New ») où tu ranges la carte sans l'ouvrir. Nouvel habillage **full-art** : la photo sur toute la carte, avec le début de son article Wikipédia. En dessous, les **statistiques de tirage** : taux de drop, prévisions, records, cartes de tes albums ◇, histogramme sur 30 jours et image à partager.
+
+### Albums à objectif repensés
+
+<p align="center">
+  <img src="docs/images/goal-cards.png" alt="Assistant d'album à objectif : les cartes retenues de ta liste" width="49%">
+  <img src="docs/images/goal-preview.png" alt="Assistant d'album à objectif : aperçu, tri, couleur et style du livre" width="49%">
+</p>
+
+Décris ton album (« les empereurs en Europe après 1600 ») ou **colle ta propre liste** (parties « # Titre », colonnes de tableur, CSV) : chaque ligne est rapprochée de sa page Wikipédia. Tu choisis les cartes, l'ordre (liste, rareté, date, A → Z, notoriété, attaque, défense), la couleur et le style du livre. Un **code court** (« CP1-… ») permet de partager l'album : il est recréé à l'identique chez un ami.
+
+### Livres en 3D et bibliothèque
+
+<p align="center">
+  <img src="docs/images/album-herbier.png" alt="Album à objectif en style Herbier" width="49%">
+  <img src="docs/images/library.png" alt="Bibliothèque : un livre par album à objectif sur l'étagère" width="49%">
+</p>
+
+Deux nouveaux styles, **Grimoire** (trois couvertures) et **Herbier**, en plus du relié et du classeur, avec une vraie 3D (couverture, tranches, coins) et un mode **« Style d'album »** pour régler couverture, pages, cartes et ambiance en direct. Coller une carte devient un petit spectacle (chute 3D, onde de choc, son). Tes albums à objectif et tes collections finies se rangent dans une **bibliothèque** : un livre par album, plus haut à mesure qu'il se remplit, halo et sceau une fois fini.
+
+### Et aussi
+
+<img src="docs/images/review-deck.png" alt="Mode revue dans la page Cartes" width="49%" align="right">
+
+- **Mode revue** (touche `R` dans Cartes) : tes cartes une par une, comme à l'ouverture d'un paquet, avec les mêmes raccourcis (← Trade, ↓ Not Trade, → Discard), lot et ordre au choix, avance auto et récapitulatif.
+- **Mode Marché** dans les albums à objectif : les cartes qu'il te manque actuellement en vente sur le marché de WikiMasters, d'un clic.
+- **Mini-cartes** sur la page des échanges de WikiMasters.
+- En-tête d'album simplifié.
+
+<br clear="right">
 
 ## Fonctionnalités
 
 - **Visite guidée** : à la première ouverture, une présentation pas à pas des quatre pages met en lumière chaque fonction. Passable, et relançable depuis **Paramètres › Apparence › Aide**.
 - **Cartes** : toutes tes cartes, filtres compacts (statut, rareté, étiquettes séparées Collection / Rangement, doublons, nouvelles), sélection multiple, raccourcis clavier (`T` Trade, `N` Not Trade, `E` étiqueter, `A` tout, `/` recherche, `Entrée` afficher en grand).
 - **Boîte d'envoi** : rien ne part sur le site tout de suite. Statuts, étiquettes et albums s'accumulent dans un volet à droite (poignée avec le nombre de modifications) et partent d'un clic ; un tracé aux couleurs de la palette fait le tour du cadre pendant l'envoi.
-- **Cartes au style WikiMasters** : format, couleurs de rareté et statistiques du jeu, dix habillages au choix (imprimé, premium foil, matière, full-art), reflet holographique au survol, plus intense selon la rareté.
+- **Mode revue** : touche `R` dans Cartes, les cartes une à une avec les raccourcis du révélé, lot et ordre au choix, avance auto, récapitulatif.
+- **Cartes au style WikiMasters** : format, couleurs de rareté et statistiques du jeu, dix habillages au choix (imprimé, premium foil, matière, full-art avec l'intro Wikipédia), reflet holographique au survol, plus intense selon la rareté.
 - **Carte en grand** : la carte, ses infos et, à côté, le début de son article Wikipédia (dépliable, repliable) ; ← → pour parcourir.
 - **Trade / Not Trade** : deux étiquettes natives du site, option « tout Trade par défaut », pastilles sur les cartes de WikiMasters.
-- **Étiquettes et albums** : un seul bouton **Nouveau** pour une étiquette / album, un album à objectif ou une étiquette de rangement. Chaque étiquette s'ouvre en album à feuilleter, **relié** ou **classeur** : rangement à la main ou vue par rareté (sans perdre ton ordre), croix pour retirer une carte (elle passe dans « Écartées »), description de couverture rédigée par l'IA.
-- **Albums à objectif** : décris ce que tu veux réunir (« les rois de France », « les empereurs en Europe après 1600 », « le top 50 des personnalités féminines françaises avant 1900 »). Collection+ cherche une page « Liste de… » de Wikipédia, une liste Wikidata notée de 0 à 1 selon les dates et le lieu, ou traduit ta phrase en règles modifiables (avec une clé Gemini gratuite, facultative). Tu verrouilles la liste, l'album prend le préfixe « ◇ » et son propre groupe en tête de la page Albums (au-dessus des collections et des rangements), avec ses cases numérotées : cartes collées, cartes possédées à coller d'un clic, cartes à trouver. Survole une carte pour voir l'article.
+- **Étiquettes et albums** : un seul bouton **Nouveau** pour une étiquette / album, un album à objectif ou une étiquette de rangement. Chaque étiquette s'ouvre en livre à feuilleter, **relié**, **classeur**, **grimoire** ou **herbier**, en 3D ou à plat, réglable en direct (« Style d'album ») : rangement à la main ou vue par rareté (sans perdre ton ordre), croix pour retirer une carte (elle passe dans « Écartées »), description de couverture rédigée par l'IA.
+- **Albums à objectif** : décris ce que tu veux réunir (« les rois de France », « les empereurs en Europe après 1600 », « le top 50 des personnalités féminines françaises avant 1900 ») ou colle ta propre liste (texte, tableur, CSV) rapprochée de Wikipédia. Collection+ cherche une page « Liste de… » de Wikipédia, une liste Wikidata notée de 0 à 1 selon les dates et le lieu, ou traduit ta phrase en règles modifiables (avec une clé Gemini gratuite, facultative). Tu choisis les cartes, l'ordre et le style du livre ; l'album prend le préfixe « ◇ », ses parties et ses cases numérotées : cartes collées, cartes possédées à coller d'un clic, cartes à trouver. Partage-le par un code court « CP1-… ».
+- **Bibliothèque** : en tête de la page Albums, un livre par album à objectif ou collection finie, rangé par avancement, style, date, couleur ou A → Z.
 - **Enhance** : cartes à ranger dans tes albums, nouveaux albums possibles d'après Wikidata, fiches d'album rédigées par l'IA intégrée de Chrome.
 - **Souhaits** : une page dédiée à ta liste de souhaits WikiMasters (le cœur du site) : recherche dans le catalogue pour en ajouter, filtre « À trouver » et « Chez tes amis » (qui possède la carte, pour proposer un échange), et les souhaits notés sous tes albums, à envoyer sur le site d'un clic.
 - **Liste de souhaits et suggestions** : sous chaque album, les cartes les plus connues de son thème que tu n'as pas encore.
 - **Export** : CSV, copie pour tableur, ou classeur Google Sheets mis en forme.
 - **Doublons et défausse** : « Mes doublons » liste tes cartes en double ; les cartes marquées Discard sont défaussées depuis la boîte d'envoi, après un récapitulatif (un exemplaire toujours gardé, jamais les shiny ni les favoris).
-- **Collections finies** : une étiquette terminée prend « ✓ » et la couleur or, reconnue sur tous tes appareils ; les collections finies passent en tête de la page Albums.
+- **Collections finies** : une étiquette terminée prend « ✓ » et la couleur or, reconnue sur tous tes appareils ; elle rejoint la bibliothèque avec son halo et son sceau.
 - **Sur WikiMasters** (chaque fonction se règle dans le popup ou Paramètres › Sur WikiMasters) :
   - page d'ouverture redessinée : bouton rond entouré de tes paquets en 3D (prêts, en charge, à venir), compteur et temps avant la réserve pleine ;
   - révélé animé par rareté avec sons, pastille « New », récap du paquet, touche Espace, révélé rapide, cartes qui respirent et habillage Collection+ ;
   - rangement sans ouvrir la carte : rangements à gauche, collections à droite, statut Trade / Not Trade / Discard en arc (flèches ← ↓ →), recherche et création d'étiquette ;
   - album à objectif : quand la carte tirée est dans la liste, l'album sort de sa ligne et la carte s'y colle ;
   - statistiques de tirage (aujourd'hui, 7 jours ou tout ; résumé, taux de drop comparés, prévisions, records, cartes d'albums ◇, histogramme sur 30 jours, frise des paquets, image à partager ; deux colonnes sur grand écran, une sur mobile, repliables en une ligne), compteur de paquets dans l'onglet et sur l'icône, notifications (réserve pleine, pack PRO) ;
-  - plein écran 3D sur les cartes, liste de souhaits mise en avant sur le marché et les échanges (cœur pour en ajouter), images libres en option.
+  - plein écran 3D sur les cartes, mini-cartes sur la page des échanges, liste de souhaits mise en avant sur le marché et les échanges (cœur pour en ajouter), images libres en option.
 - **Synchronisation entre ordinateurs** : albums à objectif, mises en page, cartes écartées, souhaits, règles et réglages suivent sur chaque ordinateur où tu es connecté à Chrome (synchronisation activée). Rien à configurer, aucun compte en plus ; les cartes et étiquettes, elles, sont déjà sur WikiMasters. État et bouton « Synchroniser » dans **Paramètres › Synchro et export**.
 - **Popup** : bouton « Synchroniser » (dernier échange entre ordinateurs), compteur de paquets, historique et export CSV des tirages, réglages rapides et choix du thème.
 - **Thèmes** : mode clair, sombre ou auto, et 10 palettes qui recolorent l'interface, le bouton sur le site et l'icône de l'extension. Sur le site, trois styles : couleur pleine, ambiance teintée ou irisé.
 - **Cache local** : la collection s'affiche instantanément, seuls les changements sont rechargés.
+
+<p align="center">
+  <img src="docs/images/review-light.png" alt="Page Cartes en mode clair" width="49%">
+  <img src="docs/images/review-dark.png" alt="Page Cartes en mode sombre" width="49%">
+</p>
 
 <p align="center">
   <img src="docs/images/onboarding.png" alt="Visite guidée à la première ouverture" width="100%">
@@ -73,6 +119,8 @@ Au repos (en haut) et au survol (en bas), de Commun à Légendaire :
 </p>
 
 ## Albums
+
+Quatre styles de livre : **relié**, **classeur**, **grimoire** et **herbier** (plus haut). Ci-dessous, le relié et le classeur.
 
 <p align="center">
   <img src="docs/images/album-relie.png" alt="Album relié : toile, tranches de pages et papier crème" width="49%">

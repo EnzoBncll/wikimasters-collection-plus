@@ -2,9 +2,11 @@ name: Release
 
 # Publie une Release GitHub (zip de l'extension) à chaque tag vX.Y.Z.
 # Les extensions installées la détectent et affichent « nouvelle version disponible ».
+# Lancement à la main (Actions › Release › Run workflow, sur main) : le tag vX.Y.Z est créé d'après package.json.
 on:
   push:
     tags: ['v*.*.*']
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -24,9 +26,15 @@ jobs:
       - name: Vérifier que le tag correspond à la version
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          if [ "v$VERSION" != "$GITHUB_REF_NAME" ]; then
-            echo "Le tag $GITHUB_REF_NAME ne correspond pas à package.json ($VERSION)" && exit 1
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            TAG="$GITHUB_REF_NAME"
+            if [ "v$VERSION" != "$TAG" ]; then
+              echo "Le tag $TAG ne correspond pas à package.json ($VERSION)" && exit 1
+            fi
+          else
+            TAG="v$VERSION"
           fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
 
       - run: pnpm typecheck
 
@@ -40,6 +48,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" .output/*-chrome.zip \
-            --title "Collection+ $GITHUB_REF_NAME" \
+          gh release create "$TAG" .output/*-chrome.zip \
+            --target "$GITHUB_SHA" \
+            --title "Collection+ $TAG" \
             --generate-notes
