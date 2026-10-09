@@ -2,14 +2,15 @@
 
 Tout ce qu'il faut coller dans le Developer Dashboard (https://chrome.google.com/webstore/devconsole).
 
-## Package
+## Package — version 0.8.6
 
-Zip à envoyer au Store : `WXT_STORE=1 pnpm zip` (dans `.output/`), à copier dans `store/`.
+Zip à envoyer au Store : `store/wikimasters-collection-plus-0.8.6-chrome.zip` (déjà construit avec `WXT_STORE=1 pnpm zip`,
+manifest 0.8.6 sans champ `key`, permissions : storage, unlimitedStorage, cookies, alarms, notifications).
 
 ⚠️ Le build Store n'a pas de champ `key` (le Chrome Web Store refuse tout import qui en contient un :
 « Le champ key n'est pas autorisé dans le fichier manifeste »). Le build normal (`pnpm zip`, Releases GitHub)
 garde `key`, pour que les installations existantes conservent leur identifiant et leurs données.
-Le Store va attribuer son propre identifiant au premier import. **Note bien cet identifiant**
+Le Store attribue son propre identifiant au premier import. **Note bien cet identifiant**
 (visible dans l'URL de l'item une fois le brouillon créé) : c'est lui qu'il faudra renseigner comme
 « Item ID » du client OAuth « Extension Chrome » dans Google Cloud Console, le jour où tu veux activer
 l'export Google Sheets.
@@ -17,7 +18,7 @@ l'export Google Sheets.
 ⚠️ Pour activer l'export Google Sheets (OAuth) dans une version publiée, renseigne
 `WXT_GOOGLE_CLIENT_ID` dans `.env.local` **avant** de lancer `WXT_STORE=1 pnpm zip` : sans ça, les permissions
 `identity` et le bloc `oauth2` ne sont pas inclus dans le manifest (c'est le cas du zip actuel —
-build "sans Google Sheets", permissions minimales).
+build « sans Google Sheets », permissions minimales).
 
 Rebuild à tout moment avec :
 ```bash
@@ -26,62 +27,73 @@ WXT_STORE=1 pnpm zip
 
 ## Images
 
-- `store/screenshots/01-cartes.png` … `05-album-relie.png` — 1280×800, 5 captures qui couvrent des fonctions différentes (pas que les albums à compléter) :
-  1. **Cartes** — vue d'ensemble, filtres, grille de cartes
-  2. **Albums à compléter** — thème « jeux Nintendo sur GameCube », les 3 états (collée / prête à coller / à trouver), vraies cartes WmCard
-  3. **Tagging fluide** — vraie capture de l'app : sélection multiple, raccourcis clavier (barre du bas), boîte d'envoi ouverte avec le détail des changements en attente
-  4. **Habillages de cartes** — les 9 styles (Défaut + Style 1 à 8 : imprimé, foil, matière...), vraie capture du sélecteur dans Paramètres
-  5. **Album relié** — rendu « livre » feuilletable
-- `store/promo/small-tile-440x280.png` — tuile promo obligatoire, identité générale (logo + accroche multi-fonctions)
-- `store/promo/marquee-1400x560.png` — bannière marquee (facultative), identité générale avec 3 vraies cartes en accent décoratif, pas centrée sur une seule fonction
-- Icône 128×128 : `public/icon/128.png` (déjà dans le manifest, pas besoin de la re-uploader séparément sauf si le formulaire le demande)
+Captures 1280×800, à uploader dans cet ordre (`pnpm store:assets` régénère 01, 03, 04 et 05 depuis l'aperçu simulé ; 02 est une capture de l'extension réelle, mise au format avec des bandes noires) :
+
+1. `store/screenshots/01-revele.png` — **Révélé sur WikiMasters** : carte à l'habillage Collection+ avec sa description, volets Rangement / Collections, statut Trade / Not Trade / Discard en arc
+2. `store/screenshots/02-albums-a-completer.png` — **Album à compléter** : vraie capture de l'album « ◇ Départements français de 1811 » (18 / 131), relié 3D, cartes collées et cases numérotées à trouver
+3. `store/screenshots/03-cartes.png` — **Cartes** : la collection, filtres, barre de navigation (Cards, Albums, Souhaits, Enhance)
+4. `store/screenshots/04-statistiques.png` — **Statistiques de tirage** : tuiles, taux de drop, prévisions, records, histogramme 30 jours, frise des paquets
+5. `store/screenshots/05-souhaits.png` — **Souhaits** : liste de souhaits du site, amis qui ont la carte, souhaits exaucés à retirer
+
+Promo (inchangées, identité générale) :
+- `store/promo/small-tile-440x280.png` — tuile promo obligatoire
+- `store/promo/marquee-1400x560.png` — bannière marquee (facultative)
+- Icône 128×128 : `public/icon/128.png` (déjà dans le manifest)
 
 ## Nom de l'extension
 
 WikiMasters Collection+
 
-## Description courte (132 caractères max — 126 utilisés)
+## Description courte (132 caractères max — 127 utilisés)
 
 ```
-Albums à compléter : décris un thème (jeux GameCube, rois de Hongrie...), Collection+ fait l'album. Étiquettes, Trade, export.
+Albums à compléter, révélé redessiné, rangement d'un clic, stats de tirage, liste de souhaits et synchro entre tes ordinateurs.
 ```
 
 ## Description détaillée
 
 ```
-Collection+ est une extension Chrome non officielle pour WikiMasters (wiki-masters.com), sans lien avec l'équipe du jeu. Elle transforme ta collection de cartes Wikipédia en une vraie interface à parcourir, trier et ranger — sans rien changer à ta façon de jouer sur le site.
+Collection+ est une extension Chrome non officielle pour WikiMasters (wiki-masters.com), sans lien avec l'équipe du jeu. Elle transforme ta collection de cartes Wikipédia en une vraie interface à parcourir, trier et ranger, et redessine l'ouverture des paquets — sans rien changer à ta façon de jouer.
 
-★ ALBUMS À COMPLÉTER — LA FONCTIONNALITÉ PHARE
-Tape n'importe quel thème, Collection+ te construit l'album correspondant avec les cases qu'il te reste à trouver. Quelques exemples :
+★ ALBUMS À COMPLÉTER
+Tape n'importe quel thème, Collection+ te construit l'album correspondant avec les cases qu'il te reste à trouver :
 – « les spécialités culinaires de Hongrie »
 – « les jeux Nintendo sortis sur GameCube »
-– « le top 30 des plus longs règnes royaux de la planète »
 – « les rois de France », « le top 50 des personnalités féminines françaises avant 1900 »...
-Collection+ cherche une liste Wikipédia ou Wikidata correspondante, ou traduit ta phrase en règles modifiables (avec une clé Gemini gratuite, facultative). Tu verrouilles la liste, l'album à compléter a ses cases numérotées : cartes déjà collées, cartes possédées à ajouter d'un clic, cartes qu'il te reste à trouver. Survole une carte pour lire l'article.
+Collection+ cherche une liste Wikipédia ou Wikidata, ou traduit ta phrase en règles modifiables (avec une clé Gemini gratuite, facultative). Tu verrouilles la liste : l'album prend le préfixe ◇ et ses cases numérotées — cartes collées, cartes possédées à coller d'un clic, cartes à trouver. Quand tu tires une carte de la liste, l'album s'ouvre et la carte s'y colle.
+
+★ OUVERTURE DES PAQUETS
+Sur la page d'ouverture de WikiMasters : tes paquets en éventail autour d'un grand bouton, compteur et temps avant la réserve pleine. Au révélé : mise en scène selon la rareté, sons, pastille « New », carte à l'habillage choisi avec sa description, récap du paquet, touche Espace pour enchaîner.
+
+★ RANGER SANS OUVRIR LA CARTE
+Pendant le révélé, tes rangements à gauche, tes collections à droite : un clic (ou 1 à 9) pose l'étiquette. Le statut Trade / Not Trade / Discard est en arc sous la carte, au clavier avec ← ↓ →. Recherche et création d'étiquette sans quitter le paquet.
+
+★ STATISTIQUES DE TIRAGE
+Aujourd'hui, 7 jours ou tout l'historique : paquets, cartes, nouvelles, shiny, taux de drop par rareté, prévisions (« un L tous les X paquets »), records (plus longue série sans L, meilleur paquet, meilleur jour), cartes tirées pour tes albums à compléter, histogramme sur 30 jours, frise de tes paquets et image récap à partager. Deux colonnes sur grand écran, une sur mobile.
+
+★ SOUHAITS
+Une page pour ta liste de souhaits WikiMasters : recherche dans le catalogue pour ajouter une carte, filtre « à trouver » et « chez tes amis » (qui la possède, pour proposer un échange), et un clic pour retirer les cartes que tu as obtenues.
+
+★ SYNCHRONISATION ENTRE TES ORDINATEURS
+Albums à compléter, mises en page, souhaits, règles et réglages suivent sur chaque ordinateur où tu es connecté à Chrome, automatiquement (vérification toutes les 5 minutes) ou d'un clic depuis le popup. Aucun compte à créer, aucun serveur.
 
 ÉQUITABLE PAR CONCEPTION
-Collection+ n'automatise rien sur WikiMasters et n'offre aucun avantage de jeu : pas de bot, pas d'action en ton absence, pas d'accès à des informations que le site ne donne pas déjà. C'est uniquement du confort (tri, étiquettes, albums, export) sur des données que tu peux déjà voir et des actions que tu valides toi-même, un clic à la fois. Rien ici n'enfreint les règles du jeu.
+Collection+ n'automatise rien sur WikiMasters et n'offre aucun avantage de jeu : pas de bot, pas d'action en ton absence, pas d'accès à des informations que le site ne donne pas déjà. C'est uniquement du confort (tri, étiquettes, albums, statistiques, export) sur des données que tu peux déjà voir et des actions que tu valides toi-même, un clic à la fois.
 
-TRI TRADE / NOT TRADE
-Deux étiquettes natives du site pour marquer tes doublons en un clic, avec une option « tout Trade par défaut » et des pastilles visibles directement sur WikiMasters.
-
-CARTES
-Toute ta collection, filtres compacts (statut, rareté, étiquettes, doublons, nouvelles cartes), sélection multiple, recherche, et raccourcis clavier (T Trade, N Not Trade, E étiqueter, A tout sélectionner, / rechercher, Entrée afficher en grand). Rien ne part sur le site tout de suite : tes changements s'accumulent dans une boîte d'envoi et partent d'un clic.
+CARTES ET TRI TRADE / NOT TRADE
+Toute ta collection, filtres compacts (statut, rareté, étiquettes, doublons, nouvelles cartes), sélection multiple, recherche et raccourcis clavier (T Trade, N Not Trade, E étiqueter, A tout sélectionner, / rechercher). Rien ne part sur le site tout de suite : tes changements s'accumulent dans une boîte d'envoi et partent d'un clic. Défausse des doublons avec récapitulatif (jamais les shiny ni les favoris).
 
 ÉTIQUETTES ET ALBUMS
-Un seul bouton « Nouveau » pour créer une étiquette, un album à compléter ou une étiquette de rangement. Chaque étiquette se feuillette comme un album — relié ou classeur — avec rangement à la main ou tri par rareté, et une description de couverture rédigée par IA.
+Trois groupes : albums à compléter (◇), collections, rangements (·). Chaque étiquette se feuillette comme un album — relié ou classeur — avec rangement à la main ou par rareté. Une collection terminée prend « ✓ » et la couleur or.
 
 SUGGESTIONS ET EXPORT
-Sous chaque album, les cartes les plus connues du thème qu'il te manque encore, classées par notoriété. Export CSV, copie pour tableur, ou classeur Google Sheets mis en forme directement depuis l'extension.
-
-CARTE EN GRAND
-Le visuel façon WikiMasters (couleurs de rareté, stats du jeu, reflet holographique au survol) avec, à côté, le début de l'article Wikipédia correspondant — dépliable, et navigable à la flèche.
+Sous chaque album, les cartes les plus connues du thème qu'il te manque encore. Export CSV ou copie pour tableur.
 
 THÈMES
-Mode clair, sombre ou automatique, et 10 palettes qui recolorent l'interface, le bouton sur le site et jusqu'à l'icône de l'extension.
+Mode clair, sombre ou automatique, 10 palettes qui recolorent l'interface, le bouton sur le site et l'icône de l'extension, et dix habillages de cartes.
 
 CONFIDENTIALITÉ
-Aucun serveur, aucune collecte de données. Ta session WikiMasters est lue uniquement pour appeler l'API du site en ton nom ; tout le reste (cache, réglages, albums) reste stocké localement dans ton navigateur. Détails complets : https://github.com/EnzoBncll/wikimasters-collection-plus/blob/main/PRIVACY.md
+Aucun serveur, aucune collecte de données. Ta session WikiMasters est lue uniquement pour appeler l'API du site en ton nom ; tes données restent dans ton navigateur, et la synchronisation entre ordinateurs passe par ton propre compte Chrome. Détails : https://github.com/EnzoBncll/wikimasters-collection-plus/blob/main/PRIVACY.md
 
 Projet open source, gratuit, sans publicité : https://github.com/EnzoBncll/wikimasters-collection-plus
 ```
@@ -111,16 +123,17 @@ Français (fr)
 ### Single purpose (finalité unique — un champ texte libre)
 
 ```
-Collection+ permet de consulter, trier (Trade / Not Trade), étiqueter, ranger en albums et exporter la collection de cartes d'un utilisateur sur le site WikiMasters (wiki-masters.com). Toutes les fonctionnalités de l'extension servent cette seule finalité de gestion de la collection.
+Collection+ permet de consulter, trier (Trade / Not Trade), étiqueter, ranger en albums et exporter la collection de cartes d'un utilisateur sur le site WikiMasters (wiki-masters.com), y compris au moment où il ouvre ses paquets (rangement des cartes tirées, statistiques de ses tirages, liste de souhaits). Toutes les fonctionnalités de l'extension servent cette seule finalité de gestion de la collection.
 ```
 
 ### Justification des permissions
 
 **storage**
 ```
-Stocke en local (chrome.storage.local) le cache de la collection, les étiquettes, les réglages,
-le rangement des albums et les listes des albums à compléter, pour un affichage instantané sans
-tout retélécharger à chaque ouverture.
+Stocke en local (chrome.storage.local) le cache de la collection, les réglages, le rangement des albums,
+les listes des albums à compléter, les listes de souhaits et l'historique des paquets ouverts, pour un
+affichage instantané. Utilise aussi chrome.storage.sync pour retrouver ces mêmes données (sauf le cache)
+sur les autres ordinateurs où l'utilisateur est connecté à Chrome : aucun serveur tiers.
 ```
 
 **unlimitedStorage**
@@ -137,6 +150,19 @@ identifiants de l'utilisateur connecté (lire sa collection, poser des étiquett
 statut Trade). Le cookie n'est jamais stocké par l'extension ni envoyé à un autre service.
 ```
 
+**alarms**
+```
+Planifie localement la mise à jour du nombre de paquets estimé sur l'icône, les rappels choisis par
+l'utilisateur (réserve de paquets pleine, pack PRO du jour) et la synchronisation entre ses ordinateurs
+toutes les 5 minutes.
+```
+
+**notifications**
+```
+Affiche les rappels que l'utilisateur active lui-même dans les réglages : réserve de paquets pleine,
+pack PRO quotidien pas encore réclamé. Un clic ouvre la page des paquets de WikiMasters.
+```
+
 **host_permissions — https://www.wiki-masters.com/\***
 ```
 Site officiel du jeu : nécessaire pour lire la collection de l'utilisateur et appliquer les
@@ -145,8 +171,8 @@ changements (étiquettes, statut Trade) qu'il valide dans l'extension.
 
 **host_permissions — https://cyrxjeppjqsxxjayfrur.supabase.co/\***
 ```
-Backend (Supabase) du site WikiMasters lui-même, utilisé pour stocker les étiquettes et statuts
-Trade des utilisateurs. L'extension appelle directement cette API, au nom de l'utilisateur
+Backend (Supabase) du site WikiMasters lui-même, utilisé pour stocker les étiquettes, statuts
+Trade et la liste de souhaits des utilisateurs. L'extension appelle directement cette API, au nom de l'utilisateur
 connecté, pour appliquer les mêmes changements que ferait le site.
 ```
 
@@ -192,12 +218,10 @@ Puis cocher les trois certifications :
 ## Checklist avant de cliquer sur « Submit for review »
 
 - [ ] Compte développeur Chrome Web Store (le compte pro) bien sélectionné comme propriétaire de l'item
-- [ ] Upload du zip `store/wikimasters-collection-plus-0.7.0-chrome.zip`
-- [ ] 5 captures d'écran uploadées, dans l'ordre (`store/screenshots/01-cartes.png` en premier)
-- [ ] Tuile promo 440×280 uploadée (`store/promo/small-tile-440x280.png`)
-- [ ] Marquee 1400×560 uploadée si tu veux l'option (`store/promo/marquee-1400x560.png`)
-- [ ] Descriptions courte + détaillée collées
-- [ ] Catégorie + langue définies
-- [ ] URL de la politique de confidentialité renseignée
-- [ ] Onglet Privacy practices entièrement rempli (finalité, justifications, data usage, certifications)
-- [ ] Vérifier que la version du manifest (0.7.0) correspond bien à ce que tu veux publier
+- [ ] Upload du zip `store/wikimasters-collection-plus-0.8.6-chrome.zip` (Package → Upload new package)
+- [ ] Anciennes captures supprimées, puis les 5 nouvelles uploadées dans l'ordre (`01-revele.png` en premier)
+- [ ] Tuile promo 440×280 et marquee 1400×560 toujours en place
+- [ ] Description courte + détaillée remplacées
+- [ ] Privacy practices : justification de **storage** mise à jour (chrome.storage.sync), **alarms** et **notifications** ajoutées
+- [ ] Data usage inchangé (Authentication information : oui ; Website content : oui ; le reste : non)
+- [ ] Version du manifest : 0.8.6
