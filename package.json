@@ -1,7 +1,7 @@
 {
   "name": "wikimasters-collection-plus",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Extension Chrome non officielle pour WikiMasters : ta collection en albums à compléter, livres 3D et ouverture des paquets mise en scène.",
   "license": "MIT",
   "repository": {
