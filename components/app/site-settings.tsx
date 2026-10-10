@@ -21,6 +21,14 @@ const Range = ({ value, min, max, step, onChange, label, format }: { value: numb
   </label>
 );
 
+/** Réglage secondaire d'une ligne (interrupteur compact). */
+const Sub = ({ label, on, onChange }: { label: string; on: boolean; onChange: (v: boolean) => void }) => (
+  <label className="flex cursor-pointer items-center justify-between gap-4 text-xs text-muted-foreground">
+    <span>{label}</span>
+    <Switch size="sm" checked={on} onCheckedChange={onChange} />
+  </label>
+);
+
 export const SITE_GROUPS: { title: string; rows: Row[] }[] = [
   {
     title: 'Ouverture des paquets',
@@ -41,16 +49,24 @@ export const SITE_GROUPS: { title: string; rows: Row[] }[] = [
         title: 'Albums à objectif',
         text: 'Si la carte fait partie de la liste d’un album à objectif, l’album sort de sa ligne et la carte s’y glisse.',
         extra: (s, update) => (
-          <label className="flex cursor-pointer items-center justify-between gap-4 text-xs text-muted-foreground">
-            <span>Ajouter vraiment la carte à l’album sur WikiMasters</span>
-            <Switch size="sm" checked={s.goalAutoStick} onCheckedChange={(goalAutoStick) => update({ goalAutoStick })} />
-          </label>
+          <Sub label="Ajouter vraiment la carte à l’album sur WikiMasters" on={s.goalAutoStick} onChange={(goalAutoStick) => update({ goalAutoStick })} />
         ),
       },
       { key: 'packRecap', title: 'Récap du paquet', text: 'Une fois toutes les cartes vues, en bas à droite.' },
       { key: 'spaceKey', title: 'Touche Espace', text: 'Ouvre un paquet, puis passe à la carte suivante (un appui = une action).' },
       { key: 'fastReveal', title: 'Révélé rapide', text: 'Animations éclair pour C, PC et R ; la grande mise en scène reste pour SR, UR, L et shiny.' },
-      { key: 'revealPanels', title: 'Volets de rangement au révélé', text: 'Rangement à gauche (⇧1–9), collections à droite (1–9), statut ← Trade, ↓ Not Trade, → Discard : sans ouvrir la carte.' },
+      {
+        key: 'revealPanels',
+        title: 'Rangement au révélé',
+        text: 'Statut Trade / Not Trade / Discard sous la carte, recherche d’étiquette et volets de chaque côté : sans ouvrir la carte.',
+        extra: (s, update) => (
+          <div className="space-y-1.5">
+            <Sub label="Volet de gauche · Rangement" on={s.revealPanelLeft} onChange={(revealPanelLeft) => update({ revealPanelLeft })} />
+            <Sub label="Volet de droite · Collections" on={s.revealPanelRight} onChange={(revealPanelRight) => update({ revealPanelRight })} />
+            <Sub label="Raccourcis clavier (1–9, ⇧1–9, ← ↓ →, /)" on={s.revealKeys} onChange={(revealKeys) => update({ revealKeys })} />
+          </div>
+        ),
+      },
     ],
   },
   {

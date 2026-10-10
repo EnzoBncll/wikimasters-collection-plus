@@ -21,7 +21,7 @@ import { systemTagIds } from '@/lib/trade';
 import { byKind, goalName, hasGoalPrefix, isStorage, kindOf, switchKind, toggleFinished } from '@/lib/album-kind';
 import { goalAlbumsItem, matchEntries, saveGoalAlbum, type GoalAlbum } from '@/lib/goal-albums';
 import { useSuggestions } from '@/hooks/use-suggestions';
-import { LIBRARY_ORDERS, LibraryShelf, type ShelfBook } from './library-shelf';
+import { LIBRARY_ORDERS, LibraryShelf, SHELF_STYLES, type ShelfBook } from './library-shelf';
 import { albumLooksItem, albumStylesItem, type AlbumLook } from '@/lib/album';
 import { decodeAlbumCode, encodeAlbumCode, resolveSharedEntries } from '@/lib/album-code';
 import { factsItem } from '@/lib/wikidata';
@@ -440,6 +440,24 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
         </h2>
         <div className="flex flex-wrap items-center gap-2">
           {prefixButton}
+          <div className="flex rounded-full border bg-card p-1" role="radiogroup" aria-label="Planche des étagères">
+            {SHELF_STYLES.map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={settings.shelfStyle === value}
+                title={`Étagère : ${label}`}
+                onClick={() => updateSettings({ shelfStyle: value })}
+                className={cn(
+                  'flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition',
+                  settings.shelfStyle === value ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <i className={`lib-swatch lib-swatch-${value}`} /> {label}
+              </button>
+            ))}
+          </div>
           <div className="flex rounded-full border bg-card p-1" role="radiogroup" aria-label="Ranger la bibliothèque">
             {LIBRARY_ORDERS.map(([value, label]) => (
               <button
@@ -462,6 +480,7 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
       <LibraryShelf
         books={books}
         order={settings.libraryOrder}
+        shelf={settings.shelfStyle}
         onOpen={(book) => openAlbum(book.tag)}
         menu={(book) => (
           <>

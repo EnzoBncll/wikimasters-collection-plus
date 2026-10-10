@@ -23,7 +23,7 @@ export default defineConfig({
   manifest: {
     name: 'WikiMasters Collection+',
     short_name: 'Collection+',
-    description: 'Extension non officielle pour WikiMasters : albums à objectif, livres 3D, ouverture des paquets redessinée, tri Trade / Not Trade.',
+    description: 'Extension non officielle pour WikiMasters : ta collection en albums à compléter, livres 3D et ouverture des paquets mise en scène.',
     // Releases GitHub : `key` garde le même identifiant d'une version à l'autre (sinon, réglages et albums perdus).
     // Chrome Web Store : il refuse ce champ ; son identifiant est attribué au premier import, et c'est lui qu'il
     // faudra renseigner comme « Item ID » du client OAuth Chrome Extension pour l'export Sheets.

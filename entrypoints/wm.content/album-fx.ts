@@ -88,7 +88,11 @@ export function startAlbumFx(panels: PanelsApi) {
     const found = findGoal(info.card);
     if (!found) return;
     const row = panels.rowOf(found.tagId);
-    if (!row) return;
+    if (!row) {
+      // Volet des collections masqué : pas d'animation, mais la carte est quand même collée.
+      if (ctx.settings.goalAutoStick) panels.ensureTag(found.tagId);
+      return;
+    }
     busy = true;
     try {
       const { tagId, goal, index } = found;

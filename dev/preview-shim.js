@@ -9,6 +9,7 @@
       palette: params.get('palette') || 'nuit-violette',
       albumStyle: params.get('albumStyle') || 'relie',
       tagsLayout: params.get('tagsLayout') || 'folders',
+      ...(params.get('shelf') ? { shelfStyle: params.get('shelf') } : {}),
     };
   }
   // Compteur de paquets du popup : 6 / 10, le prochain dans un peu plus de 4 min.
@@ -130,6 +131,11 @@
       ['t-alpes', '◇ Herbier des Alpes', '#4f7f8a', 'herbier', 16, 16, ['Prairies', 'Sommets'], '❦'],
       ['t-rois', '◇ Rois de France', '#2f5fb8', 'classeur', 45, 18, ['Mérovingiens', 'Carolingiens', 'Capétiens'], null],
     ];
+    // Vrais noms pour l'album mis en avant dans les captures (les autres gardent « Carte n »).
+    const BYZ = ['Constantin Ier', 'Constance II', 'Julien', 'Jovien', 'Valens', 'Théodose Ier', 'Arcadius', 'Théodose II', 'Marcien', 'Léon Ier', 'Zénon', 'Anastase Ier',
+      'Justin Ier', 'Justinien', 'Justin II', 'Tibère II Constantin', 'Maurice', 'Phocas', 'Héraclius', 'Constant II', 'Constantin IV', 'Justinien II', 'Léon III l’Isaurien', 'Constantin V',
+      'Irène l’Athénienne', 'Nicéphore Ier', 'Michel III', 'Basile Ier', 'Léon VI le Sage', 'Constantin VII', 'Nicéphore II Phocas', 'Jean Ier Tzimiskès', 'Basile II', 'Zoé Porphyrogénète',
+      'Alexis Ier Comnène', 'Jean II Comnène', 'Manuel Ier Comnène', 'Isaac II Ange', 'Michel VIII Paléologue', 'Constantin XI Paléologue'];
     let next = 200;
     store.albumStyles = {};
     store.albumLooks = {};
@@ -139,8 +145,12 @@
       if (emblem) store.albumLooks[id] = { emblem };
       const first = next;
       next += n;
+      if (id === 't-byz') {
+        // Les 7 derniers ne sont pas possédés : des cases « à trouver ».
+        BYZ.slice(0, 33).forEach((title, k) => Object.assign(entries[first + k].card, { wikipedia_title: title, description: 'empereur byzantin', image_url: `https://picsum.photos/seed/byz${k}/320/240` }));
+      }
       store.goalAlbums[id] = {
-        entries: Array.from({ length: n }, (_, k) => ({ title: `Carte ${first + k}`, qid: null, description: null, section: parts[Math.floor((k * parts.length) / n)] })),
+        entries: Array.from({ length: n }, (_, k) => ({ title: id === 't-byz' ? BYZ[k] : entries[first + k].card.wikipedia_title, qid: null, description: null, section: parts[Math.floor((k * parts.length) / n)] })),
         source: { kind: 'list', label: name.slice(2) }, annex: false, at: Date.now() - g * 86400e3,
       };
       for (let k = 0; k < have; k++) uct.push([`own-${first + k}`, id]);

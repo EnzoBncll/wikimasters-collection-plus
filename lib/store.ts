@@ -29,6 +29,8 @@ export interface Settings {
   tagsLayout: 'folders' | 'list';
   /** Page Albums : rangement de la bibliothèque (albums à objectif et collections finies). */
   libraryOrder: 'progress' | 'style' | 'recent' | 'color' | 'alpha';
+  /** Page Albums : planche des étagères de la bibliothèque. */
+  shelfStyle: 'wood' | 'glass' | 'marble';
   /** Distingue les albums de collection (emoji, couleur vive) des albums de rangement (« · Nom », gris). */
   albumKinds: boolean;
   /** Affichage des étiquettes sur les cartes, partout dans l'app. */
@@ -67,6 +69,12 @@ export interface Settings {
   fastReveal: boolean;
   /** Volets de rangement pendant le révélé : rangement à gauche, collections à droite. */
   revealPanels: boolean;
+  /** … volet de gauche (rangements). */
+  revealPanelLeft: boolean;
+  /** … volet de droite (collections). */
+  revealPanelRight: boolean;
+  /** … raccourcis clavier du rangement (1–9, ⇧1–9, ← ↓ →, /). */
+  revealKeys: boolean;
   /** Statistiques de tirage sur la page des paquets. */
   packStats: boolean;
   /** Bouton plein écran (inclinaison 3D) sur les cartes du site. */
@@ -105,6 +113,7 @@ export const DEFAULT_SETTINGS: Settings = {
   albumStyle: 'relie',
   tagsLayout: 'folders',
   libraryOrder: 'progress',
+  shelfStyle: 'wood',
   albumKinds: false,
   cardTagStyle: 'dots',
   cardStyle: 'classic',
@@ -123,6 +132,9 @@ export const DEFAULT_SETTINGS: Settings = {
   spaceKey: true,
   fastReveal: false,
   revealPanels: true,
+  revealPanelLeft: true,
+  revealPanelRight: true,
+  revealKeys: true,
   packStats: true,
   cardFullscreen: true,
   freeImages: false,

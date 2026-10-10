@@ -6,14 +6,23 @@ import type { GoalEntry } from './goal-albums';
  *  - row   : chaque partie commence sur une nouvelle ligne, son titre au-dessus ;
  *  - page  : chaque partie commence sur une nouvelle page (bandeau en tête), les petites parties partagent une page ;
  *  - color : aucune case perdue, un liseré de couleur par partie et une légende en tête de page.
+ * Variantes discrètes (aucune case perdue, les cartes restent à la suite) :
+ *  - caption : le nom de la partie en petit au-dessus de sa première case ;
+ *  - tick    : un fin trait de couleur à gauche de la première case de chaque partie ;
+ *  - tint    : les cases de chaque partie prennent un léger fond teinté, les parties sont nommées en tête de page ;
+ *  - header  : rien sur les cases, les parties de la page sont nommées dans son en-tête.
  */
-export type SectionMode = 'tile' | 'row' | 'page' | 'color';
+export type SectionMode = 'tile' | 'row' | 'page' | 'color' | 'caption' | 'tick' | 'tint' | 'header';
 
-export const SECTION_MODES: { id: SectionMode; label: string; hint: string }[] = [
+export const SECTION_MODES: { id: SectionMode; label: string; hint: string; discreet?: boolean }[] = [
   { id: 'tile', label: 'Tuile titre', hint: 'Une case porte le nom de la partie' },
   { id: 'row', label: 'Ligne par partie', hint: 'Chaque partie commence sur une nouvelle ligne' },
   { id: 'page', label: 'Page par partie', hint: 'Chaque partie commence sur une nouvelle page' },
   { id: 'color', label: 'Couleur + légende', hint: 'Un liseré de couleur par partie, aucune case perdue' },
+  { id: 'caption', label: 'Petit titre', hint: 'Le nom de la partie en petit, au-dessus de sa première case', discreet: true },
+  { id: 'tick', label: 'Trait', hint: 'Un fin trait de couleur avant la première case de chaque partie', discreet: true },
+  { id: 'tint', label: 'Teinte', hint: 'Un léger fond teinté par partie, les noms en tête de page', discreet: true },
+  { id: 'header', label: 'En-tête seul', hint: 'Rien sur les cases : les parties sont nommées en haut de la page', discreet: true },
 ];
 
 /** Couleurs des parties (liseré, tuile, légende), dans l'ordre des parties. */

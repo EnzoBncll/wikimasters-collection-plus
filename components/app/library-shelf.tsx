@@ -22,6 +22,15 @@ export const LIBRARY_ORDERS: [LibraryOrder, string][] = [
   ['alpha', 'A → Z'],
 ];
 
+/** Planche des étagères : bois, verre irisé (couleurs de la palette) ou marbre noir à filet doré. */
+export type ShelfStyle = 'wood' | 'glass' | 'marble';
+
+export const SHELF_STYLES: [ShelfStyle, string][] = [
+  ['wood', 'Bois'],
+  ['glass', 'Verre'],
+  ['marble', 'Marbre'],
+];
+
 export interface ShelfBook {
   tag: SiteTag;
   name: string;
@@ -45,13 +54,26 @@ const GAP = 9;
 /** Place laissée à droite de chaque étagère : le livre tiré pousse ses voisins. */
 const SLACK = 190;
 
-/** Hauteur de la fiche flottante (px), pour laisser la place au-dessus de chaque étagère. */
+/** Hauteur estimée de la fiche flottante (px), avant sa mesure réelle. */
 function skyHeight(b: ShelfBook) {
   const lines = Math.min(b.parts.length, MAX_PARTS) + (b.parts.length > MAX_PARTS ? 1 : 0);
   return 58 + lines * 17 + (b.toStick > 0 ? 24 : 0);
 }
 
 const ratio = (b: ShelfBook) => (b.total ? b.have / b.total : 1);
+const BOOK_H = 250;
+const bookHeight = (b: ShelfBook) => BOOK_H * (b.done ? 1 : 0.6 + 0.4 * ratio(b));
+/** Écart livre → fiche, et marge gardée entre la fiche et le bord de la bibliothèque. */
+const SKY_GAP = 30;
+const SKY_MARGIN = 18;
+/**
+ * Place à laisser au-dessus d'une étagère pour que la fiche la plus haute ne soit pas coupée :
+ * la fiche part du haut de son livre, et l'étagère n'est haute que de son plus grand livre.
+ */
+function rowPad(row: { sky: number; book: number }[]) {
+  const tallest = Math.max(...row.map((b) => b.book));
+  return Math.ceil(Math.max(110, ...row.map((b) => b.sky + SKY_GAP + SKY_MARGIN - (tallest - b.book))));
+}
 const thickness = (b: ShelfBook) => Math.round(30 + Math.min(b.total, 90) * 0.38);
 
 function hue(hex: string) {
@@ -155,7 +177,7 @@ function Book({ book, onOpen, menu, sound }: { book: ShelfBook; onOpen: () => vo
   const slot = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const pct = Math.round(ratio(book) * 100);
-  const k = book.done ? 1 : 0.6 + 0.4 * ratio(book);
+  const k = bookHeight(book) / BOOK_H;
   const style = { '--c': book.color, '--t': `${thickness(book)}px`, '--k': k } as CSSProperties;
 
   // Poussière qui s'envole et froissement des pages quand le livre sort de l'étagère.
@@ -232,12 +254,14 @@ function Book({ book, onOpen, menu, sound }: { book: ShelfBook; onOpen: () => vo
 export function LibraryShelf({
   books,
   order,
+  shelf = 'wood',
   onOpen,
   menu,
   sound,
 }: {
   books: ShelfBook[];
   order: LibraryOrder;
+  shelf?: ShelfStyle;
   onOpen: (book: ShelfBook) => void;
   /** Éléments du menu ⋯ (renommer, partager, supprimer…). */
   menu: (book: ShelfBook) => ReactNode;
@@ -258,10 +282,38 @@ export function LibraryShelf({
 
   const rows = shelve(sortBooks(books, order), width);
 
+  // Fiches mesurées une fois posées : hauteur réelle (la place au-dessus de l'étagère) et décalage
+  // horizontal pour celles qui dépasseraient d'un bord de la bibliothèque.
+  const [pads, setPads] = useState<number[]>([]);
+  useLayoutEffect(() => {
+    const el = room.current;
+    if (!el) return;
+    const measure = () => {
+      const bounds = el.getBoundingClientRect();
+      const next: number[] = [];
+      el.querySelectorAll<HTMLElement>('.lib-row').forEach((rowEl) => {
+        const slots = [...rowEl.querySelectorAll<HTMLElement>('.lib-slot')];
+        next.push(rowPad(slots.map((s) => ({ sky: s.querySelector<HTMLElement>('.lib-sky')!.offsetHeight, book: s.offsetHeight }))));
+        for (const s of slots) {
+          const sky = s.querySelector<HTMLElement>('.lib-sky')!;
+          const r = s.getBoundingClientRect();
+          const center = r.left + r.width / 2 + 56;
+          const half = sky.offsetWidth / 2;
+          const shift = Math.max(bounds.left + 12 - (center - half), 0) + Math.min(bounds.right - 12 - (center + half), 0);
+          s.style.setProperty('--sky-shift', `${Math.round(shift)}px`);
+        }
+      });
+      setPads((prev) => (prev.length === next.length && prev.every((p, i) => p === next[i]) ? prev : next));
+    };
+    measure();
+    // La police des titres arrive après le premier rendu et change la hauteur des fiches.
+    document.fonts?.ready.then(measure);
+  }, [books, order, width]);
+
   return (
     <div
       ref={room}
-      className="lib-room"
+      className={`lib-room lib-shelf-${shelf}`}
       onPointerMove={(e) => {
         const r = e.currentTarget.getBoundingClientRect();
         e.currentTarget.style.setProperty('--sx', `${e.clientX - r.left}px`);
@@ -273,8 +325,7 @@ export function LibraryShelf({
         <div
           key={i}
           className="lib-row"
-          // Fiche + écart (30) + livre tiré (18) + marge, moins l'espace déjà libre au-dessus des livres plus courts.
-          style={{ paddingTop: Math.max(110, ...row.map((b) => skyHeight(b) + 30 + 18 + 24 - 250 * (1 - (b.done ? 1 : 0.6 + 0.4 * ratio(b))))) }}
+          style={{ paddingTop: pads.length === rows.length ? pads[i] : rowPad(row.map((b) => ({ sky: skyHeight(b), book: bookHeight(b) }))) }}
         >
           <div className="lib-shelf">
             {row.map((book) => (

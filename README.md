@@ -12,7 +12,13 @@
 
 > Extension Chrome **non officielle** pour [WikiMasters](https://www.wiki-masters.com), sans lien avec l'équipe du jeu.
 
-Range ta collection de cartes Wikipédia comme de vrais livres. **Albums à objectif** (les rois de France, le top 50 des…) qui te montrent les cartes qu'il te reste à trouver, **livres en 3D** (relié, classeur, grimoire, herbier) rangés dans une **bibliothèque**, **ouverture des paquets redessinée** sur WikiMasters avec statistiques de tirage, tri **Trade / Not Trade** en quelques clics, **étiquettes**, **synchronisation entre tes ordinateurs** et **export** CSV / Google Sheets.
+**Fais de tes cartes Wikipédia une vraie collection.** Collection+ te donne de quoi la construire, la ranger et la vivre :
+
+- **Collectionner** : des **albums à objectif** (les rois de France, les jeux GameCube, le top 50 des…) dont chaque case attend sa carte. Tu vois ce que tu as, ce qu'il te manque, et où le trouver.
+- **Mettre en albums** : chaque étiquette devient un **livre en 3D** à feuilleter (relié, classeur, grimoire, herbier) que tu composes à ta main, case par case, puis que tu ranges sur les étagères de ta **bibliothèque**.
+- **Vivre l'ouverture** : sur WikiMasters, chaque paquet devient un moment. Paquets en éventail, **révélé mis en scène selon la rareté** (tension, explosion, sons), et la carte qui file se coller dans son album sous tes yeux.
+
+Autour de ça, tout le confort : tri **Trade / Not Trade** en quelques clics, étiquettes, liste de souhaits, statistiques de tirage, **synchronisation entre tes ordinateurs** et **export** CSV / Google Sheets.
 
 <p align="center">
   <img src="docs/images/album-grimoire.png" alt="Album à objectif « Empereurs byzantins » en style Grimoire 3D, avec ses parties" width="100%">
@@ -68,8 +74,8 @@ Deux nouveaux styles, **Grimoire** (trois couvertures) et **Herbier**, en plus d
 - **Carte en grand** : la carte, ses infos et, à côté, le début de son article Wikipédia (dépliable, repliable) ; ← → pour parcourir.
 - **Trade / Not Trade** : deux étiquettes natives du site, option « tout Trade par défaut », pastilles sur les cartes de WikiMasters.
 - **Étiquettes et albums** : un seul bouton **Nouveau** pour une étiquette / album, un album à objectif ou une étiquette de rangement. Chaque étiquette s'ouvre en livre à feuilleter, **relié**, **classeur**, **grimoire** ou **herbier**, en 3D ou à plat, réglable en direct (« Style d'album ») : rangement à la main ou vue par rareté (sans perdre ton ordre), croix pour retirer une carte (elle passe dans « Écartées »), description de couverture rédigée par l'IA.
-- **Albums à objectif** : décris ce que tu veux réunir (« les rois de France », « les empereurs en Europe après 1600 », « le top 50 des personnalités féminines françaises avant 1900 ») ou colle ta propre liste (texte, tableur, CSV) rapprochée de Wikipédia. Collection+ cherche une page « Liste de… » de Wikipédia, une liste Wikidata notée de 0 à 1 selon les dates et le lieu, ou traduit ta phrase en règles modifiables (avec une clé Gemini gratuite, facultative). Tu choisis les cartes, l'ordre et le style du livre ; l'album prend le préfixe « ◇ », ses parties et ses cases numérotées : cartes collées, cartes possédées à coller d'un clic, cartes à trouver. Partage-le par un code court « CP1-… ».
-- **Bibliothèque** : en tête de la page Albums, un livre par album à objectif ou collection finie, rangé par avancement, style, date, couleur ou A → Z.
+- **Albums à objectif** : décris ce que tu veux réunir (« les rois de France », « les empereurs en Europe après 1600 », « le top 50 des personnalités féminines françaises avant 1900 ») ou colle ta propre liste (texte, tableur, CSV) rapprochée de Wikipédia. Collection+ cherche une page « Liste de… » de Wikipédia, une liste Wikidata notée de 0 à 1 selon les dates et le lieu, ou traduit ta phrase en règles modifiables (avec une clé Gemini gratuite, facultative). Tu choisis les cartes, l'ordre et le style du livre ; l'album prend le préfixe « ◇ », ses parties (huit façons de les séparer, de la tuile titre au simple trait de couleur) et ses cases numérotées : cartes collées, cartes possédées à coller d'un clic, cartes à trouver. Partage-le par un code court « CP1-… ».
+- **Bibliothèque** : en tête de la page Albums, un livre par album à objectif ou collection finie, rangé par avancement, style, date, couleur ou A → Z, sur une étagère en bois, en verre ou en marbre. Au survol, le livre sort et sa fiche (avancement, parties, cartes à coller) s'affiche au-dessus.
 - **Enhance** : cartes à ranger dans tes albums, nouveaux albums possibles d'après Wikidata, fiches d'album rédigées par l'IA intégrée de Chrome.
 - **Souhaits** : une page dédiée à ta liste de souhaits WikiMasters (le cœur du site) : recherche dans le catalogue pour en ajouter, filtre « À trouver » et « Chez tes amis » (qui possède la carte, pour proposer un échange), et les souhaits notés sous tes albums, à envoyer sur le site d'un clic.
 - **Liste de souhaits et suggestions** : sous chaque album, les cartes les plus connues de son thème que tu n'as pas encore.
@@ -79,7 +85,7 @@ Deux nouveaux styles, **Grimoire** (trois couvertures) et **Herbier**, en plus d
 - **Sur WikiMasters** (chaque fonction se règle dans le popup ou Paramètres › Sur WikiMasters) :
   - page d'ouverture redessinée : bouton rond entouré de tes paquets en 3D (prêts, en charge, à venir), compteur et temps avant la réserve pleine ;
   - révélé animé par rareté avec sons, pastille « New », récap du paquet, touche Espace, révélé rapide, cartes qui respirent et habillage Collection+ ;
-  - rangement sans ouvrir la carte : rangements à gauche, collections à droite, statut Trade / Not Trade / Discard en arc (flèches ← ↓ →), recherche et création d'étiquette ;
+  - rangement sans ouvrir la carte : rangements à gauche, collections à droite, statut Trade / Not Trade / Discard en arc (flèches ← ↓ →), recherche et création d'étiquette ; chaque volet et les raccourcis clavier se désactivent séparément ;
   - album à objectif : quand la carte tirée est dans la liste, l'album sort de sa ligne et la carte s'y colle ;
   - statistiques de tirage (aujourd'hui, 7 jours ou tout ; résumé, taux de drop comparés, prévisions, records, cartes d'albums ◇, histogramme sur 30 jours, frise des paquets, image à partager ; deux colonnes sur grand écran, une sur mobile, repliables en une ligne), compteur de paquets dans l'onglet et sur l'icône, notifications (réserve pleine, pack PRO) ;
   - plein écran 3D sur les cartes, mini-cartes sur la page des échanges, liste de souhaits mise en avant sur le marché et les échanges (cœur pour en ajouter), images libres en option.
@@ -202,6 +208,7 @@ pnpm preview:mock   # aperçu dans un navigateur, avec données simulées
 pnpm typecheck
 pnpm icons          # régénère les PNG de l'icône (public/icon) depuis lib/brand-icon.ts
 pnpm readme:assets  # régénère les images du README (docs/images) depuis l'aperçu simulé
+pnpm store:assets   # régénère les captures et visuels promo du Chrome Web Store (store/)
 ```
 
 Charte : `lib/palettes.ts` (les 10 palettes et leurs variables CSS) et `lib/brand-icon.ts` (l'icône en SVG). Les deux scripts ci-dessus utilisent Chromium en headless (`CHROME=/chemin/vers/chrome` pour en choisir un).

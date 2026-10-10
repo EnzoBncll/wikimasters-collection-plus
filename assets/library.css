@@ -24,6 +24,33 @@
 .lib-shelf { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 9px; padding: 0 20px; perspective: 1400px; perspective-origin: 50% 25%; }
 .lib-plank { position: relative; height: 22px; margin: 0 -10px; border-radius: 3px; background: linear-gradient(#7a4a26, #4e2e16 60%, #3a2210); box-shadow: 0 14px 26px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.15); }
 
+/* Planche en verre : tablette translucide, tranche éclairée aux couleurs de la palette, halo sous l'étagère. */
+.lib-shelf-glass .lib-plank {
+  height: 14px; border-radius: 4px;
+  background: linear-gradient(rgb(255 255 255 / 0.32), rgb(255 255 255 / 0.07) 28%, rgb(255 255 255 / 0.03) 70%, rgb(255 255 255 / 0.14));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.55), inset 0 0 0 1px rgb(255 255 255 / 0.12), 0 18px 30px rgb(0 0 0 / 0.5);
+  backdrop-filter: blur(6px);
+}
+.lib-shelf-glass .lib-plank::before { content: ''; position: absolute; inset: auto 0 0; height: 2px; border-radius: 2px; background: var(--holo); opacity: 0.9; }
+.lib-shelf-glass .lib-plank::after { content: ''; position: absolute; inset: 100% 6% auto; height: 34px; background: var(--holo); opacity: 0.22; filter: blur(16px); pointer-events: none; }
+
+/* Planche en marbre noir : veines claires, chant poli et filet doré. */
+.lib-shelf-marble .lib-plank {
+  height: 20px; border-radius: 2px;
+  background:
+    linear-gradient(rgb(255 255 255 / 0.2), transparent 18%, transparent 62%, rgb(0 0 0 / 0.55)),
+    linear-gradient(115deg, transparent 12%, rgb(255 255 255 / 0.22) 12.4%, transparent 13.2%, transparent 37%, rgb(255 255 255 / 0.13) 37.3%, transparent 38%, transparent 58%, rgb(255 255 255 / 0.2) 58.3%, transparent 59.4%, transparent 81%, rgb(255 255 255 / 0.12) 81.3%, transparent 82%),
+    linear-gradient(68deg, transparent 24%, rgb(255 255 255 / 0.1) 24.3%, transparent 25%, transparent 49%, rgb(255 255 255 / 0.16) 49.4%, transparent 50.2%, transparent 72%, rgb(255 255 255 / 0.09) 72.3%, transparent 73%),
+    linear-gradient(#34313a, #1b191f);
+  box-shadow: 0 14px 26px rgb(0 0 0 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.3);
+}
+.lib-shelf-marble .lib-plank::before { content: ''; position: absolute; inset: auto 0 4px; height: 1.5px; background: linear-gradient(90deg, transparent, #e9c46a 8%, #fdf0c0 50%, #e9c46a 92%, transparent); opacity: 0.85; }
+/* Consoles dorées aux extrémités. */
+.lib-shelf-marble .lib-plank::after {
+  content: ''; position: absolute; inset: 100% 34px auto; height: 11px; pointer-events: none; border-radius: 0 0 5px 5px;
+  background: linear-gradient(#caa24a, #7a5a1c) left / 16px 100% no-repeat, linear-gradient(#caa24a, #7a5a1c) right / 16px 100% no-repeat;
+}
+
 /* ---------- Livre en 3D ---------- */
 .lib-slot { position: relative; transition: transform 0.5s var(--lib-ease); }
 .lib-slot:hover, .lib-slot:has(:focus-visible) { z-index: 10; }
@@ -126,7 +153,7 @@
 
 /* ---------- Fiche des parties, au survol : texte flottant, sans fond ni bordure ---------- */
 .lib-sky {
-  position: absolute; bottom: calc(100% + 30px); left: calc(50% + 56px); z-index: 20; width: 220px;
+  position: absolute; bottom: calc(100% + 30px); left: calc(50% + 56px + var(--sky-shift, 0px)); z-index: 20; width: 220px;
   transform: translate(-50%, 10px); opacity: 0; pointer-events: none;
   transition: opacity 0.35s 0.1s, transform 0.45s 0.1s var(--lib-ease);
   text-align: center; color: #fff; text-shadow: 0 1px 6px rgb(0 0 0 / 0.8);
@@ -151,3 +178,9 @@
 @media (prefers-reduced-motion: reduce) {
   .lib-aura::before, .lib-aura i, .lib-slot:hover .lib-top { animation: none; }
 }
+
+/* Pastilles du choix de planche (en-tête de la bibliothèque). */
+.lib-swatch { display: inline-block; width: 14px; height: 6px; border-radius: 2px; }
+.lib-swatch-wood { background: linear-gradient(#7a4a26, #3a2210); }
+.lib-swatch-glass { background: linear-gradient(rgb(255 255 255 / 0.7), rgb(255 255 255 / 0.25)); box-shadow: 0 1.5px 0 var(--primary); }
+.lib-swatch-marble { background: linear-gradient(115deg, #34313a 40%, #9a96a3 46%, #1b191f 54%); box-shadow: 0 1.5px 0 #e9c46a; }

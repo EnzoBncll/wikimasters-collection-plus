@@ -1,6 +1,6 @@
 import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'framer-motion';
 import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ExternalLink, Gem, Hand, GalleryHorizontalEnd, ImageDown, LayoutGrid, Loader2, Paintbrush, Pencil, Plus, RefreshCw, RotateCcw, Share2, Sparkles, Store, Target, Trophy, X } from 'lucide-react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useCollection } from '@/hooks/use-collection';
 import { toast } from '@/hooks/use-toast';
@@ -456,7 +456,19 @@ function Page({
         <div className="flex h-full flex-col">
           <div className={cn('flex items-center justify-between gap-[calc(var(--u)*3)] px-[calc(var(--u)*6)] pt-[calc(var(--u)*4.5)] text-[calc(var(--u)*2.8)]', look.header)}>
             {/* Mode « page » : la partie de la page en bandeau (plusieurs petites parties : un titre par ligne). */}
-            <span className="truncate">{goal?.mode === 'page' && namedOnPage.length === 1 ? namedOnPage[0]!.name : title}</span>
+            <span className="truncate">
+              {goal?.mode === 'page' && namedOnPage.length === 1
+                ? namedOnPage[0]!.name
+                : (goal?.mode === 'header' || goal?.mode === 'tint') && namedOnPage.length
+                  ? namedOnPage.map((r, i) => (
+                      <Fragment key={r.start}>
+                        {i > 0 && ' · '}
+                        {goal.mode === 'tint' && <i className="mr-[calc(var(--u)*1)] inline-block size-[calc(var(--u)*1.6)] rounded-full align-middle opacity-70" style={{ backgroundColor: r.color }} />}
+                        {r.name}
+                      </Fragment>
+                    ))
+                  : title}
+            </span>
             <span className={cn('h-[calc(var(--u)*0.7)] w-[calc(var(--u)*12)] shrink-0 rounded-full', look.headerAccent)} />
           </div>
           {goal?.mode === 'color' && pageRuns.some((r) => r.name) && (
@@ -507,6 +519,16 @@ function Page({
                   )}
                   {goal?.mode === 'color' && run?.name && (
                     <span className="absolute inset-x-[calc(var(--u)*1)] top-0 z-30 h-[calc(var(--u)*0.9)] rounded-b-full" style={{ backgroundColor: run.color }} />
+                  )}
+                  {/* Séparateurs discrets : petit titre ou trait sur la première case de la partie, teinte sur toutes ses cases. */}
+                  {goal?.mode === 'caption' && run?.name && entryIndex === run.start && (
+                    <span className={cn('absolute -top-[calc(var(--u)*2.7)] left-0 z-20 max-w-full truncate text-[calc(var(--u)*2.1)] font-medium whitespace-nowrap opacity-90', look.slotLabel)}>{run.name}</span>
+                  )}
+                  {goal?.mode === 'tick' && run?.name && entryIndex === run.start && (
+                    <span title={run.name} className="absolute inset-y-[calc(var(--u)*1.5)] -left-[calc(var(--u)*2)] z-20 w-[calc(var(--u)*0.6)] rounded-full opacity-75" style={{ backgroundColor: run.color }} />
+                  )}
+                  {goal?.mode === 'tint' && run?.name && (
+                    <span className="pointer-events-none absolute -inset-[calc(var(--u)*0.9)] rounded-[calc(var(--u)*2)]" style={{ backgroundColor: `color-mix(in oklab, ${run.color} 16%, transparent)` }} />
                   )}
                   {tile && <SectionTile run={tile} />}
                   {look.slotTag && !tile && (
@@ -1965,6 +1987,41 @@ const SECTION_ICON: Record<SectionMode, ReactNode> = {
       ))}
     </span>
   ),
+  caption: (
+    <span className="mx-auto grid size-7 grid-cols-3 gap-x-[2px] gap-y-[4px] pt-[3px]">
+      {Array.from({ length: 6 }, (_, i) => (
+        <i key={i} className="relative rounded-[1px] bg-current opacity-50">
+          {(i === 0 || i === 4) && <b className="absolute -top-[3px] left-0 h-px w-[5px] bg-primary" />}
+        </i>
+      ))}
+    </span>
+  ),
+  tick: (
+    <span className="mx-auto grid size-7 grid-cols-3 gap-[3px]">
+      {Array.from({ length: 9 }, (_, i) => (
+        <i key={i} className="relative rounded-[1px] bg-current opacity-50">
+          {(i === 0 || i === 4) && <b className="absolute inset-y-0 -left-[2.5px] w-[1.5px] rounded-full bg-primary" />}
+        </i>
+      ))}
+    </span>
+  ),
+  tint: (
+    <span className="mx-auto grid size-7 grid-cols-3 gap-[2px]">
+      {['#7F77DD', '#7F77DD', '#7F77DD', '#7F77DD', '#1D9E75', '#1D9E75', '#1D9E75', '#1D9E75', '#1D9E75'].map((c, i) => (
+        <i key={i} className="rounded-[1px]" style={{ backgroundColor: c, opacity: 0.45 }} />
+      ))}
+    </span>
+  ),
+  header: (
+    <span className="mx-auto flex size-7 flex-col gap-[3px]">
+      <i className="h-[2px] w-3 rounded-full bg-primary" />
+      <span className="grid flex-1 grid-cols-3 gap-[2px]">
+        {Array.from({ length: 6 }, (_, i) => (
+          <i key={i} className="rounded-[1px] bg-current opacity-50" />
+        ))}
+      </span>
+    </span>
+  ),
 };
 
 function LookMenu({
@@ -2133,16 +2190,25 @@ function LookMenu({
             </Choice>
           ))}
         </div>
-        {sections && (
-          <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label="Parties">
-            {SECTION_MODES.map((m) => (
-              <Choice key={m.id} on={sections === m.id} onClick={() => onSections(m.id)} title={m.hint} className="py-1.5">
-                {SECTION_ICON[m.id]}
-                <span className="mt-1 block text-[10px] leading-tight">{m.label}</span>
-              </Choice>
-            ))}
-          </div>
-        )}
+      </MenuSection>
+      {sections && (
+        <MenuSection title="Parties">
+          {[false, true].map((discreet) => (
+            <Fragment key={String(discreet)}>
+              {discreet && <p className="px-0.5 pt-0.5 text-[10px] text-muted-foreground">Plus discrets, sans case perdue</p>}
+              <div className="grid grid-cols-4 gap-1.5" role="radiogroup" aria-label={discreet ? 'Parties, séparateurs discrets' : 'Parties'}>
+                {SECTION_MODES.filter((m) => Boolean(m.discreet) === discreet).map((m) => (
+                  <Choice key={m.id} on={sections === m.id} onClick={() => onSections(m.id)} title={m.hint} className="py-1.5">
+                    {SECTION_ICON[m.id]}
+                    <span className="mt-1 block text-[10px] leading-tight">{m.label}</span>
+                  </Choice>
+                ))}
+              </div>
+            </Fragment>
+          ))}
+        </MenuSection>
+      )}
+      <MenuSection title={isGoal ? 'Cases à trouver et repères' : 'Repères'}>
         {isGoal && (
           <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-label="Cases à trouver">
             {(

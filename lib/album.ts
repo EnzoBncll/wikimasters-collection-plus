@@ -1,4 +1,5 @@
 import { storage } from '#imports';
+import type { SectionMode } from './goal-layout';
 import { RARITY_ORDER, type OwnedCard } from './types';
 
 /** Emplacements par page d'album (grille 3 × 3). */
@@ -102,7 +103,7 @@ export const albumLooksItem = storage.defineItem<Record<string, AlbumLook>>('loc
 export const albumDepthItem = storage.defineItem<Record<string, boolean>>('local:albumDepth', { fallback: {} });
 
 /** Mise en page des parties d'un album à objectif (voir goal-layout.ts), par album ; absent = « tile ». */
-export const albumSectionsItem = storage.defineItem<Record<string, 'tile' | 'row' | 'page' | 'color'>>('local:albumSections', { fallback: {} });
+export const albumSectionsItem = storage.defineItem<Record<string, SectionMode>>('local:albumSections', { fallback: {} });
 
 /** Vue de l'album : rangement manuel (enregistré) ou tri par rareté, sans toucher au rangement. Par album. */
 export type AlbumOrder = 'manual' | 'rarity';

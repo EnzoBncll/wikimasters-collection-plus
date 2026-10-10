@@ -226,7 +226,7 @@ export function startStage() {
     const w = r.width / cur;
     const h = r.height / cur;
     if (!w || !h) return;
-    const reserve = ctx.settings.revealPanels ? 2 * (250 - 40 + 16) : 80;
+    const reserve = ctx.settings.revealPanels && (ctx.settings.revealPanelLeft || ctx.settings.revealPanelRight) ? 2 * (250 - 40 + 16) : 80;
     const z = Math.max(1, Math.min(1.6, (main.clientHeight - 48) / h, (main.clientWidth - reserve) / w));
     if (Math.abs(z - cur) > 0.03) col.style.zoom = z.toFixed(3);
     const zz = (parseFloat(col.style.zoom) || 1).toFixed(3);

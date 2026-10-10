@@ -35,6 +35,7 @@ const LAYER_CSS = `${PANEL_CSS}
   :host { position: absolute !important; inset: 0 !important; z-index: 1 !important; pointer-events: none; }
   .side { position: absolute; width: ${PANEL_W}px; transition: opacity .35s cubic-bezier(.2,.9,.3,1); pointer-events: auto; }
   .side.dim { opacity: .32; }
+  .side.off { display: none; }
   .side .panel { position: static; padding: 14px 10px 10px; background: var(--glass); }
   .side.left .panel { padding-right: ${OVERLAP + 12}px; }
   .side.right .panel { padding-left: ${OVERLAP + 12}px; }
@@ -86,6 +87,7 @@ const ARC_CSS = `
     font: 700 10px/1.3 ui-sans-serif, system-ui, sans-serif; letter-spacing: .02em; color: #fff; background: color-mix(in srgb, var(--c) 85%, #000); opacity: 0; transition: .18s cubic-bezier(.2,.9,.3,1); }
   .tip.show { opacity: 1; transform: translate(-50%, -50%) rotate(var(--r)); }
   .tip kbd { font: 600 9px ui-monospace, monospace; opacity: .65; margin-left: 4px; }
+  :host(.nokeys) .tip kbd { display: none; }
 `;
 
 const SEARCH_CSS = `
@@ -112,6 +114,7 @@ const SEARCH_CSS = `
   .menu button:hover { background: color-mix(in oklch, var(--foreground) 6%, transparent); }
   .menu button small { display: block; font-size: 11px; color: var(--muted-foreground); }
   .menu .ico { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; flex: none; font-weight: 800; }
+  :host(.nokeys) .box kbd { display: none; }
   .err { position: absolute; top: calc(100% + 6px); left: 18px; font-size: 12px; color: var(--destructive); }
 `;
 
@@ -574,6 +577,9 @@ export function startPanels(): PanelsApi {
       input.value = '';
       loadPack();
     }
+    side('left').classList.toggle('off', !ctx.settings.revealPanelLeft);
+    side('right').classList.toggle('off', !ctx.settings.revealPanelRight);
+    for (const h of [arc.host, search.host]) h.classList.toggle('nokeys', !ctx.settings.revealKeys);
     const id = String(reveal.card?.id ?? '');
     if (id !== lastCardId) {
       lastCardId = id;
@@ -593,7 +599,7 @@ export function startPanels(): PanelsApi {
   document.addEventListener(
     'keydown',
     (e) => {
-      if (!arc.host.isConnected || e.ctrlKey || e.metaKey || e.altKey || typing()) return;
+      if (!ctx.settings.revealKeys || !arc.host.isConnected || e.ctrlKey || e.metaKey || e.altKey || typing()) return;
       if (e.key === '/' || e.code === 'Slash') {
         e.preventDefault();
         input.focus();
@@ -602,7 +608,9 @@ export function startPanels(): PanelsApi {
       const digit = /^Digit([1-9])$/.exec(e.code);
       if (digit) {
         const { left, right } = lists();
-        const tag = (e.shiftKey ? left : right)[Number(digit[1]) - 1];
+        // Un volet masqué n'a pas de raccourci : on ne range pas à l'aveugle.
+        const shown = e.shiftKey ? ctx.settings.revealPanelLeft : ctx.settings.revealPanelRight;
+        const tag = shown ? (e.shiftKey ? left : right)[Number(digit[1]) - 1] : undefined;
         if (!tag) return;
         e.preventDefault();
         e.stopPropagation();
@@ -620,7 +628,7 @@ export function startPanels(): PanelsApi {
   );
 
   return {
-    rowOf: (tagId) => layer.root.querySelector<HTMLElement>(`.item[data-id="${CSS.escape(tagId)}"]`),
+    rowOf: (tagId) => (ctx.settings.revealPanelRight ? layer.root.querySelector<HTMLElement>(`.side.right .item[data-id="${CSS.escape(tagId)}"]`) : null),
     hasTag: (tagId) => Boolean(currentCopy()?.tagIds.has(tagId)),
     async ensureTag(tagId) {
       await loaded;
