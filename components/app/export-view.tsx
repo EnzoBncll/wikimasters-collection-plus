@@ -22,6 +22,7 @@ import { BrandIcon } from './brand-icon';
 import { CARD_TAG_STYLES } from './card-tags';
 import { SiteSettings } from './site-settings';
 import { ago } from './sync-status';
+import { resetSiteTour } from '@/lib/tour';
 import { useOnboarding } from './onboarding';
 import { WmCard } from './wm-card';
 
@@ -381,8 +382,15 @@ function AppearanceSection() {
       </Group>
 
       <Group title="Aide">
-        <SettingRow title="Présentation de Collection+" text="La visite guidée des quatre pages, comme à la première ouverture.">
-          <Button variant="outline" size="sm" onClick={() => useOnboarding.getState().start(0)}>
+        <SettingRow title="Présentation de Collection+" text="La visite guidée de l’app, comme à la première ouverture. Les deux mini-visites sur WikiMasters (page des paquets, premier révélé) se rejoueront aussi.">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              resetSiteTour();
+              useOnboarding.getState().start(0);
+            }}
+          >
             Revoir la visite
           </Button>
         </SettingRow>

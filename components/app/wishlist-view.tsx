@@ -194,7 +194,7 @@ export function WishlistView() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8 px-4 py-6 sm:px-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
+      <header data-tour="wishes" className="flex flex-wrap items-end justify-between gap-4">
         <div className="min-w-64 flex-1 space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Souhaits</h1>
           <p className="text-sm text-muted-foreground">

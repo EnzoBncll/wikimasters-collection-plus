@@ -433,7 +433,7 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
 
   /** Vue Dossiers : albums à objectif et collections finies en livres sur l'étagère. */
   const librarySection = books.length > 0 && (
-    <section className="space-y-4">
+    <section data-tour="library" className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-1.5 text-xs font-semibold tracking-wider text-primary uppercase">
           <Library className="size-3.5" /> Bibliothèque · {books.length}

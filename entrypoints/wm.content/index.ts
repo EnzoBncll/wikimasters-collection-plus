@@ -15,6 +15,7 @@ import { startPackStats } from './pack-stats';
 import { startAlbumFx } from './album-fx';
 import { startPanels } from './panels';
 import { startReveal } from './reveal';
+import { startSiteTour } from './site-tour';
 import { startStage } from './stage';
 import { startTradePreviews } from './trade-previews';
 import { startWishlist } from './wishlist';
@@ -75,6 +76,7 @@ export default defineContentScript({
     startWishlist();
     startTradePreviews();
     startTabTitle();
+    startSiteTour();
 
     const host = document.createElement('wmt-root');
     const root = host.attachShadow({ mode: 'open' });

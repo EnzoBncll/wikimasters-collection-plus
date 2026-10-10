@@ -2,9 +2,9 @@
 
 Tout ce qu'il faut coller dans le Developer Dashboard (https://chrome.google.com/webstore/devconsole).
 
-## Package — version 0.9.1
+## Package — version 0.9.2
 
-Zip à envoyer au Store : `store/wikimasters-collection-plus-0.9.1-chrome.zip`, à construire une fois la version passée à 0.9.1
+Zip à envoyer au Store : `store/wikimasters-collection-plus-0.9.2-chrome.zip`, à construire une fois la version passée à 0.9.2
 (`npm version patch`, puis `WXT_STORE=1 pnpm zip` et copie du zip de `.output/` dans `store/`). Manifest sans champ `key`,
 permissions : storage, unlimitedStorage, cookies, alarms, notifications.
 
@@ -38,7 +38,7 @@ Captures 1280×800, chacune avec son titre au-dessus de l'écran, à uploader da
 4. `store/screenshots/04-style-album.png` — **Des livres à ton goût** : mode « Style d'album », volet Pages (cases, séparateurs de parties)
 5. `store/screenshots/05-tirages.png` — **Tes paquets, tes tirages, tes chiffres** : page d'ouverture (paquets en éventail) et statistiques de tirage
 
-Promo (refaites pour la 0.9.1 : le livre Grimoire ouvert et une Légendaire full-art) :
+Promo (refaites pour la 0.9.2 : le livre Grimoire ouvert et une Légendaire full-art) :
 - `store/promo/small-tile-440x280.png` — tuile promo obligatoire
 - `store/promo/marquee-1400x560.png` — bannière marquee (facultative)
 - Icône 128×128 : `public/icon/128.png` (déjà dans le manifest)
@@ -96,6 +96,9 @@ Trois groupes : albums à compléter (◇), collections, rangements (·). Chaque
 
 SUGGESTIONS ET EXPORT
 Sous chaque album, les cartes les plus connues du thème qu'il te manque encore. Export CSV ou copie pour tableur.
+
+VISITE GUIDÉE
+Une présentation pas à pas à la première ouverture, puis deux mini-visites sur WikiMasters (page des paquets, premier révélé). Chaque fonction ajoutée sur le site a son interrupteur : si quelque chose te gêne, tu le coupes.
 
 THÈMES
 Mode clair, sombre ou automatique, 10 palettes qui recolorent l'interface, le bouton sur le site et l'icône de l'extension, et dix habillages de cartes.
@@ -226,10 +229,10 @@ Puis cocher les trois certifications :
 ## Checklist avant de cliquer sur « Submit for review »
 
 - [ ] Compte développeur Chrome Web Store (le compte pro) bien sélectionné comme propriétaire de l'item
-- [ ] Upload du zip `store/wikimasters-collection-plus-0.9.1-chrome.zip` (Package → Upload new package)
+- [ ] Upload du zip `store/wikimasters-collection-plus-0.9.2-chrome.zip` (Package → Upload new package)
 - [ ] Anciennes captures supprimées, puis les 5 nouvelles uploadées dans l'ordre (`01-ouverture.png` en premier)
 - [ ] Tuile promo 440×280 et marquee 1400×560 remplacées par les nouvelles
 - [ ] Description courte + détaillée remplacées
 - [ ] Privacy practices : justification de **storage** mise à jour (chrome.storage.sync), **alarms** et **notifications** ajoutées
 - [ ] Data usage inchangé (Authentication information : oui ; Website content : oui ; le reste : non)
-- [ ] Version du manifest : 0.9.1
+- [ ] Version du manifest : 0.9.2

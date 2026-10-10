@@ -1,13 +1,13 @@
-import { storage } from '#imports';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { create } from 'zustand';
+import { appTourItem, TOUR_VERSION } from '@/lib/tour';
 import { cn } from '@/lib/utils';
 
 /** Vues de l'app traversées par la visite. */
-export type TourView = 'review' | 'tags' | 'suggestions' | 'settings';
+export type TourView = 'review' | 'tags' | 'wishes' | 'suggestions' | 'settings';
 
 interface Step {
   view: TourView;
@@ -21,59 +21,73 @@ const STEPS: Step[] = [
   {
     view: 'review',
     title: 'Bienvenue dans Collection+',
-    text: "Une visite rapide des quatre pages, une minute à peine. Tu peux la passer maintenant et la relancer plus tard depuis les Paramètres.",
+    text: 'Le tour de l’app en deux minutes : tes cartes, tes albums, tes souhaits et l’ouverture des paquets. Tu peux le passer et le relancer depuis les Paramètres.',
   },
   {
     view: 'review',
     target: 'filters',
     title: 'Filtres',
-    text: 'En haut, le nombre de cartes affichées et les filtres actifs, à retirer un par un. Dessous : statut, rareté et étiquettes (séparées Collection / Rangement si tu actives l’option).',
+    text: 'Statut, rareté, étiquettes, doublons, nouvelles cartes. En haut, les filtres actifs, à retirer un par un.',
   },
   {
     view: 'review',
     target: 'cards',
     title: 'Tes cartes',
-    text: 'Le caddie d’une carte passe de Trade à Not Trade. Double-clic : la carte en grand, avec le début de son article Wikipédia. Sélection multiple et raccourcis : T, N, E, A, /.',
+    text: 'Le caddie passe une carte de Trade à Not Trade. Double-clic : la carte en grand avec son article Wikipédia. Touche R : le mode revue, tes cartes une par une comme à l’ouverture d’un paquet.',
   },
   {
     view: 'review',
     target: 'outbox',
     title: 'Boîte d’envoi',
-    text: 'Rien ne part sur WikiMasters tout de suite : statuts, étiquettes et albums s’accumulent ici. La poignée ouvre le détail, ✓ envoie tout d’un coup.',
+    text: 'Rien ne part sur WikiMasters tout de suite : statuts, étiquettes et défausse des doublons s’accumulent ici, et ✓ envoie tout d’un coup.',
   },
   {
     view: 'tags',
     target: 'create',
     title: 'Nouveau',
-    text: 'Une étiquette / album à remplir au fil des cartes, un album à objectif (une liste précise à compléter, comme les rois de France) ou une étiquette de rangement.',
+    text: 'Un album à remplir au fil des cartes, une étiquette de rangement, ou un album à objectif : décris un thème (« les rois de France ») et Collection+ construit la liste à compléter.',
+  },
+  {
+    view: 'tags',
+    target: 'library',
+    title: 'Bibliothèque',
+    text: 'Un livre par album à objectif ou collection finie. Il grandit à mesure qu’il se remplit ; survole-le pour voir son avancement, clique pour l’ouvrir.',
   },
   {
     view: 'tags',
     target: 'albums',
     title: 'Albums',
-    text: 'Chaque étiquette s’ouvre en album à feuilleter. Range les cartes à la main ou vois-les par rareté, retire-en d’un clic, et trouve sous l’album les cartes à ajouter.',
+    text: 'Chaque étiquette s’ouvre en livre à feuilleter. Dedans : le pinceau règle le style (relié, classeur, grimoire, herbier), « + Coller » range une carte, et le mode Marché montre les cartes manquantes en vente.',
+  },
+  {
+    view: 'wishes',
+    target: 'wishes',
+    title: 'Souhaits',
+    text: 'Ta liste de souhaits WikiMasters : ajoute des cartes depuis le catalogue, vois lesquels de tes amis les possèdent, retire celles que tu as obtenues.',
   },
   {
     view: 'suggestions',
     target: 'enhance',
     title: 'Enhance',
-    text: 'Consolider : les cartes qui vont clairement dans un de tes albums. Thèmes : des groupes de cartes qui feraient un bon album. Fiches IA : le thème de chaque album, rédigé et modifiable.',
+    text: 'Des idées pour ta collection : les cartes à ranger dans tes albums, les thèmes qui feraient un bon album, et une fiche rédigée pour chacun.',
+  },
+  {
+    view: 'settings',
+    title: 'Sur WikiMasters',
+    text: 'Collection+ redessine aussi l’ouverture des paquets : révélé mis en scène, rangement de la carte sans l’ouvrir, statistiques de tirage. Une courte visite t’y attend à ton prochain paquet.',
   },
   {
     view: 'settings',
     target: 'settings',
-    title: 'Paramètres',
-    text: 'Apparence (mode, dix palettes, habillage des cartes), rangement (statut d’échange, clé Gemini gratuite pour les demandes libres) et export vers Google Sheets ou CSV.',
+    title: 'Tout se règle, tout se désactive',
+    text: 'Apparence, rangement, synchro et export sont ici. Chaque fonction ajoutée sur WikiMasters a son interrupteur, ici et dans le popup : si quelque chose te gêne, coupe-le.',
   },
   {
     view: 'review',
     title: 'C’est parti',
-    text: 'Garde un onglet WikiMasters ouvert pendant que tu utilises Collection+ : l’extension passe par lui pour parler au site.',
+    text: 'Garde un onglet WikiMasters ouvert pendant que tu utilises Collection+ : l’extension passe par lui pour parler au site. L’icône de l’extension donne ton compteur de paquets et les réglages rapides.',
   },
 ];
-
-/** La visite a déjà été vue (ou passée) sur ce navigateur. */
-const onboardingDoneItem = storage.defineItem<boolean>('local:onboardingDone', { fallback: false });
 
 interface TourState {
   step: number | null;
@@ -86,7 +100,7 @@ export const useOnboarding = create<TourState>((set) => ({
   start: (step = 0) => set({ step }),
   close: () => {
     set({ step: null });
-    onboardingDoneItem.setValue(true);
+    appTourItem.setValue(TOUR_VERSION);
   },
 }));
 
@@ -124,7 +138,7 @@ function cardPosition(rect: DOMRect | null) {
   if (!rect) return { left: (vw - CARD_W) / 2, top: vh / 2 - 110 };
   const left = Math.min(Math.max(16, rect.left + rect.width / 2 - CARD_W / 2), vw - CARD_W - 16);
   if (vh - rect.bottom > 240) return { left, top: rect.bottom + PAD + 14 };
-  if (rect.top > 260) return { left, top: rect.top - PAD - 14 - 210 };
+  if (rect.top > 290) return { left, top: rect.top - PAD - 14 - 240 };
   const side = rect.right + PAD + 16 + CARD_W < vw ? rect.right + PAD + 16 : Math.max(16, rect.left - PAD - 16 - CARD_W);
   return { left: side, top: Math.min(Math.max(16, rect.top), vh - 260) };
 }
@@ -142,7 +156,8 @@ export function Onboarding({ onView }: { onView: (view: TourView) => void }) {
     const demo = new URLSearchParams(location.search).get('onboarding');
     if (demo !== null) return start(Number(demo) || 0);
     if ((window as { __collectionPlusStatic?: boolean }).__collectionPlusStatic) return;
-    onboardingDoneItem.getValue().then((done) => !done && start(0));
+    // Jamais vue, ou refaite depuis : une fois par version de la visite.
+    appTourItem.getValue().then((seen) => seen < TOUR_VERSION && start(0));
   }, [start]);
 
   const current = step !== null ? STEPS[step] : undefined;

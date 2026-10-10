@@ -66,7 +66,7 @@ Deux nouveaux styles, **Grimoire** (trois couvertures) et **Herbier**, en plus d
 
 ## Fonctionnalités
 
-- **Visite guidée** : à la première ouverture, une présentation pas à pas des quatre pages met en lumière chaque fonction. Passable, et relançable depuis **Paramètres › Apparence › Aide**.
+- **Visite guidée** : à la première ouverture (et une fois après une mise à jour qui la refait), une présentation pas à pas de l'app : cartes, boîte d'envoi, albums à objectif, bibliothèque, souhaits, Enhance, réglages. Sur WikiMasters, deux mini-visites prennent le relais sur les vrais éléments : la page des paquets, puis le premier révélé. Passables, et relançables depuis **Paramètres › Apparence › Aide**.
 - **Cartes** : toutes tes cartes, filtres compacts (statut, rareté, étiquettes séparées Collection / Rangement, doublons, nouvelles), sélection multiple, raccourcis clavier (`T` Trade, `N` Not Trade, `E` étiqueter, `A` tout, `/` recherche, `Entrée` afficher en grand).
 - **Boîte d'envoi** : rien ne part sur le site tout de suite. Statuts, étiquettes et albums s'accumulent dans un volet à droite (poignée avec le nombre de modifications) et partent d'un clic ; un tracé aux couleurs de la palette fait le tour du cadre pendant l'envoi.
 - **Mode revue** : touche `R` dans Cartes, les cartes une à une avec les raccourcis du révélé, lot et ordre au choix, avance auto, récapitulatif.

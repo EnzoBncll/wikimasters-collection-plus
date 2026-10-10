@@ -6,6 +6,8 @@
   const params = new URLSearchParams(location.search);
   store.settings = { palette: params.get('palette') || 'nuit-violette', theme: params.get('theme') || 'dark', soundVolume: 0.02,
     siteLook: params.get('look') || 'solid', cardStyle: params.get('style') || 'classic' };
+  // Mini-visites déjà vues, sauf avec ?tour (elles couvriraient les captures).
+  if (!params.has('tour')) store.siteTourSeen = { pulls: 99, reveal: 99 };
   // Album à objectif « Footballeurs » : Zidane déjà collé, Messi attendu (2e carte du paquet).
   const wiki = (t) => `https://fr.wikipedia.org/wiki/${encodeURIComponent(t.replace(/ /g, '_'))}`;
   store.goalAlbums = { 't-foot': { entries: ['Zinédine Zidane', 'Kylian Mbappé', 'Michel Platini', 'Thierry Henry', 'Lionel Messi', 'Karim Benzema', 'Antoine Griezmann', 'Paul Pogba', 'Raymond Kopa', 'Just Fontaine']
