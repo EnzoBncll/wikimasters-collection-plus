@@ -104,7 +104,7 @@ THÈMES
 Mode clair, sombre ou automatique, 10 palettes qui recolorent l'interface, le bouton sur le site et l'icône de l'extension, et dix habillages de cartes.
 
 CONFIDENTIALITÉ
-Aucun serveur, aucune collecte de données. Ta session WikiMasters est lue uniquement pour appeler l'API du site en ton nom ; tes données restent dans ton navigateur, et la synchronisation entre ordinateurs passe par ton propre compte Chrome. Détails : https://github.com/EnzoBncll/wikimasters-collection-plus/blob/main/PRIVACY.md
+Aucun serveur, aucune collecte de données. Ta session WikiMasters est lue uniquement pour appeler l'API du site en ton nom ; tes données restent dans ton navigateur, et la synchronisation entre ordinateurs passe par ton propre compte Chrome. Détails : https://enzobncll.github.io/wikimasters-collection-plus/privacy.html
 
 Projet open source, gratuit, sans publicité : https://github.com/EnzoBncll/wikimasters-collection-plus
 ```
@@ -123,9 +123,9 @@ Français (fr)
 
 ## Politique de confidentialité (URL)
 
-`https://github.com/EnzoBncll/wikimasters-collection-plus/blob/main/PRIVACY.md`
+`https://enzobncll.github.io/wikimasters-collection-plus/privacy.html`
 
-(Le fichier existe déjà dans le repo. Comme le dépôt est public, ce lien GitHub suffit comme URL de politique de confidentialité — pas besoin d'un site dédié.)
+(Page servie par GitHub Pages depuis `docs/privacy.md`, copie de `PRIVACY.md`. Le lien `github.com/…/blob/main/PRIVACY.md` est refusé par le Store : GitHub répond 503 aux robots sur les pages de fichiers.)
 
 ---
 
