@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useCollection } from '@/hooks/use-collection';
 import { toast } from '@/hooks/use-toast';
 import { freshCopies, planCard, runDiscards, type DiscardPlanItem, type DiscardProgress } from '@/lib/discard';
-import type { CopyInfo } from '@/lib/types';
+import type { CopyInfo, OwnedCard } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { cardImage } from './card-image';
 import { RARITY_BG } from './rarity';
@@ -15,10 +15,23 @@ const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
 type Phase = 'loading' | 'ready' | 'running' | 'done';
 
 /**
- * Récapitulatif avant envoi quand des cartes sont marquées Discard :
- * shiny et favoris relus sur le site, un exemplaire toujours gardé, défausse définitive après confirmation.
+ * Récapitulatif avant la vraie défausse : shiny et favoris relus sur le site (jamais défaussés), défausse définitive après confirmation.
+ * Par défaut : toutes les cartes marquées Discard, tous leurs exemplaires (l'étiquette se vide).
+ * Avec `cards` + `keepOne` (« Mes doublons ») : les exemplaires en trop de ces cartes, un exemplaire gardé.
  */
-export function DiscardDialog({ open, tagChanges, onClose }: { open: boolean; tagChanges: number; onClose: () => void }) {
+export function DiscardDialog({
+  open,
+  tagChanges,
+  onClose,
+  cards,
+  keepOne = false,
+}: {
+  open: boolean;
+  tagChanges: number;
+  onClose: () => void;
+  cards?: OwnedCard[];
+  keepOne?: boolean;
+}) {
   const discardMarked = useCollection((s) => s.discardMarked);
   const pushPending = useCollection((s) => s.pushPending);
   const finishDiscards = useCollection((s) => s.finishDiscards);
@@ -40,7 +53,7 @@ export function DiscardDialog({ open, tagChanges, onClose }: { open: boolean; ta
     setLoadError(null);
     stop.current = false;
     setStopping(false);
-    const marked = discardMarked();
+    const marked = cards ?? discardMarked();
     freshCopies(marked.flatMap((c) => c.ownedIds))
       .catch((error): Record<string, CopyInfo> => {
         // Sans relecture, le détail en cache sert de référence ; on le signale.
@@ -49,7 +62,7 @@ export function DiscardDialog({ open, tagChanges, onClose }: { open: boolean; ta
       })
       .then((fresh) => {
         if (cancelled) return;
-        const items = marked.map((card) => planCard(card, { ...card.copies, ...fresh }));
+        const items = marked.map((card) => planCard(card, { ...card.copies, ...fresh }, keepOne));
         setPlan(items.filter((i) => i.units.length > 0));
         setKeptOnly(items.filter((i) => i.units.length === 0).length);
         setPhase('ready');
@@ -57,7 +70,7 @@ export function DiscardDialog({ open, tagChanges, onClose }: { open: boolean; ta
     return () => {
       cancelled = true;
     };
-  }, [open, discardMarked]);
+  }, [open, discardMarked]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const units = useMemo(() => plan.reduce((n, i) => n + i.units.length, 0), [plan]);
 
@@ -72,7 +85,7 @@ export function DiscardDialog({ open, tagChanges, onClose }: { open: boolean; ta
     setResult(out);
     setPhase('done');
     if (out.done) {
-      toast(`${plural(out.done, 'exemplaire')} défaussé${out.done > 1 ? 's' : ''} sur WikiMasters`, out.error ? 'error' : 'success');
+      toast(`${plural(out.done, 'exemplaire')} défaussé${out.done > 1 ? 's' : ''} sur WikiMasters (+${plural(out.done, 'wikibidou')})`, out.error ? 'error' : 'success');
       await finishDiscards([...out.discarded.keys()]);
     }
   };
@@ -89,11 +102,11 @@ export function DiscardDialog({ open, tagChanges, onClose }: { open: boolean; ta
           <DialogDescription>
             {tagChanges > 0 && phase !== 'done' && `${plural(tagChanges, 'modification')} d'étiquettes et de statuts, puis `}
             {phase === 'done'
-              ? `${plural(result?.done ?? 0, 'exemplaire')} défaussé${(result?.done ?? 0) > 1 ? 's' : ''} sur WikiMasters.`
+              ? `${plural(result?.done ?? 0, 'exemplaire')} défaussé${(result?.done ?? 0) > 1 ? 's' : ''} sur WikiMasters : +${plural(result?.done ?? 0, 'wikibidou')}.`
               : phase === 'loading'
               ? 'lecture de tes exemplaires sur WikiMasters…'
               : units
-                ? `${plural(units, 'exemplaire')} à défausser sur ${plural(plan.length, 'carte')}.`
+                ? `${plural(units, 'exemplaire')} à défausser sur ${plural(plan.length, 'carte')} : environ +${plural(units, 'wikibidou')}.`
                 : 'aucun exemplaire à défausser.'}
           </DialogDescription>
         </DialogHeader>
@@ -132,14 +145,19 @@ export function DiscardDialog({ open, tagChanges, onClose }: { open: boolean; ta
 
         {phase === 'ready' && (
           <div className="space-y-2 text-xs text-muted-foreground">
-            {keptOnly > 0 && <p>{plural(keptOnly, 'carte')} marquée{keptOnly > 1 ? 's' : ''} Discard n'a plus qu'un exemplaire (ou que des shiny / favoris) : rien à défausser.</p>}
+            {keptOnly > 0 && (
+              <p>
+                {plural(keptOnly, 'carte')} {keepOne ? "n'a plus qu'un exemplaire (ou que des shiny / favoris)" : "n'a que des exemplaires shiny ou favoris"} : rien à défausser.
+              </p>
+            )}
             {loadError && <p className="text-amber-700 dark:text-amber-300">Relecture impossible ({loadError}) : le détail en cache est utilisé.</p>}
             {units > 0 && (
               <p className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-foreground">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" />
                 <span>
-                  C'est définitif. Tu gardes toujours un exemplaire de chaque carte, et les shiny et favoris ne sont jamais défaussés. Une défausse par seconde, arrêt
-                  possible à tout moment.
+                  C'est définitif.{' '}
+                  {keepOne ? 'Tu gardes un exemplaire de chaque carte.' : 'Tous les exemplaires de ces cartes partent, puis l’étiquette Discard est vidée.'} Les shiny et
+                  les favoris ne sont jamais défaussés. Une défausse par seconde, arrêt possible à tout moment.
                 </span>
               </p>
             )}

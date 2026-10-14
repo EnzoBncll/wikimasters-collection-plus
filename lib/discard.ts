@@ -5,8 +5,8 @@ import type { CopyInfo, OwnedCard } from './types';
 
 /**
  * Défausse réelle sur WikiMasters (le même appel que le bouton « Défausser » du site).
- * Règles : on garde toujours au moins un exemplaire de chaque carte,
- * et on ne touche jamais aux exemplaires shiny ni aux favoris.
+ * Règles : Discard veut dire « je n'en veux plus » : tous les exemplaires partent (en wikibidoux),
+ * sauf les shiny et les favoris, jamais touchés. « Mes doublons » garde un exemplaire (keepOne).
  */
 
 export interface DiscardPlanItem {
@@ -19,14 +19,17 @@ export interface DiscardPlanItem {
   kept: number;
 }
 
-/** Exemplaires à défausser pour une carte : on garde le plus ancien exemplaire non protégé s'il n'y en a pas de protégé. */
-export function planCard(card: OwnedCard, copies: Record<string, CopyInfo> = card.copies ?? {}): DiscardPlanItem {
+/**
+ * Exemplaires à défausser pour une carte. Avec `keepOne` (doublons), on garde le plus ancien exemplaire
+ * non protégé s'il n'y en a pas de protégé ; sinon tout ce qui n'est pas protégé part.
+ */
+export function planCard(card: OwnedCard, copies: Record<string, CopyInfo> = card.copies ?? {}, keepOne = false): DiscardPlanItem {
   const rows = card.ownedIds.map((id) => ({ id, ...(copies[id] ?? { count: 1, shiny: false, starred: false, at: null }) }));
   const protectedRows = rows.filter((r) => r.shiny || r.starred);
   const free = rows.filter((r) => !r.shiny && !r.starred).sort((a, b) => (a.at ?? Infinity) - (b.at ?? Infinity));
   const units: string[] = [];
   free.forEach((row, i) => {
-    const keep = !protectedRows.length && i === 0 ? 1 : 0;
+    const keep = keepOne && !protectedRows.length && i === 0 ? 1 : 0;
     for (let n = 0; n < Math.max(0, row.count - keep); n++) units.push(row.id);
   });
   const protectedCount = protectedRows.reduce((n, r) => n + r.count, 0);
@@ -34,8 +37,8 @@ export function planCard(card: OwnedCard, copies: Record<string, CopyInfo> = car
   return { card, units, protectedCount, kept: total - units.length };
 }
 
-export function planDiscards(cards: OwnedCard[]): DiscardPlanItem[] {
-  return cards.map((card) => planCard(card)).filter((item) => item.units.length > 0);
+export function planDiscards(cards: OwnedCard[], keepOne = false): DiscardPlanItem[] {
+  return cards.map((card) => planCard(card, card.copies, keepOne)).filter((item) => item.units.length > 0);
 }
 
 /** Shiny / favori / nombre relus sur le site juste avant de défausser (la collection en cache peut dater). */

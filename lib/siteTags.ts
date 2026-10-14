@@ -1,5 +1,6 @@
 import type { SiteTagsApi } from './api';
 import { currentUserId, rest, restAll } from './supabase';
+import { isFavoriteTag } from './trade';
 import type { OwnedCard, SiteTag } from './types';
 
 /** Taille des lots : insertion groupée en une requête, suppression via ?user_card_id=in.(…). */
@@ -14,7 +15,8 @@ const isConflict = (error: unknown) => (error as { status?: number })?.status ==
 /**
  * Étiquettes natives de WikiMasters (Supabase) :
  *  - table `tags`           { id, user_id, name, color }
- *  - table `user_card_tags` { user_card_id, tag_id } — une ligne par exemplaire possédé.
+ *  - table `user_card_tags` { user_card_id, tag_id } — une ligne par exemplaire possédé ;
+ *  - favori : colonne `user_cards.starred`, exposée comme l'étiquette virtuelle FAVORITE_TAG.
  */
 export const siteTagsApi: SiteTagsApi = {
   async list() {
@@ -47,8 +49,14 @@ export const siteTagsApi: SiteTagsApi = {
     await rest(`tags?id=eq.${tagId}`, { method: 'DELETE', prefer: 'return=minimal' });
   },
 
-  async assignments(tagIds) {
+  async assignments(allIds) {
     const map = new Map<string, string[]>();
+    const tagIds = allIds.filter((id) => !isFavoriteTag(id));
+    if (allIds.length !== tagIds.length) {
+      const userId = await currentUserId();
+      const starred = await restAll<{ id: string }>(`user_cards?select=id&user_id=eq.${userId}&starred=is.true`);
+      for (const { id } of starred) map.set(id, [allIds.find(isFavoriteTag)!]);
+    }
     if (!tagIds.length) return map;
     // Filtrer par nos propres étiquettes limite naturellement aux lignes de l'utilisateur.
     const rows = await restAll<{ user_card_id: string; tag_id: string }>(
@@ -63,6 +71,7 @@ export const siteTagsApi: SiteTagsApi = {
   },
 
   async addMany(tagId, ownedIds) {
+    if (isFavoriteTag(tagId)) return setStarred(ownedIds, true);
     for (const chunk of chunks(ownedIds, INSERT_CHUNK)) {
       const rows = chunk.map((user_card_id) => ({ user_card_id, tag_id: tagId }));
       try {
@@ -80,6 +89,7 @@ export const siteTagsApi: SiteTagsApi = {
   },
 
   async removeMany(tagId, ownedIds) {
+    if (isFavoriteTag(tagId)) return setStarred(ownedIds, false);
     for (const chunk of chunks(ownedIds, DELETE_CHUNK)) {
       await rest(`user_card_tags?tag_id=eq.${tagId}&user_card_id=in.(${chunk.join(',')})`, {
         method: 'DELETE',
@@ -88,6 +98,14 @@ export const siteTagsApi: SiteTagsApi = {
     }
   },
 };
+
+/** Pose ou retire l'étoile du site (même requête que le bouton favori de WikiMasters). */
+async function setStarred(ownedIds: string[], starred: boolean) {
+  const userId = await currentUserId();
+  for (const chunk of chunks(ownedIds, DELETE_CHUNK)) {
+    await rest(`user_cards?user_id=eq.${userId}&id=in.(${chunk.join(',')})`, { method: 'PATCH', body: { starred }, prefer: 'return=minimal' });
+  }
+}
 
 /**
  * Remplace les étiquettes des cartes par celles lues sur Supabase

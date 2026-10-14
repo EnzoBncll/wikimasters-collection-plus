@@ -527,10 +527,10 @@ function OrganizeSection() {
   return (
     <div className="space-y-8">
       <Group title="Statut d'échange">
-        <SettingRow title="Tout Trade par défaut" text="Une carte sans étiquette Trade ni Not Trade est considérée comme Trade.">
+        <SettingRow title="Tout Trade par défaut" text="Une carte neutre (ni Trade, ni Favori, ni Discard) est considérée comme Trade.">
           <Switch checked={settings.defaultTrade} onCheckedChange={(defaultTrade) => updateSettings({ defaultTrade })} />
         </SettingRow>
-        <SettingRow title="Pastilles sur le site" text="Affiche Trade / Not Trade sur les cartes de WikiMasters.">
+        <SettingRow title="Pastilles sur le site" text="Affiche Trade / Favori / Discard sur les cartes de WikiMasters.">
           <Switch checked={settings.showBadges} onCheckedChange={(showBadges) => updateSettings({ showBadges })} />
         </SettingRow>
       </Group>

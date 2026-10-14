@@ -17,7 +17,7 @@ const GAP = 12;
 const STATUSES: { id: StatusFilter; label: string }[] = [
   { id: 'all', label: 'Tous statuts' },
   { id: 'trade', label: 'Trade' },
-  { id: 'not_trade', label: 'Not Trade' },
+  { id: 'not_trade', label: 'Favori' },
   { id: 'discard', label: 'Discard' },
   { id: 'unset', label: 'Sans statut' },
 ];

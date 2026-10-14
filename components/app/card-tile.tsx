@@ -83,7 +83,7 @@ export const CardTile = memo(function CardTile({
                 e.stopPropagation();
                 onToggleStatus(index);
               }}
-              title={`${TRADE_LABEL[status]}${pending ? ' · pas encore envoyé' : ''} — cliquer pour passer en ${status === 'trade' ? 'Not Trade' : status === 'not_trade' ? 'Discard' : 'Trade'}`}
+              title={`${TRADE_LABEL[status]}${pending ? ' · pas encore envoyé' : ''} — cliquer pour passer en ${status === 'trade' ? 'Favori' : status === 'not_trade' ? 'Discard' : status === 'discard' ? 'Neutre' : 'Trade'}`}
               aria-label={`Statut : ${TRADE_LABEL[status]}`}
               className={cn(
                 'absolute top-[4cqw] right-[4cqw] z-10 flex size-[13cqw] cursor-pointer items-center justify-center rounded-full transition duration-150 hover:scale-115 active:scale-95',

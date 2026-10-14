@@ -6,10 +6,21 @@ import type { OwnedCard, SiteTag, TradeStatus } from './types';
 
 export interface TradeTags {
   trade: SiteTag;
+  /** Statut « Favori » : l'étoile du site (user_cards.starred), vue comme une étiquette virtuelle (FAVORITE_TAG). */
   notTrade: SiteTag;
   /** Absente des caches antérieurs à la 0.3 : recréée à la synchro suivante. */
   discard?: SiteTag;
+  /** Ancienne étiquette « Not Trade », remplacée par les favoris : masquée, à convertir (convertLegacyNotTrade). */
+  legacyNotTrade?: SiteTag;
 }
+
+/**
+ * Favori du site (étoile) : une carte en favori est verrouillée, plus échangeable ni défaussable.
+ * Vu comme une étiquette virtuelle pour tout le reste de l'extension (boîte d'envoi, filtres, revue) ;
+ * siteTagsApi la traduit en user_cards.starred.
+ */
+export const FAVORITE_TAG: SiteTag = { id: 'wmt-favori', name: '★ Favori', color: '#eab308' };
+export const isFavoriteTag = (tagId: string) => tagId === FAVORITE_TAG.id;
 
 /** Statuts qu'on peut poser (le reste est « sans statut »). */
 export type StatusTarget = Exclude<TradeStatus, 'unset'>;
@@ -22,12 +33,17 @@ export function statusTags(tradeTags: TradeTags): Partial<Record<StatusTarget, S
 /** Identifiants des étiquettes système (statuts), à exclure des étiquettes perso. */
 export function systemTagIds(tradeTags: TradeTags | null | undefined): Set<string> {
   if (!tradeTags) return new Set();
-  return new Set([tradeTags.trade.id, tradeTags.notTrade.id, ...(tradeTags.discard ? [tradeTags.discard.id] : [])]);
+  return new Set([
+    tradeTags.trade.id,
+    tradeTags.notTrade.id,
+    ...(tradeTags.discard ? [tradeTags.discard.id] : []),
+    ...(tradeTags.legacyNotTrade ? [tradeTags.legacyNotTrade.id] : []),
+  ]);
 }
 
 /**
- * Trouve (ou crée) les étiquettes Trade et Not Trade sur le site, nommées avec leur pastille (🟢 / 🔴).
- * Les anciennes étiquettes « Trade » / « Not Trade » sont renommées, pas dupliquées.
+ * Trouve (ou crée) les étiquettes Trade et Discard sur le site ; Trade est nommée avec sa pastille (🟢).
+ * L'ancienne étiquette « Trade » est renommée, pas dupliquée. « Not Trade » n'est plus créée : c'est le favori du site.
  */
 export async function ensureTradeTags(api: SiteTagsApi, settings: Settings): Promise<{ tags: SiteTag[]; tradeTags: TradeTags }> {
   let tags = await api.list();
@@ -49,14 +65,19 @@ export async function ensureTradeTags(api: SiteTagsApi, settings: Settings): Pro
   };
 
   const trade = await ensure(settings.tradeTagName, LEGACY_TRADE_TAG_NAMES.trade, '#22c55e');
-  const notTrade = await ensure(settings.notTradeTagName, LEGACY_TRADE_TAG_NAMES.notTrade, '#ef4444');
   const discard = await ensure(settings.discardTagName, null, '#71717a');
-  return { tags, tradeTags: { trade, notTrade, discard } };
+  const legacyNotTrade = find(settings.notTradeTagName) ?? find(LEGACY_TRADE_TAG_NAMES.notTrade);
+  return { tags, tradeTags: { trade, notTrade: FAVORITE_TAG, discard, legacyNotTrade } };
+}
+
+/** Favori : étoile du site, ou ancienne étiquette Not Trade pas encore convertie. */
+function isFavorite(card: OwnedCard, tradeTags: TradeTags) {
+  return card.tagIds.includes(tradeTags.notTrade.id) || Boolean(tradeTags.legacyNotTrade && card.tagIds.includes(tradeTags.legacyNotTrade.id));
 }
 
 export function tradeStatus(card: OwnedCard, tradeTags: TradeTags, settings: Settings): TradeStatus {
   if (tradeTags.discard && card.tagIds.includes(tradeTags.discard.id)) return 'discard';
-  if (card.tagIds.includes(tradeTags.notTrade.id)) return 'not_trade';
+  if (isFavorite(card, tradeTags)) return 'not_trade';
   if (card.tagIds.includes(tradeTags.trade.id)) return 'trade';
   return settings.defaultTrade ? 'trade' : 'unset';
 }
@@ -64,12 +85,12 @@ export function tradeStatus(card: OwnedCard, tradeTags: TradeTags, settings: Set
 /** Statut réellement posé sur le site (sans le défaut implicite). */
 export function explicitStatus(card: OwnedCard, tradeTags: TradeTags): TradeStatus {
   if (tradeTags.discard && card.tagIds.includes(tradeTags.discard.id)) return 'discard';
-  if (card.tagIds.includes(tradeTags.notTrade.id)) return 'not_trade';
+  if (isFavorite(card, tradeTags)) return 'not_trade';
   if (card.tagIds.includes(tradeTags.trade.id)) return 'trade';
   return 'unset';
 }
 
-/** Changements d'étiquettes pour poser un statut : ajoute l'étiquette cible, retire les deux autres. */
+/** Changements d'étiquettes pour poser un statut : ajoute l'étiquette cible, retire les deux autres (et l'ancien Not Trade). */
 export function statusChanges(tradeTags: TradeTags, target: StatusTarget): { tagId: string; on: boolean }[] {
   const tags = statusTags(tradeTags);
   const on = tags[target];
@@ -78,8 +99,14 @@ export function statusChanges(tradeTags: TradeTags, target: StatusTarget): { tag
     ...Object.entries(tags)
       .filter(([status, tag]) => status !== target && tag)
       .map(([, tag]) => ({ tagId: tag!.id, on: false })),
+    ...(tradeTags.legacyNotTrade ? [{ tagId: tradeTags.legacyNotTrade.id, on: false }] : []),
     { tagId: on.id, on: true },
   ];
+}
+
+/** Retire le statut : plus aucune étiquette de statut (carte neutre). */
+export function clearStatusChanges(tradeTags: TradeTags): { tagId: string; on: boolean }[] {
+  return [...Object.values(statusTags(tradeTags)), tradeTags.legacyNotTrade].filter((t): t is SiteTag => Boolean(t)).map((t) => ({ tagId: t.id, on: false }));
 }
 
 /** Pose le statut voulu directement sur le site. */

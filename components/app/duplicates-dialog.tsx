@@ -14,26 +14,34 @@ import { RARITY_BG } from './rarity';
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? 's' : ''}`;
 const rank = (c: OwnedCard) => (c.rarity ? RARITY_ORDER.indexOf(c.rarity) : 99);
 
-/** « Mes doublons » : chaque carte en double, ses exemplaires protégés, et la défausse via la boîte d'envoi. */
+/**
+ * « Mes doublons » : chaque carte en double, ses exemplaires protégés, et la défausse des exemplaires en trop
+ * (un exemplaire gardé). Le choix reste local : pas d'étiquette Discard, qui voudrait dire « tout défausser ».
+ */
 export function DuplicatesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { cards, version, explicitOf, setTrade, stageTags, tradeTags, pending, tagEdits } = useCollection();
+  const { cards, version } = useCollection();
   const [recap, setRecap] = useState(false);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const pick = (list: OwnedCard[], on: boolean) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      for (const c of list) on ? next.add(c.cardId) : next.delete(c.cardId);
+      return next;
+    });
 
   const rows = useMemo(
     () =>
       cards
         .filter((c) => c.count > 1)
-        .map((card) => ({ card, plan: planCard(card), marked: explicitOf(card) === 'discard' }))
+        .map((card) => ({ card, plan: planCard(card, card.copies, true), marked: picked.has(card.cardId) }))
         .sort((a, b) => b.plan.units.length - a.plan.units.length || rank(b.card) - rank(a.card) || a.card.title.localeCompare(b.card.title, 'fr')),
-    [cards, version, explicitOf], // eslint-disable-line react-hooks/exhaustive-deps
+    [cards, version, picked], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const extra = rows.reduce((n, r) => n + r.plan.units.length, 0);
   const unmarked = rows.filter((r) => !r.marked && r.plan.units.length);
   const marked = rows.filter((r) => r.marked && r.plan.units.length);
   const markedUnits = marked.reduce((n, r) => n + r.plan.units.length, 0);
-  const changes = Object.keys(pending).length + Object.keys(tagEdits).length;
 
-  const unmark = (card: OwnedCard) => tradeTags?.discard && stageTags([card], [{ tagId: tradeTags.discard.id, on: false }]);
 
   return (
     <>
@@ -80,11 +88,11 @@ export function DuplicatesDialog({ open, onClose }: { open: boolean; onClose: ()
                   </div>
                   {plan.units.length > 0 &&
                     (isMarked ? (
-                      <Button variant="ghost" size="sm" className="h-8 shrink-0 rounded-full text-xs" onClick={() => unmark(card)}>
+                      <Button variant="ghost" size="sm" className="h-8 shrink-0 rounded-full text-xs" onClick={() => pick([card], false)}>
                         <Undo2 className="size-3.5" /> Retirer
                       </Button>
                     ) : (
-                      <Button variant="outline" size="sm" className="h-8 shrink-0 rounded-full text-xs" onClick={() => setTrade([card], 'discard')}>
+                      <Button variant="outline" size="sm" className="h-8 shrink-0 rounded-full text-xs" onClick={() => pick([card], true)}>
                         <Trash2 className="size-3.5" /> −{plan.units.length}
                       </Button>
                     ))}
@@ -95,12 +103,12 @@ export function DuplicatesDialog({ open, onClose }: { open: boolean; onClose: ()
 
           <DialogFooter className="flex-wrap gap-2 sm:justify-between">
             <p className="self-center text-xs text-muted-foreground">
-              {marked.length ? `${plural(markedUnits, 'exemplaire')} marqué${markedUnits > 1 ? 's' : ''} à défausser.` : 'Marque des cartes, puis envoie depuis la boîte d’envoi.'}
+              {marked.length ? `${plural(markedUnits, 'exemplaire')} choisi${markedUnits > 1 ? 's' : ''} à défausser.` : 'Choisis des cartes, puis lance la défausse.'}
             </p>
             <div className="flex gap-2">
               {unmarked.length > 0 && (
-                <Button variant="outline" onClick={() => setTrade(unmarked.map((r) => r.card), 'discard')}>
-                  <Trash2 className="size-4" /> Tout marquer ({unmarked.reduce((n, r) => n + r.plan.units.length, 0)})
+                <Button variant="outline" onClick={() => pick(unmarked.map((r) => r.card), true)}>
+                  <Trash2 className="size-4" /> Tout choisir ({unmarked.reduce((n, r) => n + r.plan.units.length, 0)})
                 </Button>
               )}
               <Button variant="destructive" disabled={!marked.length} onClick={() => setRecap(true)}>
@@ -110,7 +118,16 @@ export function DuplicatesDialog({ open, onClose }: { open: boolean; onClose: ()
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <DiscardDialog open={open && recap} tagChanges={changes} onClose={() => setRecap(false)} />
+      <DiscardDialog
+        open={open && recap}
+        tagChanges={0}
+        cards={marked.map((r) => r.card)}
+        keepOne
+        onClose={() => {
+          setRecap(false);
+          setPicked(new Set());
+        }}
+      />
     </>
   );
 }

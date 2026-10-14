@@ -4,7 +4,7 @@ import { mergeAcquisitions } from './acquisitions';
 import { fillDescriptions } from './descriptions';
 import { setAssignments } from './siteTags';
 import { reviewedSnapshotItem, type Settings } from './store';
-import { ensureTradeTags } from './trade';
+import { ensureTradeTags, FAVORITE_TAG } from './trade';
 
 /** Au-delà, on recharge tout même si rien ne semble avoir changé (échanges acceptés par d'autres, etc.). */
 const MAX_FULL_AGE = 6 * 60 * 60 * 1000;
@@ -58,7 +58,7 @@ export async function syncCollection(
   }
 
   onProgress?.({ step: 'tags' });
-  setAssignments(cards, await api.assignments(tags.map((t) => t.id)));
+  setAssignments(cards, await api.assignments([...tags.map((t) => t.id), FAVORITE_TAG.id]));
 
   const now = Date.now();
   const cache: CollectionCache = {

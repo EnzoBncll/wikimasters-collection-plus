@@ -33,7 +33,7 @@ const STEPS: Step[] = [
     view: 'review',
     target: 'cards',
     title: 'Tes cartes',
-    text: 'Le caddie passe une carte de Trade à Not Trade. Double-clic : la carte en grand avec son article Wikipédia. Touche R : le mode revue, tes cartes une par une comme à l’ouverture d’un paquet.',
+    text: 'Le caddie passe une carte de Trade à Favori (verrouillée sur le site), puis Discard. Double-clic : la carte en grand avec son article Wikipédia. Touche R : le mode revue, tes cartes une par une comme à l’ouverture d’un paquet.',
   },
   {
     view: 'review',

@@ -58,7 +58,7 @@ export const SITE_GROUPS: { title: string; rows: Row[] }[] = [
       {
         key: 'revealPanels',
         title: 'Rangement au révélé',
-        text: 'Statut Trade / Not Trade / Discard sous la carte, recherche d’étiquette et volets de chaque côté : sans ouvrir la carte.',
+        text: 'Statut Trade / Favori / Discard sous la carte, recherche d’étiquette et volets de chaque côté : sans ouvrir la carte.',
         extra: (s, update) => (
           <div className="space-y-1.5">
             <Sub label="Volet de gauche · Rangement" on={s.revealPanelLeft} onChange={(revealPanelLeft) => update({ revealPanelLeft })} />

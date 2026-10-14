@@ -12,9 +12,9 @@ import { TRADE_LABEL, TradeCart, tradeTextClass } from './trade-cart';
 
 const STATUSES: { value: TradeStatus; short: string }[] = [
   { value: 'trade', short: 'Trade' },
-  { value: 'not_trade', short: 'Not' },
+  { value: 'not_trade', short: 'Favori' },
   { value: 'discard', short: 'Discard' },
-  { value: 'unset', short: 'Aucun' },
+  { value: 'unset', short: 'Neutre' },
 ];
 
 function SectionTitle({ children, active }: { children: React.ReactNode; active?: number }) {
