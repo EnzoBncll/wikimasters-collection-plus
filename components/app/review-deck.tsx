@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowDown, ArrowLeft, ArrowRight, Check, ChevronLeft, Layers, Plus, Search, Sparkles, X } from 'lucide-react';
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, BookOpen, Check, ChevronLeft, Layers, Plus, Search, Sparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useCollection } from '@/hooks/use-collection';
@@ -12,12 +12,14 @@ import { randomTagColor } from '@/lib/tag-colors';
 import { systemTagIds, type StatusTarget } from '@/lib/trade';
 import { RARITY_ORDER, type OwnedCard, type SiteTag } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { WikiContext } from './wiki-context';
 import { WmCard } from './wm-card';
 
 /**
  * Mode revue de la page Cards : les cartes d'un lot une par une, comme à l'ouverture des paquets.
- * Rangements à gauche (⇧1–9), collections à droite (1–9), statut en arc sous la carte (← Trade, ↓ Not Trade,
- * → Discard) qui fait passer à la suivante ; Espace passe, Retour arrière revient. Tout part dans la boîte d'envoi.
+ * Rangements à gauche (⇧1–9), collections à droite (1–9), statut sous la carte (← Trade, ↓ Favori, → Discard, ↑ Neutre)
+ * qui fait passer à la suivante ; Espace passe, Retour arrière revient, I ouvre le volet Wikipédia. Tout part dans la boîte d'envoi.
+ * Chaque volet se replie (réglage partagé avec le révélé) ; sans albums de rangement, un seul volet « Étiquettes ».
  * Le lot est figé au départ : poser une étiquette ne fait pas sauter de carte.
  */
 
@@ -27,7 +29,7 @@ type OrderId = 'rarity' | 'recent' | 'random' | 'alpha';
 const LOT_LABEL: Record<LotId, string> = {
   selection: 'Ta sélection',
   untagged: 'Sans étiquette',
-  unset: 'Sans statut',
+  unset: 'Neutres',
   new: 'Nouvelles cartes',
   dups: 'Doublons',
   filter: 'Filtre en cours',
@@ -35,7 +37,7 @@ const LOT_LABEL: Record<LotId, string> = {
 const LOT_HINT: Record<LotId, string> = {
   selection: 'Les cartes sélectionnées dans la page Cards.',
   untagged: 'Aucune étiquette de rangement ni de collection.',
-  unset: 'Ni Trade, ni Not Trade, ni Discard.',
+  unset: 'Ni Trade, ni Favori, ni Discard.',
   new: 'Obtenues depuis la dernière revue validée.',
   dups: 'Les cartes que tu as en plusieurs exemplaires.',
   filter: 'Les cartes affichées avec les filtres actuels.',
@@ -57,23 +59,28 @@ function sortDeck(cards: OwnedCard[], order: OrderId): string[] {
   return list.map((c) => c.cardId);
 }
 
-const STATUSES: { id: StatusTarget; label: string; key: string; icon: typeof ArrowLeft; dot: string }[] = [
+const STATUSES: { id: StatusTarget | 'unset'; label: string; key: string; icon: typeof ArrowLeft; dot: string }[] = [
   { id: 'trade', label: 'Trade', key: '←', icon: ArrowLeft, dot: 'bg-trade' },
-  { id: 'not_trade', label: 'Not Trade', key: '↓', icon: ArrowDown, dot: 'bg-not-trade' },
+  { id: 'not_trade', label: 'Favori', key: '↓', icon: ArrowDown, dot: 'bg-not-trade' },
   { id: 'discard', label: 'Discard', key: '→', icon: ArrowRight, dot: 'bg-zinc-400' },
+  { id: 'unset', label: 'Neutre', key: '↑', icon: ArrowUp, dot: 'border border-dashed border-white/60' },
 ];
 
 interface Stats {
   seen: Set<string>;
   tags: number;
-  statuses: Record<StatusTarget, number>;
+  statuses: Record<StatusTarget | 'unset', number>;
 }
-const freshStats = (): Stats => ({ seen: new Set(), tags: 0, statuses: { trade: 0, not_trade: 0, discard: 0 } });
+const freshStats = (): Stats => ({ seen: new Set(), tags: 0, statuses: { trade: 0, not_trade: 0, discard: 0, unset: 0 } });
 
 export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onClose: () => void }) {
   const { cards, tags, tradeTags, newIds, explicitOf, setTrade, stageTags, createTag } = useCollection();
   const fullStage = useCollection((s) => s.settings.reviewFullStage ?? false);
   const updateSettings = useCollection((s) => s.updateSettings);
+  const split = useCollection((s) => s.settings.albumKinds);
+  const showLeft = useCollection((s) => s.settings.revealPanelLeft);
+  const showRight = useCollection((s) => s.settings.revealPanelRight);
+  const showWiki = useCollection((s) => s.settings.reviewWiki ?? false);
   const visible = useVisibleCards();
   const system = useMemo(() => systemTagIds(tradeTags), [tradeTags]);
 
@@ -136,12 +143,15 @@ export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onC
   // Volets : rangements à gauche, collections à droite (finies en tête), filtrés par la recherche.
   const own = tags.filter((t) => !system.has(t.id));
   const byName = (a: SiteTag, b: SiteTag) => a.name.localeCompare(b.name, 'fr');
-  const left = own.filter((t) => kindOf(t) === 'storage').sort(byName);
-  const right = [
-    ...own.filter((t) => kindOf(t) === 'finished').sort(byName),
-    ...own.filter((t) => kindOf(t) === 'goal').sort(byName),
-    ...own.filter((t) => kindOf(t) === 'collection').sort(byName),
-  ];
+  // Sans albums de rangement : un seul volet, toutes les étiquettes.
+  const left = split ? own.filter((t) => kindOf(t) === 'storage').sort(byName) : [];
+  const right = split
+    ? [
+        ...own.filter((t) => kindOf(t) === 'finished').sort(byName),
+        ...own.filter((t) => kindOf(t) === 'goal').sort(byName),
+        ...own.filter((t) => kindOf(t) === 'collection').sort(byName),
+      ]
+    : [...own].sort(byName);
   const q = query.trim().toLowerCase();
   const match = (t: SiteTag) => !q || t.name.toLowerCase().includes(q);
 
@@ -154,7 +164,7 @@ export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onC
       playPop();
     }
   };
-  const setStatus = (target: StatusTarget) => {
+  const setStatus = (target: StatusTarget | 'unset') => {
     if (!card) return;
     setTrade([card], target);
     setStats((s) => ({ ...s, statuses: { ...s.statuses, [target]: s.statuses[target] + 1 } }));
@@ -186,12 +196,16 @@ export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onC
       if (phase !== 'run' || el.tagName === 'INPUT' || e.metaKey || e.ctrlKey || e.altKey) return;
       const digit = /^Digit([1-9])$/.exec(e.code)?.[1];
       if (digit) {
+        // Un volet replié n'a pas de raccourci : on ne range pas à l'aveugle.
+        if (e.shiftKey ? !showLeft : !showRight) return;
         const list = (e.shiftKey ? left : right).filter(match);
         const tag = list[Number(digit) - 1];
         if (tag) toggleTag(tag);
       } else if (e.key === 'ArrowLeft') setStatus('trade');
       else if (e.key === 'ArrowDown') setStatus('not_trade');
       else if (e.key === 'ArrowRight') setStatus('discard');
+      else if (e.key === 'ArrowUp') setStatus('unset');
+      else if (e.key === 'i' || e.key === 'I') void updateSettings({ reviewWiki: !showWiki });
       else if (e.key === ' ') go(1);
       else if (e.key === 'Backspace') go(-1);
       else if (e.key === '/') searchRef.current?.focus();
@@ -205,9 +219,31 @@ export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onC
   const status = card ? explicitOf(card) : 'unset';
   const nextLots = lots.filter((l) => l !== lot && l !== 'selection' && counts[l] > 0);
 
-  const panel = (title: string, list: SiteTag[], shift: boolean) => (
+  const panel = (title: string, list: SiteTag[], shift: boolean) => {
+    const shown = shift ? showLeft : showRight;
+    const toggle = () => void updateSettings(shift ? { revealPanelLeft: !shown } : { revealPanelRight: !shown });
+    if (!shown)
+      return (
+        <button
+          type="button"
+          onClick={toggle}
+          title="Afficher le volet"
+          className={cn(
+            'shrink-0 cursor-pointer rounded-xl bg-white/[0.06] px-2 py-3 text-[10px] font-semibold tracking-[0.14em] text-white/50 uppercase ring-1 ring-white/10 [writing-mode:vertical-rl] hover:bg-white/10 hover:text-white',
+            !shift && 'rotate-180',
+          )}
+        >
+          {title}
+        </button>
+      );
+    return (
     <div className="w-60 shrink-0 rounded-2xl bg-white/[0.06] p-2.5 ring-1 ring-white/10 backdrop-blur">
-      <p className="px-2 pb-2 text-[10.5px] font-semibold tracking-[0.14em] text-white/50 uppercase">{title}</p>
+      <p className="flex items-center px-2 pb-2 text-[10.5px] font-semibold tracking-[0.14em] text-white/50 uppercase">
+        {title}
+        <button type="button" onClick={toggle} title="Replier le volet" className="ml-auto grid size-5 cursor-pointer place-items-center rounded-md text-sm tracking-normal hover:bg-white/10 hover:text-white">
+          {shift ? '‹' : '›'}
+        </button>
+      </p>
       <div className="max-h-[min(420px,calc(100vh-260px))] space-y-0.5 overflow-y-auto">
         {list.filter(match).map((t, i) => {
           const on = Boolean(card?.tagIds.includes(t.id));
@@ -230,7 +266,8 @@ export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onC
         {!list.filter(match).length && <p className="px-2.5 py-2 text-xs text-white/40">Aucune étiquette.</p>}
       </div>
     </div>
-  );
+    );
+  };
 
   return createPortal(
     <motion.div
@@ -260,7 +297,15 @@ export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onC
             </div>
           </>
         )}
-        <label className="ml-auto flex cursor-pointer items-center gap-2 text-xs text-white/60" title="Mise en scène par rareté, comme à l'ouverture des paquets">
+        <button
+          type="button"
+          onClick={() => void updateSettings({ reviewWiki: !showWiki })}
+          className={cn('ml-auto flex h-8 cursor-pointer items-center gap-1.5 rounded-full px-3 text-xs text-white/60 hover:bg-white/10', showWiki && 'bg-white/10 text-white')}
+          title="Contexte Wikipédia de la carte (I)"
+        >
+          <BookOpen className="size-3.5" /> Wikipédia
+        </button>
+        <label className="flex cursor-pointer items-center gap-2 text-xs text-white/60" title="Mise en scène par rareté, comme à l'ouverture des paquets">
           <Sparkles className="size-3.5" /> Mise en scène complète
           <input type="checkbox" checked={fullStage} onChange={(e) => void updateSettings({ reviewFullStage: e.target.checked })} className="accent-[var(--primary)]" />
         </label>
@@ -319,7 +364,7 @@ export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onC
 
       {phase === 'run' && card && (
         <div className="flex flex-1 items-center justify-center gap-6 pr-16 pl-6 pb-6">
-          {panel('Rangement', left, true)}
+          {split && panel('Rangement', left, true)}
           <div className="flex flex-col items-center gap-5">
             <div className="relative h-[min(420px,calc(100vh-280px))] [perspective:1200px]" style={{ aspectRatio: '5 / 7' }}>
               <AnimatePresence initial={false} custom={dir} mode="popLayout">
@@ -395,7 +440,12 @@ export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onC
               </button>
             </div>
           </div>
-          {panel('Collections', right, false)}
+          {panel(split ? 'Collections' : 'Étiquettes', right, false)}
+          {showWiki && (
+            <div className="h-[min(560px,calc(100vh-140px))]">
+              <WikiContext card={card} onClose={() => void updateSettings({ reviewWiki: false })} />
+            </div>
+          )}
         </div>
       )}
 
@@ -409,7 +459,7 @@ export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onC
             {[
               ['Cartes vues', stats.seen.size],
               ['Étiquettes posées', stats.tags],
-              ['Statuts', stats.statuses.trade + stats.statuses.not_trade + stats.statuses.discard],
+              ['Statuts', stats.statuses.trade + stats.statuses.not_trade + stats.statuses.discard + stats.statuses.unset],
             ].map(([label, n]) => (
               <div key={label as string} className="rounded-2xl bg-white/[0.06] p-4 ring-1 ring-white/10">
                 <p className="font-heading text-3xl font-bold tabular-nums">{n}</p>
@@ -418,7 +468,7 @@ export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onC
             ))}
           </div>
           <p className="text-xs text-white/50">
-            Trade {stats.statuses.trade} · Not Trade {stats.statuses.not_trade} · Discard {stats.statuses.discard}
+            Trade {stats.statuses.trade} · Favori {stats.statuses.not_trade} · Discard {stats.statuses.discard} · Neutre {stats.statuses.unset}
           </p>
           {nextLots.length > 0 && (
             <div className="space-y-2">

@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { resolveTitles } from '@/lib/goal-albums';
 
-interface Summary {
+export interface Summary {
   title: string;
   description: string | null;
   extract: string;
@@ -14,7 +14,7 @@ interface Summary {
 const summaries = new Map<string, Promise<Summary | null>>();
 
 /** Résumé d'un article (API REST de Wikipédia), gardé en mémoire le temps de la session. */
-function summary(title: string): Promise<Summary | null> {
+export function summary(title: string): Promise<Summary | null> {
   let p = summaries.get(title);
   if (!p) {
     p = fetch(`https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title.replace(/ /g, '_'))}`)

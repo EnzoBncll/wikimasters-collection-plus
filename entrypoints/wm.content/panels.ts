@@ -1,9 +1,13 @@
 import { FINISHED_COLOR, kindOf, STORAGE_COLOR, STORAGE_PREFIX } from '@/lib/album-kind';
 import { collectionCache, collectionDirty } from '@/lib/cache';
+import { discardCopy } from '@/lib/discard';
+import { cardName } from '@/lib/packs';
+import { sleep } from '@/lib/queue';
 import { siteTagsApi } from '@/lib/siteTags';
+import { settingsItem } from '@/lib/store';
 import { currentUserId, rest } from '@/lib/supabase';
 import { randomTagColor } from '@/lib/tag-colors';
-import type { TradeTags } from '@/lib/trade';
+import { FAVORITE_TAG, type TradeTags } from '@/lib/trade';
 import type { SiteTag } from '@/lib/types';
 import { ctx, DISPLAY_FONT, esc, onSettings, PANEL_CSS, siteModalOpen, themedHost, typing } from './ctx';
 import { reveal } from './reveal';
@@ -12,9 +16,11 @@ import { sfx } from './sound';
 /**
  * Rangement pendant le révélé, sans ouvrir la carte :
  *  - deux volets derrière la carte : rangements à gauche, collections à droite (finies en tête) ;
- *  - sous la carte, le statut d'échange en arc (Trade / Not Trade / Discard) ;
+ *  - sous la carte, le statut d'échange en arc (Trade / Favori / Discard ; rien = neutre) ;
  *  - sous les boutons du site, une recherche qui filtre les deux volets et un « + » pour créer une étiquette.
- * Chaque clic pose ou retire tout de suite l'étiquette sur l'exemplaire tiré, sur WikiMasters.
+ * Chaque clic pose ou retire tout de suite l'étiquette sur l'exemplaire tiré, sur WikiMasters (Favori = étoile du site).
+ * Chaque volet se replie en languette ; sans « albums de rangement » (réglage), un seul volet « Étiquettes » à droite.
+ * À la fin du paquet, les cartes marquées Discard sont vraiment défaussées (après quelques secondes pour annuler).
  */
 
 const PANEL_W = 250;
@@ -36,6 +42,20 @@ const LAYER_CSS = `${PANEL_CSS}
   .side { position: absolute; width: ${PANEL_W}px; transition: opacity .35s cubic-bezier(.2,.9,.3,1); pointer-events: auto; }
   .side.dim { opacity: .32; }
   .side.off { display: none; }
+  .side.folded .panel { display: none; }
+  .side .tab { display: none; }
+  .side.folded .tab { all: unset; cursor: pointer; display: flex; align-items: center; gap: 6px; position: absolute; top: 0; padding: 10px 8px; border-radius: 12px; writing-mode: vertical-rl;
+    background: var(--glass); color: var(--muted-foreground); font: 700 10px/1 ${DISPLAY_FONT}; letter-spacing: .14em; text-transform: uppercase; backdrop-filter: blur(10px);
+    box-shadow: 0 8px 24px rgb(0 0 0 / .35); transition: color .2s, transform .2s; }
+  .side.folded .tab:hover { color: var(--foreground); transform: scale(1.05); }
+  .side.left.folded .tab { right: ${OVERLAP + 6}px; transform-origin: right; }
+  .side.right.folded .tab { left: ${OVERLAP + 6}px; transform: rotate(180deg); }
+  .side.right.folded .tab:hover { transform: rotate(180deg) scale(1.05); }
+  .side.folded { pointer-events: none; }
+  .side.folded .tab { pointer-events: auto; }
+  h3 { display: flex; align-items: center; }
+  h3 .fold { all: unset; cursor: pointer; margin-left: auto; width: 18px; height: 18px; border-radius: 6px; display: grid; place-items: center; font-size: 13px; letter-spacing: 0; color: var(--muted-foreground); opacity: .6; transition: opacity .2s, background .2s; }
+  h3 .fold:hover { opacity: 1; background: color-mix(in oklch, var(--foreground) 8%, transparent); }
   .side .panel { position: static; padding: 14px 10px 10px; background: var(--glass); }
   .side.left .panel { padding-right: ${OVERLAP + 12}px; }
   .side.right .panel { padding-left: ${OVERLAP + 12}px; }
@@ -63,6 +83,23 @@ const LAYER_CSS = `${PANEL_CSS}
   .msg:empty { display: none; }
 `;
 
+const TOAST_CSS = `${PANEL_CSS}
+  :host { position: fixed !important; left: 50%; bottom: 28px; z-index: 2147483001 !important; transform: translateX(-50%); }
+  .panel { display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 16px; min-width: 300px; max-width: 520px; animation: up .35s cubic-bezier(.2,.9,.3,1); }
+  @keyframes up { from { opacity: 0; transform: translateY(12px); } }
+  .ico { font-size: 18px; }
+  .txt { flex: 1; min-width: 0; }
+  .txt b { display: block; font-size: 13px; }
+  .txt small { display: block; color: var(--muted-foreground); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .bar { height: 3px; border-radius: 99px; background: var(--border); margin-top: 6px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--primary); transition: width .3s linear; }
+  button { all: unset; cursor: pointer; padding: 6px 12px; border-radius: 99px; font: 600 12px ui-sans-serif, system-ui, sans-serif; background: color-mix(in oklch, var(--foreground) 10%, transparent); }
+  button:hover { background: color-mix(in oklch, var(--foreground) 18%, transparent); }
+`;
+
+/** Délai pour annuler la défausse de fin de paquet. */
+const UNDO_MS = 6000;
+
 const ARC_W = 300;
 const ARC_H = 72;
 const P0 = [24, 16];
@@ -87,6 +124,8 @@ const ARC_CSS = `
     font: 700 10px/1.3 ui-sans-serif, system-ui, sans-serif; letter-spacing: .02em; color: #fff; background: color-mix(in srgb, var(--c) 85%, #000); opacity: 0; transition: .18s cubic-bezier(.2,.9,.3,1); }
   .tip.show { opacity: 1; transform: translate(-50%, -50%) rotate(var(--r)); }
   .tip kbd { font: 600 9px ui-monospace, monospace; opacity: .65; margin-left: 4px; }
+  .seg[data-st="notTrade"] .ic { fill: none; }
+  .seg.on[data-st="notTrade"] .ic { fill: currentColor; }
   :host(.nokeys) .tip kbd { display: none; }
 `;
 
@@ -120,12 +159,12 @@ const SEARCH_CSS = `
 
 const ICONS: Record<Status, string> = {
   trade: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
-  notTrade: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/><path d="M3 21 21 3"/>',
+  notTrade: '<path d="M11.5 2.3a.6.6 0 0 1 1 0l2.6 5.3 5.9.9a.6.6 0 0 1 .3 1l-4.2 4.1 1 5.8a.6.6 0 0 1-.8.6L12 17.3 6.7 20a.6.6 0 0 1-.8-.6l1-5.8L2.7 9.5a.6.6 0 0 1 .3-1l5.9-.9z"/>',
   discard: '<path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6M14 11v6"/>',
 };
 const STATUS: { key: Status; label: string; color: string; kbd: string }[] = [
   { key: 'trade', label: 'Trade', color: 'oklch(0.696 0.17 162.48)', kbd: '←' },
-  { key: 'notTrade', label: 'Not Trade', color: 'oklch(0.637 0.237 25.331)', kbd: '↓' },
+  { key: 'notTrade', label: 'Favori', color: 'oklch(0.769 0.188 70.08)', kbd: '↓' },
   { key: 'discard', label: 'Discard', color: 'oklch(0.55 0.02 60)', kbd: '→' },
 ];
 
@@ -191,8 +230,8 @@ export function startPanels(): PanelsApi {
 
   const layer = themedHost('wmt-panels');
   layer.root.innerHTML = `<style>${LAYER_CSS}</style>
-    <div class="side left"><div class="panel"><h3>Rangement</h3><div class="list"></div><div class="msg"></div></div></div>
-    <div class="side right"><div class="panel"><h3>Collections</h3><div class="list"></div><div class="msg"></div></div></div>`;
+    <div class="side left"><button class="tab" type="button" title="Afficher le volet">Rangement</button><div class="panel"><h3><span class="t">Rangement</span><button class="fold" type="button" title="Replier le volet">‹</button></h3><div class="list"></div><div class="msg"></div></div></div>
+    <div class="side right"><button class="tab" type="button" title="Afficher le volet">Collections</button><div class="panel"><h3><span class="t">Collections</span><button class="fold" type="button" title="Replier le volet">›</button></h3><div class="list"></div><div class="msg"></div></div></div>`;
   const side = (s: Side) => layer.root.querySelector<HTMLElement>(`.side.${s}`)!;
 
   const arc = themedHost('wmt-status-arc');
@@ -227,18 +266,26 @@ export function startPanels(): PanelsApi {
   let query = '';
   let errTimer = 0;
 
+  /** Favori = étoile du site ; un ancien cache peut encore pointer l'étiquette Not Trade (devenue « legacy »). */
+  const withFavorite = (tt: TradeTags): TradeTags =>
+    tt.notTrade.id === FAVORITE_TAG.id ? tt : { ...tt, notTrade: FAVORITE_TAG, legacyNotTrade: tt.legacyNotTrade ?? tt.notTrade };
+
   collectionCache.getValue().then((cache) => {
     if (!cache) return;
     tags = cache.tags;
-    tradeTags = cache.tradeTags;
+    tradeTags = cache.tradeTags && withFavorite(cache.tradeTags);
     render();
   });
 
-  const systemIds = () => new Set([tradeTags?.trade.id, tradeTags?.notTrade.id, tradeTags?.discard?.id].filter(Boolean) as string[]);
+  const systemIds = () =>
+    new Set([tradeTags?.trade.id, tradeTags?.notTrade.id, tradeTags?.discard?.id, tradeTags?.legacyNotTrade?.id].filter(Boolean) as string[]);
+  /** Sans albums de rangement : un seul volet, à droite, avec toutes les étiquettes. */
+  const split = () => ctx.settings.albumKinds;
   const byName = (a: SiteTag, b: SiteTag) => a.name.localeCompare(b.name, 'fr');
   const lists = () => {
     const sys = systemIds();
     const own = tags.filter((t) => !sys.has(t.id));
+    if (!split()) return { left: [] as SiteTag[], right: [...own].sort(byName) };
     return {
       left: own.filter((t) => kindOf(t) === 'storage').sort(byName),
       right: [
@@ -264,7 +311,10 @@ export function startPanels(): PanelsApi {
       const mine = rows.filter((u) => String(u.card_id) === String(card.id));
       // Même règle que le site : l'exemplaire dont l'état shiny correspond à la carte tirée.
       const u = mine.find((x) => Boolean(x.is_shiny) === Boolean(card.is_shiny)) ?? mine[0];
-      if (u) out[String(card.id)] = { id: String(u.id), tagIds: new Set((u.user_card_tags ?? []).map((t: any) => String(t.tag_id ?? t.tag?.id)).filter(Boolean)) };
+      if (!u) continue;
+      const tagIds = new Set<string>((u.user_card_tags ?? []).map((t: any) => String(t.tag_id ?? t.tag?.id)).filter(Boolean));
+      if (u.starred) tagIds.add(FAVORITE_TAG.id);
+      out[String(card.id)] = { id: String(u.id), tagIds };
     }
     return out;
   };
@@ -286,8 +336,8 @@ export function startPanels(): PanelsApi {
               tagsFresh = true;
               const find = (name: string) => list.find((t) => t.name.trim().toLowerCase() === name.trim().toLowerCase());
               const trade = find(ctx.settings.tradeTagName);
-              const notTrade = find(ctx.settings.notTradeTagName);
-              if (trade && notTrade) tradeTags = { trade, notTrade, discard: find(ctx.settings.discardTagName) };
+              const legacyNotTrade = find(ctx.settings.notTradeTagName) ?? find('Not Trade');
+              if (trade) tradeTags = { trade, notTrade: FAVORITE_TAG, discard: find(ctx.settings.discardTagName), legacyNotTrade };
             }),
           );
         }
@@ -295,7 +345,7 @@ export function startPanels(): PanelsApi {
         jobs.push(
           (async () => {
             const uid = await currentUserId();
-            const rows = await rest<any[]>(`user_cards?select=id,card_id,is_shiny,user_card_tags(tag_id)&user_id=eq.${uid}&card_id=in.(${ids.join(',')})`);
+            const rows = await rest<any[]>(`user_cards?select=id,card_id,is_shiny,starred,user_card_tags(tag_id)&user_id=eq.${uid}&card_id=in.(${ids.join(',')})`);
             copies = pickCopies(pack.cards, rows ?? []);
           })(),
         );
@@ -333,11 +383,13 @@ export function startPanels(): PanelsApi {
     const copy = currentCopy();
     const tt = tradeTags;
     if (!copy || !tt) return;
-    const all: Record<Status, SiteTag | undefined> = { trade: tt.trade, notTrade: tt.notTrade, discard: tt.discard };
+    const all: Record<Status | 'legacy', SiteTag | undefined> = { trade: tt.trade, notTrade: tt.notTrade, discard: tt.discard, legacy: undefined };
     const tag = all[target];
     if (!tag) return;
     const before = new Set(copy.tagIds);
     const turningOff = copy.tagIds.has(tag.id);
+    // L'ancienne étiquette Not Trade part avec tout changement de statut.
+    if (tt.legacyNotTrade) all.legacy = tt.legacyNotTrade;
     for (const t of Object.values(all)) if (t) copy.tagIds.delete(t.id);
     if (!turningOff) copy.tagIds.add(tag.id);
     renderArc();
@@ -419,6 +471,9 @@ export function startPanels(): PanelsApi {
       }
     }
     search.root.querySelector('.nm')!.textContent = query.trim() ? `« ${query.trim()} »` : 'une étiquette';
+    const title = split() ? 'Collections' : 'Étiquettes';
+    side('right').querySelector('.t')!.textContent = title;
+    side('right').querySelector('.tab')!.textContent = title;
     renderArc();
   }
 
@@ -448,12 +503,19 @@ export function startPanels(): PanelsApi {
     arc.root.querySelectorAll<SVGGElement>('.seg').forEach((g) => {
       const key = g.dataset.st as Status;
       const tag = tt ? { trade: tt.trade, notTrade: tt.notTrade, discard: tt.discard }[key] : undefined;
-      g.classList.toggle('on', Boolean(copy && tag && copy.tagIds.has(tag.id)));
+      const legacy = key === 'notTrade' && tt?.legacyNotTrade && copy?.tagIds.has(tt.legacyNotTrade.id);
+      g.classList.toggle('on', Boolean(copy && ((tag && copy.tagIds.has(tag.id)) || legacy)));
       g.style.display = tag || !tt ? '' : 'none';
     });
   }
 
   // ---------------- interactions ----------------
+  const setPanel = (s: Side, shown: boolean) => settingsItem.setValue({ ...ctx.settings, [s === 'left' ? 'revealPanelLeft' : 'revealPanelRight']: shown });
+  layer.root.querySelectorAll<HTMLElement>('.side').forEach((el) => {
+    const s: Side = el.classList.contains('left') ? 'left' : 'right';
+    el.querySelector('.fold')!.addEventListener('click', (e) => (e.stopPropagation(), setPanel(s, false)));
+    el.querySelector('.tab')!.addEventListener('click', (e) => (e.stopPropagation(), setPanel(s, true)));
+  });
   layer.root.addEventListener('click', (e) => {
     const it = (e.target as HTMLElement).closest<HTMLElement>('.item');
     const tag = it && tags.find((t) => t.id === it.dataset.id);
@@ -492,6 +554,7 @@ export function startPanels(): PanelsApi {
         input.value = '';
         applyFilter();
       } else if (!hits.length && query.trim()) {
+        if (!split()) return void createTag('right', query);
         menu.classList.add('open');
         plus.classList.add('open');
       }
@@ -500,6 +563,8 @@ export function startPanels(): PanelsApi {
   input.addEventListener('keyup', (e) => e.stopPropagation());
   plus.addEventListener('click', (e) => {
     e.stopPropagation();
+    // Sans albums de rangement, pas de choix à faire : l'étiquette va dans l'unique volet.
+    if (!split()) return void createTag('right', query);
     menu.classList.toggle('open');
     plus.classList.toggle('open', menu.classList.contains('open'));
   });
@@ -549,12 +614,86 @@ export function startPanels(): PanelsApi {
     document.querySelectorAll('.wmt-cardblock').forEach((c) => c.classList.remove('wmt-cardblock'));
   };
 
+  // ---------------- défausse réelle en fin de paquet ----------------
+  const toast = themedHost('wmt-discard-toast');
+  toast.root.innerHTML = `<style>${TOAST_CSS}</style><div class="panel"><span class="ico">🗑️</span><div class="txt"><b></b><small></small><div class="bar"><i></i></div></div><button type="button"></button></div>`;
+  toast.host.remove();
+  const tEl = { b: toast.root.querySelector('b')!, small: toast.root.querySelector('small')!, bar: toast.root.querySelector<HTMLElement>('.bar i')!, btn: toast.root.querySelector('button')! };
+  let toastTimer = 0;
+  const showToast = (title: string, sub: string, action: { label: string; run: () => void } | null, hideAfter = 0) => {
+    tEl.b.textContent = title;
+    tEl.small.textContent = sub;
+    tEl.btn.textContent = action?.label ?? '';
+    tEl.btn.style.display = action ? '' : 'none';
+    tEl.btn.onclick = action ? () => action.run() : null;
+    if (!toast.host.isConnected) document.body.append(toast.host);
+    paintLook([toast.host]);
+    clearTimeout(toastTimer);
+    if (hideAfter) toastTimer = window.setTimeout(() => toast.host.remove(), hideAfter);
+  };
+
+  let handledKey = '';
+  /** Paquet entièrement vu : les exemplaires marqués Discard partent pour de vrai (tous, sauf shiny et favoris). */
+  const packEnded = () => {
+    const pack = reveal.pack;
+    const discardId = tradeTags?.discard?.id;
+    if (!ctx.settings.revealDiscard || !pack || !packKey || handledKey === packKey || pack.seen.size < pack.cards.length) return;
+    handledKey = packKey;
+    if (!discardId) return;
+    const targets = pack.cards
+      .map((c) => ({ card: c, copy: copies[String(c.id)] }))
+      .filter((x, i, all): x is { card: any; copy: Copy } => Boolean(x.copy?.tagIds.has(discardId) && !x.copy.tagIds.has(FAVORITE_TAG.id)) && all.findIndex((y) => y.copy === x.copy) === i);
+    if (!targets.length) return;
+    const names = targets.map((t) => cardName(t.card)).join(', ');
+    const n = targets.length;
+    let cancelled = false;
+    const start = Date.now();
+    showToast(`${n} carte${n > 1 ? 's' : ''} à défausser`, names, { label: 'Annuler', run: () => ((cancelled = true), showToast('Défausse annulée', 'Elles restent marquées Discard dans Collection+.', null, 3000)) });
+    const tick = window.setInterval(() => {
+      tEl.bar.style.width = `${Math.min(100, ((Date.now() - start) / UNDO_MS) * 100)}%`;
+      if (cancelled) clearInterval(tick);
+    }, 100);
+    window.setTimeout(async () => {
+      clearInterval(tick);
+      if (cancelled) return;
+      tEl.btn.style.display = 'none';
+      let done = 0;
+      try {
+        // Relu sur le site juste avant : nombre d'exemplaires, shiny, favori.
+        const rows = await rest<{ id: string; count: number | null; is_shiny: boolean | null; starred: boolean | null }[]>(
+          `user_cards?select=id,count,is_shiny,starred&id=in.(${targets.map((t) => t.copy.id).join(',')})`,
+        );
+        const units = rows.filter((r) => !r.is_shiny && !r.starred).flatMap((r) => Array.from({ length: Math.max(1, Number(r.count) || 1) }, () => r.id));
+        const skipped = rows.length - rows.filter((r) => !r.is_shiny && !r.starred).length;
+        for (const id of units) {
+          tEl.b.textContent = `Défausse… ${done + 1} / ${units.length}`;
+          await discardCopy(id);
+          done++;
+          tEl.bar.style.width = `${(done / units.length) * 100}%`;
+          if (done < units.length) await sleep(1000);
+        }
+        collectionDirty.setValue(true);
+        showToast(
+          `${done} exemplaire${done > 1 ? 's' : ''} défaussé${done > 1 ? 's' : ''} · +${done} wikibidou${done > 1 ? 's' : ''}`,
+          skipped ? `${skipped} shiny ou favori${skipped > 1 ? 's' : ''} gardé${skipped > 1 ? 's' : ''}` : names,
+          null,
+          5000,
+        );
+        sfx.toggle(true);
+      } catch (e) {
+        collectionDirty.setValue(true);
+        showToast(`Défausse interrompue (${done} faite${done > 1 ? 's' : ''})`, (e as Error).message, null, 7000);
+      }
+    }, UNDO_MS);
+  };
+
   let lastCardId = '';
   const sync = () => {
     const enabled = ctx.settings.revealPanels && location.pathname.startsWith('/pulls');
     const flip = reveal.flip;
     const col = flip && colOf(flip);
     const stage = col?.closest<HTMLElement>('[data-wmt-stage]') ?? (col?.parentElement as HTMLElement | null);
+    if (enabled && !reveal.active) packEnded();
     if (!enabled || !reveal.active || !reveal.pack || !flip || !col || !stage) {
       detach();
       return;
@@ -571,14 +710,16 @@ export function startPanels(): PanelsApi {
 
     const key = reveal.pack.cards.map((c) => c.id).join('|');
     if (key !== packKey) {
+      packEnded();
       packKey = key;
       copies = {};
       query = '';
       input.value = '';
       loadPack();
     }
-    side('left').classList.toggle('off', !ctx.settings.revealPanelLeft);
-    side('right').classList.toggle('off', !ctx.settings.revealPanelRight);
+    side('left').classList.toggle('off', !split());
+    side('left').classList.toggle('folded', !ctx.settings.revealPanelLeft);
+    side('right').classList.toggle('folded', !ctx.settings.revealPanelRight);
     for (const h of [arc.host, search.host]) h.classList.toggle('nokeys', !ctx.settings.revealKeys);
     const id = String(reveal.card?.id ?? '');
     if (id !== lastCardId) {
@@ -609,7 +750,7 @@ export function startPanels(): PanelsApi {
       if (digit) {
         const { left, right } = lists();
         // Un volet masqué n'a pas de raccourci : on ne range pas à l'aveugle.
-        const shown = e.shiftKey ? ctx.settings.revealPanelLeft : ctx.settings.revealPanelRight;
+        const shown = e.shiftKey ? split() && ctx.settings.revealPanelLeft : ctx.settings.revealPanelRight;
         const tag = shown ? (e.shiftKey ? left : right)[Number(digit[1]) - 1] : undefined;
         if (!tag) return;
         e.preventDefault();

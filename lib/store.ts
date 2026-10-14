@@ -73,6 +73,8 @@ export interface Settings {
   revealPanelLeft: boolean;
   /** … volet de droite (collections). */
   revealPanelRight: boolean;
+  /** … défausse réelle des cartes marquées Discard une fois le paquet vu (quelques secondes pour annuler). */
+  revealDiscard: boolean;
   /** … raccourcis clavier du rangement (1–9, ⇧1–9, ← ↓ →, /). */
   revealKeys: boolean;
   /** Statistiques de tirage sur la page des paquets. */
@@ -87,6 +89,8 @@ export interface Settings {
   tradePreviews: boolean;
   /** Mode revue (page Cards) : mise en scène par rareté, comme à l'ouverture des paquets. */
   reviewFullStage: boolean;
+  /** Mode revue : volet Wikipédia (article de la carte) ouvert. */
+  reviewWiki: boolean;
   /** (n/10) dans le titre de l'onglet WikiMasters. */
   tabTitle: boolean;
   /** Nombre de paquets sur l'icône de l'extension. */
@@ -134,6 +138,7 @@ export const DEFAULT_SETTINGS: Settings = {
   revealPanels: true,
   revealPanelLeft: true,
   revealPanelRight: true,
+  revealDiscard: true,
   revealKeys: true,
   packStats: true,
   cardFullscreen: true,
@@ -141,6 +146,7 @@ export const DEFAULT_SETTINGS: Settings = {
   wishHighlight: true,
   tradePreviews: true,
   reviewFullStage: false,
+  reviewWiki: false,
   tabTitle: true,
   iconBadge: true,
   notifyFull: true,
