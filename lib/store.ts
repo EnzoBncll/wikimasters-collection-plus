@@ -37,6 +37,10 @@ export interface Settings {
   cardTagStyle: CardTagStyle;
   /** Habillage des cartes, partout dans l'app. */
   cardStyle: CardStyle;
+  /** Copie des albums à objectif dans le compte WikiMasters (étiquettes « ⚙ Collection+ »), pour les autres ordinateurs. */
+  siteVault: boolean;
+  /** Tri automatique par thème : chaque carte rangée dans un album de rangement « · Thème ». */
+  themeSort: boolean;
   /** Clé gratuite Google AI Studio (Gemini) pour les demandes libres des albums à objectif ; vide = analyse sans IA. */
   geminiApiKey: string;
 
@@ -73,10 +77,14 @@ export interface Settings {
   revealPanelLeft: boolean;
   /** … volet de droite (collections). */
   revealPanelRight: boolean;
+  /** … défausse réelle des cartes marquées Discard une fois le paquet vu (quelques secondes pour annuler). */
+  revealDiscard: boolean;
   /** … raccourcis clavier du rangement (1–9, ⇧1–9, ← ↓ →, /). */
   revealKeys: boolean;
   /** Statistiques de tirage sur la page des paquets. */
   packStats: boolean;
+  /** Bouton Albums à côté de Collection+ : la bibliothèque des albums par-dessus le site. */
+  albumsButton: boolean;
   /** Bouton plein écran (inclinaison 3D) sur les cartes du site. */
   cardFullscreen: boolean;
   /** Image libre (Wikipédia / Commons) pour les cartes sans image. */
@@ -87,6 +95,8 @@ export interface Settings {
   tradePreviews: boolean;
   /** Mode revue (page Cards) : mise en scène par rareté, comme à l'ouverture des paquets. */
   reviewFullStage: boolean;
+  /** Mode revue : volet Wikipédia (article de la carte) ouvert. */
+  reviewWiki: boolean;
   /** (n/10) dans le titre de l'onglet WikiMasters. */
   tabTitle: boolean;
   /** Nombre de paquets sur l'icône de l'extension. */
@@ -117,6 +127,8 @@ export const DEFAULT_SETTINGS: Settings = {
   albumKinds: false,
   cardTagStyle: 'dots',
   cardStyle: 'classic',
+  siteVault: true,
+  themeSort: false,
   geminiApiKey: '',
   siteLook: 'solid',
   cardBreathe: true,
@@ -134,13 +146,16 @@ export const DEFAULT_SETTINGS: Settings = {
   revealPanels: true,
   revealPanelLeft: true,
   revealPanelRight: true,
+  revealDiscard: true,
   revealKeys: true,
   packStats: true,
+  albumsButton: true,
   cardFullscreen: true,
   freeImages: false,
   wishHighlight: true,
   tradePreviews: true,
   reviewFullStage: false,
+  reviewWiki: false,
   tabTitle: true,
   iconBadge: true,
   notifyFull: true,

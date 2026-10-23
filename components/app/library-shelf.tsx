@@ -45,6 +45,8 @@ export interface ShelfBook {
   toStick: number;
   at: number;
   done: boolean;
+  /** Liste des cases absente de cet ordinateur (album créé ailleurs, pas encore reçu) : ni fini ni en cours. */
+  missing?: boolean;
   parts: { name: string; total: number; have: number }[];
 }
 
@@ -60,7 +62,7 @@ function skyHeight(b: ShelfBook) {
   return 58 + lines * 17 + (b.toStick > 0 ? 24 : 0);
 }
 
-const ratio = (b: ShelfBook) => (b.total ? b.have / b.total : 1);
+const ratio = (b: ShelfBook) => (b.missing ? 0 : b.total ? b.have / b.total : 1);
 const BOOK_H = 250;
 const bookHeight = (b: ShelfBook) => BOOK_H * (b.done ? 1 : 0.6 + 0.4 * ratio(b));
 /** Écart livre → fiche, et marge gardée entre la fiche et le bord de la bibliothèque. */
@@ -148,10 +150,16 @@ function Sky({ book }: { book: ShelfBook }) {
   const more = book.parts.length - parts.length;
   return (
     <div className="lib-sky" aria-hidden>
-      <div className={book.done ? 'p done' : 'p'}>{book.done ? '✓' : `${pct} %`}</div>
+      <div className={book.done ? 'p done' : 'p'}>{book.done ? '✓' : book.missing ? '?' : `${pct} %`}</div>
       <div className="n">
-        {book.have} / {book.total} carte{book.total > 1 ? 's' : ''}
-        {book.done ? ' · complet' : ''}
+        {book.missing ? (
+          <>Liste pas encore sur cet ordinateur · {book.have} carte{book.have > 1 ? 's' : ''} collée{book.have > 1 ? 's' : ''}</>
+        ) : (
+          <>
+            {book.have} / {book.total} carte{book.total > 1 ? 's' : ''}
+            {book.done ? ' · complet' : ''}
+          </>
+        )}
       </div>
       {parts.map((p) => (
         <div key={p.name} className={p.have >= p.total ? 'pr ok' : 'pr'}>
@@ -220,10 +228,10 @@ function Book({ book, onOpen, menu, sound }: { book: ShelfBook; onOpen: () => vo
         </div>
       )}
       <Sky book={book} />
-      <button type="button" className="lib-book" onClick={onOpen} aria-label={`Ouvrir l'album ${book.name} (${book.done ? 'fini' : `${pct} %`})`}>
+      <button type="button" className="lib-book" onClick={onOpen} aria-label={`Ouvrir l'album ${book.name} (${book.done ? 'fini' : book.missing ? 'liste à récupérer' : `${pct} %`})`}>
         <span className="lib-f lib-spine">
           {book.style === 'grimoire' && [14, 22, 86, 93].map((y) => <span key={y} className="lib-band" style={{ top: `${y}%` }} />)}
-          {!book.done && <span className="lib-ring" style={{ '--p': `${pct}%` } as CSSProperties} />}
+          {!book.done && !book.missing && <span className="lib-ring" style={{ '--p': `${pct}%` } as CSSProperties} />}
           <Emblem book={book} />
           <span className="lib-label">{book.name}</span>
           {book.done && <span className="lib-seal">◇</span>}

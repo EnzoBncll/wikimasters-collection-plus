@@ -57,7 +57,7 @@ const TOURS: Record<keyof SiteTourSeen, Step[]> = {
     {
       target: () => document.querySelector('wmt-status-arc'),
       title: 'Statut d’échange',
-      text: 'Trade, Not Trade ou Discard, d’un clic ou avec les flèches ← ↓ →.',
+      text: 'Trade, Favori ou Discard, d’un clic ou avec les flèches ← ↓ →.',
     },
     {
       target: inShadow('wmt-tag-search', '.search'),

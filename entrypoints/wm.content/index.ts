@@ -13,6 +13,7 @@ import { startCardTools } from './card-tools';
 import { ctx, initCtx } from './ctx';
 import { startPackStats } from './pack-stats';
 import { startAlbumFx } from './album-fx';
+import { ALBUMS_BTN_CSS, ALBUMS_ICON, startAlbumsOverlay } from './albums-overlay';
 import { startPanels } from './panels';
 import { startReveal } from './reveal';
 import { startSiteTour } from './site-tour';
@@ -22,8 +23,8 @@ import { startWishlist } from './wishlist';
 
 const FAB_CSS = `
   :host { all: initial; }
+  .bar { position: fixed; left: 16px; bottom: 16px; z-index: 2147483000; display: flex; align-items: center; gap: 8px; }
   button {
-    position: fixed; left: 16px; bottom: 16px; z-index: 2147483000;
     display: flex; align-items: center; gap: 8px; padding: 9px 14px 9px 10px;
     border: 0; border-radius: 999px; cursor: pointer;
     background: radial-gradient(120% 140% at 0% 0%, var(--frame-glow), transparent 60%), var(--frame);
@@ -41,6 +42,7 @@ const FAB_CSS = `
     background: var(--holo); color: #0b0b1a; font-size: 11px; font-weight: 800;
   }
   [hidden] { display: none; }
+  ${ALBUMS_BTN_CSS}
 `;
 
 export default defineContentScript({
@@ -80,9 +82,10 @@ export default defineContentScript({
 
     const host = document.createElement('wmt-root');
     const root = host.attachShadow({ mode: 'open' });
-    root.innerHTML = `<style>${FAB_CSS}</style><button type="button"><span class="logo"></span>Collection<span class="plus">+</span><span class="count" hidden></span></button>`;
+    root.innerHTML = `<style>${FAB_CSS}</style><div class="bar"><button class="fab" type="button"><span class="logo"></span>Collection<span class="plus">+</span><span class="count" hidden></span></button><button class="albums" type="button" aria-label="Albums" hidden>${ALBUMS_ICON}</button></div>`;
     document.documentElement.append(host);
-    const fab = root.querySelector('button')!;
+    const fab = root.querySelector<HTMLButtonElement>('.fab')!;
+    startAlbumsOverlay(root.querySelector<HTMLButtonElement>('.albums')!);
     fab.addEventListener('click', () => browser.runtime.sendMessage({ type: OPEN_REVIEW_TAB, onlyNew: fab.dataset.new === '1' }));
 
     const refresh = async () => {

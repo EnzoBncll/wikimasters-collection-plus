@@ -18,7 +18,10 @@ import {
   type TagEdits,
 } from '@/lib/pending';
 import { applyTagChanges, type TagChange } from '@/lib/tagging';
-import { explicitStatus, newCardIds, tradeStatus, type TradeTags, statusChanges, systemTagIds, type StatusTarget } from '@/lib/trade';
+import { syncGoalRemotes, watchGoalRemotes } from '@/lib/goal-remotes';
+import { planThemes, THEME_COLOR, themeTagName, themeTags } from '@/lib/themes';
+import { enrichCards, factsItem, labelsItem } from '@/lib/wikidata';
+import { clearStatusChanges, explicitStatus, FAVORITE_TAG, newCardIds, tradeStatus, type TradeTags, statusChanges, systemTagIds, type StatusTarget } from '@/lib/trade';
 import { DEFAULT_SETTINGS } from '@/lib/store';
 import type { OwnedCard, SiteTag, TradeStatus } from '@/lib/types';
 import { sleep } from '@/lib/queue';
@@ -62,8 +65,9 @@ interface CollectionState {
   /** Statut réellement posé (ou en attente), sans le « Trade par défaut ». */
   explicitOf(card: OwnedCard): TradeStatus;
   /** Met le statut en attente d'envoi. */
-  setTrade(cards: OwnedCard[], target: StatusTarget): void;
-  /** Sans statut → Trade → Not Trade → Trade… */
+  /** 'unset' : carte neutre (ni Trade, ni Favori, ni Discard). */
+  setTrade(cards: OwnedCard[], target: StatusTarget | 'unset'): void;
+  /** Neutre → Trade → Favori → Discard → Neutre. */
   cycleTrade(card: OwnedCard): void;
   /** Met des changements d'étiquettes en attente d'envoi. */
   stageTags(cards: OwnedCard[], changes: TagChange[]): void;
@@ -86,6 +90,12 @@ interface CollectionState {
   discardMarked(): OwnedCard[];
   /** Après une défausse : recharge la collection et retire Discard des exemplaires gardés. */
   finishDiscards(cardIds: string[]): Promise<void>;
+  /** Cartes encore marquées avec l'ancienne étiquette Not Trade (à passer en favori). */
+  legacyNotTradeCards(): OwnedCard[];
+  /** Passe les anciennes « Not Trade » en favori sur le site, puis retire l'étiquette. */
+  convertLegacyNotTrade(): Promise<void>;
+  /** Tri par thème : range chaque carte sans thème dans un album de rangement « · Thème » (boîte d'envoi). Renvoie le nombre de cartes. */
+  sortByTheme(): Promise<number>;
 }
 
 /** Le site garde ses étiquettes en mémoire : propose de recharger l'onglet WikiMasters ouvert pour voir les nouveaux noms. */
@@ -132,7 +142,7 @@ export const useCollection = create<CollectionState>((set, get) => {
 
   const adopt = async (cache: CollectionCache) => {
     const byId = new Map(cache.cards.map((c) => [c.cardId, c]));
-    const pending = prunePending(get().pending, byId, new Set(cache.tags.map((t) => t.id)));
+    const pending = prunePending(get().pending, byId, new Set([...cache.tags.map((t) => t.id), FAVORITE_TAG.id]));
     pendingItem.setValue(pending);
     set({
       remote: cache.cards,
@@ -185,6 +195,9 @@ export const useCollection = create<CollectionState>((set, get) => {
       reviewedSnapshotItem.watch((snapshot) => set({ newIds: newCardIds(get().cards, snapshot) }));
 
       await get().sync();
+      // Albums à objectif des autres ordinateurs (coffre WikiMasters, Google Drive), puis à chaque modification.
+      watchGoalRemotes();
+      void syncGoalRemotes().then((n) => n && toast(`${n} album${n > 1 ? 's' : ''} à objectif reçu${n > 1 ? 's' : ''} d’un autre ordinateur`, 'success'));
     },
 
     async sync(force = false) {
@@ -197,6 +210,12 @@ export const useCollection = create<CollectionState>((set, get) => {
         });
         await adopt(cache);
         if (force && mode === 'full') toast('Collection rechargée depuis le site');
+        // Tri par thème : les cartes arrivées sans thème partent dans la boîte d'envoi (les autres ne bougent pas).
+        if (get().settings.themeSort)
+          void get()
+            .sortByTheme()
+            .then((n) => n && toast(`${n} carte${n > 1 ? 's' : ''} rangée${n > 1 ? 's' : ''} par thème : à envoyer depuis la boîte d’envoi`, 'info'))
+            .catch((e) => console.warn('[Collection+] tri par thème', e));
       } catch (error) {
         console.error('[Collection+]', error);
         set({ error: errorText(error) });
@@ -219,12 +238,12 @@ export const useCollection = create<CollectionState>((set, get) => {
     setTrade(cards, target) {
       const { tradeTags } = get();
       if (!tradeTags || !cards.length) return;
-      get().stageTags(cards, statusChanges(tradeTags, target));
+      get().stageTags(cards, target === 'unset' ? clearStatusChanges(tradeTags) : statusChanges(tradeTags, target));
     },
 
     cycleTrade(card) {
-      // Trade → Not Trade → Discard → Trade (une carte sans statut passe en Trade).
-      const next: Record<string, StatusTarget> = { trade: 'not_trade', not_trade: 'discard', discard: 'trade', unset: 'trade' };
+      // Neutre → Trade → Favori → Discard → Neutre.
+      const next: Record<string, StatusTarget | 'unset'> = { unset: 'trade', trade: 'not_trade', not_trade: 'discard', discard: 'unset' };
       get().setTrade([card], next[get().explicitOf(card)]!);
     },
 
@@ -255,7 +274,7 @@ export const useCollection = create<CollectionState>((set, get) => {
             const { tradeTags } = get();
             if (tradeTags) {
               const fix = (tag?: SiteTag) => (tag?.id === tagId ? { ...tag, ...patch } : tag);
-              set({ tradeTags: { trade: fix(tradeTags.trade)!, notTrade: fix(tradeTags.notTrade)!, discard: fix(tradeTags.discard) } });
+              set({ tradeTags: { ...tradeTags, trade: fix(tradeTags.trade)!, discard: fix(tradeTags.discard), legacyNotTrade: fix(tradeTags.legacyNotTrade) } });
             }
           } catch (error) {
             failed++;
@@ -364,7 +383,7 @@ export const useCollection = create<CollectionState>((set, get) => {
         }
         set({ remote: [...cards] });
         setRemoteTags(get().remoteTags.filter((t) => t.id !== tagId));
-        setPending(prunePending(get().pending, remoteById(), new Set(get().remoteTags.map((t) => t.id))));
+        setPending(prunePending(get().pending, remoteById(), new Set([...get().remoteTags.map((t) => t.id), FAVORITE_TAG.id])));
         await persist();
         toast('Étiquette supprimée', 'success');
       } catch (error) {
@@ -400,6 +419,34 @@ export const useCollection = create<CollectionState>((set, get) => {
       } catch (error) {
         toast(`Défausse faite, mais Discard n'a pas pu être retiré : ${errorText(error)}`, 'error');
       }
+    },
+
+    legacyNotTradeCards() {
+      const legacy = get().tradeTags?.legacyNotTrade;
+      return legacy ? get().remote.filter((c) => c.tagIds.includes(legacy.id)) : [];
+    },
+
+    async convertLegacyNotTrade() {
+      const legacy = get().tradeTags?.legacyNotTrade;
+      const cards = get().legacyNotTradeCards();
+      if (!legacy || !cards.length) return;
+      await get().changeTags(cards, [{ tagId: FAVORITE_TAG.id, on: true }, { tagId: legacy.id, on: false }], 'Passage en favori');
+    },
+
+    async sortByTheme() {
+      const { cards, tags } = get();
+      if (!cards.length) return 0;
+      const { facts, labels } = await enrichCards(cards).catch(async () => ({ facts: await factsItem.getValue(), labels: await labelsItem.getValue() }));
+      const plan = planThemes(cards, tags, facts, labels);
+      const existing = themeTags(tags);
+      let n = 0;
+      for (const [theme, list] of plan.byTheme) {
+        const tag = existing.get(theme) ?? (await get().createTag(themeTagName(theme), THEME_COLOR));
+        if (!tag) continue;
+        get().stageTags(list, [{ tagId: tag.id, on: true }]);
+        n += list.length;
+      }
+      return n;
     },
 
     async updateSettings(patch) {

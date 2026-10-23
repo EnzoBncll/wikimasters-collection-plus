@@ -38,7 +38,7 @@ const RARITY_COLORS: Record<Rarity, string> = {
   L: '#fde68a',
   UR: '#fbcfe8',
 };
-const STATUS_LABEL: Record<TradeStatus, string> = { trade: 'Trade', not_trade: 'Not Trade', discard: 'Discard', unset: '' };
+const STATUS_LABEL: Record<TradeStatus, string> = { trade: 'Trade', not_trade: 'Favori', discard: 'Discard', unset: '' };
 
 // ---------------------------------------------------------------------------
 
@@ -252,7 +252,7 @@ function collectionSheet(sheetId: number, title: string, rows: SheetRow[], withI
             },
           },
           statusRule('Trade', '#dcfce7', '#166534', 0),
-          statusRule('Not Trade', '#fee2e2', '#991b1b', 1),
+          statusRule('Favori', '#fef3c7', '#92400e', 1),
           {
             addBanding: {
               bandedRange: {
@@ -272,7 +272,7 @@ function statsSheet(sheetId: number, rows: SheetRow[]): object[] {
   const count = (pred: (r: SheetRow) => boolean) => rows.filter(pred).length;
   const copies = (pred: (r: SheetRow) => boolean) => rows.filter(pred).reduce((n, r) => n + r.count, 0);
 
-  const headers = ['Rareté', 'Cartes', 'Exemplaires', 'Trade', 'Not Trade', 'Discard', 'Sans statut'];
+  const headers = ['Rareté', 'Cartes', 'Exemplaires', 'Trade', 'Favori', 'Discard', 'Neutre'];
   const line = (label: string, pred: (r: SheetRow) => boolean, bg?: string) => ({
     values: [
       text(label, { textFormat: { bold: true }, ...(bg ? { backgroundColor: rgb(bg) } : {}) }),

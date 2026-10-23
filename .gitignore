@@ -5,3 +5,4 @@ web-ext.config.ts
 .env.local
 .DS_Store
 store/*.zip
+safari/

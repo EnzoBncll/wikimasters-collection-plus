@@ -34,6 +34,7 @@ import { useCardViewer } from './card-viewer';
 import { WmCard } from './wm-card';
 import { cardImage } from './card-image';
 import { useThumbnails } from './wiki-peek';
+import { GoalListMissing } from './goal-missing';
 import { CardStylePicker } from './export-view';
 import { CARD_STYLE_IDS, type CardStyle } from '@/lib/store';
 
@@ -1608,6 +1609,7 @@ export function Album({ title, gradient: openedGradient, cards, layoutKey, tagId
               <Target className="size-3.5 text-emerald-300" /> {goalLayout.collected} / {goal.entries.length}
             </span>
           )}
+          {albumTag && !goal && kindOf(albumTag) === 'goal' && <GoalListMissing tagId={albumTag.id} />}
           {!closed && <span className="hidden shrink-0 text-xs text-white/60 tabular-nums xl:inline">{`p. ${L + 1}–${R + 1} / ${total}`}</span>}
         </div>
         <div className="flex shrink-0 items-center gap-2 text-sm">

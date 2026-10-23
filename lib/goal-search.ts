@@ -97,6 +97,25 @@ const year = (v?: { value: string }) => (v?.value ? Number(v.value) : null);
 const ids = (v?: { value: string }) => (v?.value ? v.value.split(',').map((x) => x.split('/').pop()!).filter(Boolean) : []);
 
 /**
+ * Pays (et continents) de secours pour des personnes sans nationalité sur Wikidata (Aliénor d'Aquitaine longtemps) :
+ * pays du lieu de naissance, ou de la fonction occupée. Demandé à part, par paquets : dans la grande requête,
+ * ce chemin fait dépasser le délai de Wikidata.
+ */
+export async function fallbackCountries(qids: string[]): Promise<Map<string, Set<string>>> {
+  const out = new Map<string, Set<string>>();
+  type Row = { item: { value: string }; jur?: { value: string }; cont?: { value: string } };
+  for (let i = 0; i < qids.length; i += 300) {
+    const rows = await sparql<Row>(`SELECT ?item (GROUP_CONCAT(DISTINCT STR(?j); separator=",") AS ?jur) (GROUP_CONCAT(DISTINCT STR(?cont); separator=",") AS ?cont) WHERE {
+      VALUES ?item { ${qids.slice(i, i + 300).map((q) => `wd:${q}`).join(' ')} }
+      { ?item wdt:P19/wdt:P17 ?j } UNION { ?item wdt:P39/(wdt:P1001|wdt:P17) ?j }
+      OPTIONAL { ?j wdt:P30 ?cont }
+    } GROUP BY ?item`).catch(() => []);
+    for (const r of rows) out.set(r.item.value.split('/').pop()!, new Set([...ids(r.jur), ...ids(r.cont)]));
+  }
+  return out;
+}
+
+/**
  * Tous les articles frwiki rattachés au sujet, en deux temps pour rester sous le délai de Wikidata :
  * d'abord l'arbre des sous-classes du sujet, puis les détenteurs de ces fonctions, ceux qui en ont fait leur métier,
  * et les éléments qui en sont des exemples.
@@ -152,6 +171,8 @@ export async function candidatesFor(subject: WdEntity): Promise<Candidate[]> {
       });
     }
   }
+  const placeless = [...out.keys()].filter((qid) => !out.get(qid)!.places.size);
+  if (placeless.length) for (const [qid, places] of await fallbackCountries(placeless.slice(0, 3000))) out.get(qid)!.places = places;
   return [...out.values()];
 }
 

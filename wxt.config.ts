@@ -20,20 +20,31 @@ const MANIFEST_KEY =
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   vite: () => ({ plugins: [tailwindcss()] }),
-  manifest: {
+  // Safari (iPhone, iPad, Mac) : ni `key` ni OAuth Google (identity), ni notifications. Voir docs/safari.md.
+  manifest: ({ browser }) => {
+    const safari = browser === 'safari';
+    return {
     name: 'WikiMasters Collection+',
     short_name: 'Collection+',
     description: 'Extension non officielle pour WikiMasters : ta collection en albums à compléter, livres 3D et ouverture des paquets mise en scène.',
     // Releases GitHub : `key` garde le même identifiant d'une version à l'autre (sinon, réglages et albums perdus).
     // Chrome Web Store : il refuse ce champ ; son identifiant est attribué au premier import, et c'est lui qu'il
     // faudra renseigner comme « Item ID » du client OAuth Chrome Extension pour l'export Sheets.
-    ...(storeBuild ? {} : { key: MANIFEST_KEY }),
-    permissions: ['storage', 'unlimitedStorage', 'cookies', 'alarms', 'notifications', ...(googleClientId ? ['identity'] : [])],
+    ...(storeBuild || safari ? {} : { key: MANIFEST_KEY }),
+    permissions: [
+      'storage',
+      'unlimitedStorage',
+      'cookies',
+      'alarms',
+      ...(safari ? [] : ['notifications']),
+      ...(googleClientId && !safari ? ['identity'] : []),
+    ],
     host_permissions: ['https://www.wiki-masters.com/*', 'https://cyrxjeppjqsxxjayfrur.supabase.co/*'],
-    // Police Unbounded (OFL) des éléments ajoutés sur le site.
-    web_accessible_resources: [{ resources: ['fonts/*'], matches: ['https://www.wiki-masters.com/*'] }],
-    ...(googleClientId
-      ? { oauth2: { client_id: googleClientId, scopes: ['https://www.googleapis.com/auth/drive.file'] } }
+    // Police Unbounded, et page Albums ouverte par-dessus le site (bouton Albums) avec ses scripts et styles.
+    web_accessible_resources: [{ resources: ['fonts/*', 'albums.html', 'chunks/*', 'assets/*'], matches: ['https://www.wiki-masters.com/*'] }],
+    ...(googleClientId && !safari
+      ? { oauth2: { client_id: googleClientId, scopes: ['https://www.googleapis.com/auth/drive.file', 'https://www.googleapis.com/auth/drive.appdata'] } }
       : {}),
+    };
   },
 });

@@ -4,13 +4,13 @@ import type { OwnedCard, TradeStatus } from '@/lib/types';
 
 const BADGE_CLASS = 'wmt-trade-badge';
 const STYLE_ID = 'wmt-badge-style';
-const LABEL: Record<TradeStatus, string> = { trade: 'Trade', not_trade: 'Not Trade', discard: 'Discard', unset: 'Sans statut' };
+const LABEL: Record<TradeStatus, string> = { trade: 'Trade', not_trade: 'Favori', discard: 'Discard', unset: 'Neutre' };
 
 const normalize = (s: string | null | undefined) =>
   (s ?? '').normalize('NFC').replace(/\s+/g, ' ').trim().toLowerCase();
 
 /**
- * Pastilles 🟢 / 🔴 / ⚪ sur les cartes affichées par le site ; le statut s'affiche au survol.
+ * Pastilles 🟢 / ⭐ / ⚪ sur les cartes affichées par le site ; le statut s'affiche au survol.
  * Les cartes du site sont des div[class*="glow-"] contenant un h3 avec le titre.
  */
 export class Badges {
@@ -43,7 +43,7 @@ export class Badges {
         .${BADGE_CLASS}:hover::before { opacity: 1; transition-delay: .08s; }
         *:hover > .${BADGE_CLASS} { opacity: 1; }
         .${BADGE_CLASS}[data-s="trade"] { --wmt-dot: #22c55e; --wmt-ink: #fff; }
-        .${BADGE_CLASS}[data-s="not_trade"] { --wmt-dot: #ef4444; --wmt-ink: #fff; }
+        .${BADGE_CLASS}[data-s="not_trade"] { --wmt-dot: #eab308; --wmt-ink: #1c1917; }
         .${BADGE_CLASS}[data-s="discard"] { --wmt-dot: #78716c; --wmt-ink: #fff; }
         .${BADGE_CLASS}[data-s="unset"] { --wmt-dot: #f4f4f5; --wmt-ink: #18181b; }
       `;

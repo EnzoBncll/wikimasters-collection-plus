@@ -4,6 +4,7 @@ import { OPEN_REVIEW_TAB } from '@/lib/messages';
 import { EXPORT_SHEETS, exportToSheets, isSheetsConfigured } from '@/lib/sheets';
 import { fmtDuration, packMetaItem, packStateItem, predict, PRO_PERIOD, thresholdAt, today } from '@/lib/packs';
 import { getPalette } from '@/lib/palettes';
+import { hasNotifications } from '@/lib/platform';
 import { getSettings, settingsItem } from '@/lib/store';
 import { openReviewTab } from '@/lib/tabs';
 import { SITE_COOKIES, SITE_ORIGIN } from '@/lib/transport';
@@ -35,6 +36,7 @@ async function updateBadge() {
 
 /** Alarmes : seuil de paquets atteint, rappel du pack PRO quotidien. */
 async function schedule() {
+  if (!hasNotifications()) return updateBadge();
   const [settings, state] = await Promise.all([getSettings(), packStateItem.getValue()]);
   await browser.alarms.clear('wmt-full');
   const p = predict(state);
@@ -102,7 +104,7 @@ export default defineBackground(() => {
   });
   packStateItem.watch(() => schedule());
   browser.alarms.onAlarm.addListener(onAlarm);
-  browser.notifications.onClicked.addListener(openPulls);
+  if (hasNotifications()) browser.notifications.onClicked.addListener(openPulls);
   browser.alarms.create('wmt-tick', { periodInMinutes: 1 });
   schedule();
 

@@ -1,4 +1,6 @@
 import { storage } from '#imports';
+import { goalAlbumsItem, type GoalAlbum } from './goal-albums';
+import { applyBundle, mergeBundles, normalizeBundle, rebuildBundle } from './goal-sync';
 
 /**
  * Synchronisation entre ordinateurs, sans serveur ni compte à créer : les données propres à Collection+
@@ -6,6 +8,7 @@ import { storage } from '#imports';
  * que Chrome transporte d'un ordinateur à l'autre quand on y est connecté avec la synchronisation activée.
  *
  * Les cartes et les étiquettes vivent déjà sur WikiMasters : elles ne passent pas par ici.
+ * Les albums à objectif passent sous forme de paquet compact (goal-sync.ts : codes CP1, fusion album par album).
  *
  * `chrome.storage.sync` est petit (100 Ko, 8 Ko par entrée) : chaque donnée est compressée (gzip, base64)
  * puis découpée. Une entrée « s:nom » décrit la version ({ h: empreinte, d: appareil, n: morceaux }),
@@ -15,7 +18,7 @@ import { storage } from '#imports';
 
 /** Clés de chrome.storage.local recopiées, par ordre d'importance (si la place manque, les dernières sautent). */
 export const SYNCED_KEYS = [
-  'goalAlbums',
+  'goalBundle',
   'albumLayouts',
   'albumOrders',
   'albumRemoved',
@@ -35,7 +38,7 @@ export const SYNCED_KEYS = [
 type SyncedKey = (typeof SYNCED_KEYS)[number];
 
 export const SYNCED_LABELS: Record<SyncedKey, string> = {
-  goalAlbums: 'Albums à objectif',
+  goalBundle: 'Albums à objectif',
   albumLayouts: 'Mises en page des albums',
   albumOrders: 'Ordre des albums',
   albumRemoved: 'Cartes écartées',
@@ -200,6 +203,14 @@ async function readRemote(key: SyncedKey, all?: Record<string, unknown>): Promis
 
 /** Écrit la donnée reçue en local ; l'empreinte est notée avant, pour que ce changement ne reparte pas. */
 async function applyRemote(key: SyncedKey, text: string) {
+  if (key === 'goalBundle') {
+    // Jamais de remplacement : fusion avec le paquet local, puis albums relus. L'empreinte suit le résultat.
+    await applyBundle(normalizeBundle(JSON.parse(text)));
+    const s = await loadState();
+    s.hashes[key] = hashOf(JSON.stringify(await readLocal(key)));
+    await saveState({ hashes: s.hashes, lastPullAt: Date.now(), error: null });
+    return;
+  }
   const s = await loadState();
   s.hashes[key] = hashOf(text);
   await saveState({ hashes: s.hashes, lastPullAt: Date.now(), error: null });
@@ -219,7 +230,8 @@ const idOf = (v: unknown) => (isObject(v) && typeof v.id === 'string' ? v.id : J
  * Les deux ordinateurs ont modifié la même donnée depuis le dernier échange : on garde les deux
  * (albums, souhaits… sont des dictionnaires par étiquette). `preferred` l'emporte quand une même entrée diffère.
  */
-function merge(preferred: unknown, other: unknown): unknown {
+function merge(preferred: unknown, other: unknown, key?: SyncedKey): unknown {
+  if (key === 'goalBundle') return mergeBundles(normalizeBundle(preferred), normalizeBundle(other));
   if (isObject(preferred) && isObject(other)) return { ...other, ...preferred };
   if (Array.isArray(preferred) && Array.isArray(other)) {
     const seen = new Set(preferred.map(idOf));
@@ -228,11 +240,30 @@ function merge(preferred: unknown, other: unknown): unknown {
   return preferred ?? other;
 }
 
+/**
+ * Versions ≤ 0.9 : les albums à objectif partaient en entier sous « goalAlbums ». On reprend ceux qui manquent ici,
+ * sans rien écraser (un autre ordinateur peut encore tourner avec une ancienne version).
+ */
+async function adoptLegacyGoals(all: Record<string, unknown>) {
+  const meta = all[META('goalAlbums')] as Meta | undefined;
+  if (!meta?.n) return;
+  const chunks = Array.from({ length: meta.n }, (_, i) => all[PART('goalAlbums', i)]);
+  if (chunks.some((c) => typeof c !== 'string')) return;
+  const parsed: unknown = JSON.parse(await unpack(chunks.join('')));
+  if (!isObject(parsed)) return;
+  const remote = parsed as Record<string, GoalAlbum>;
+  const local = (await goalAlbumsItem.getValue()) ?? {};
+  const missing = Object.entries(remote).filter(([id, g]) => !local[id] && Array.isArray(g?.entries) && g.entries.length > 0);
+  if (missing.length) await goalAlbumsItem.setValue({ ...local, ...Object.fromEntries(missing) });
+}
+
 /** Remet d'accord cet ordinateur et la copie de Chrome, donnée par donnée. */
 async function reconcile() {
   const s = await loadState();
   if (!s.enabled) return;
   const all = await browser.storage.sync.get(null);
+  await adoptLegacyGoals(all).catch((e) => console.warn('[Collection+] anciens albums synchronisés', e));
+  await rebuildBundle();
   for (const key of SYNCED_KEYS) {
     const local = await readLocal(key);
     const localText = JSON.stringify(local);
@@ -257,7 +288,7 @@ async function reconcile() {
     else {
       // Première synchro de cet ordinateur : la copie partagée prime ; ensuite, les changements locaux.
       const remoteValue = JSON.parse(remote.text);
-      const merged = known ? merge(local, remoteValue) : merge(remoteValue, local);
+      const merged = known ? merge(local, remoteValue, key) : merge(remoteValue, local, key);
       const text = JSON.stringify(merged);
       await push(key, merged, text);
       await applyRemote(key, text);
@@ -268,6 +299,12 @@ async function reconcile() {
 /* ---------- Branchement ---------- */
 
 const timers = new Map<SyncedKey, ReturnType<typeof setTimeout>>();
+
+let rebuildTimer: ReturnType<typeof setTimeout> | undefined;
+function scheduleRebuild() {
+  clearTimeout(rebuildTimer);
+  rebuildTimer = setTimeout(() => void serial(rebuildBundle).catch(reportError), 1500);
+}
 
 function schedulePush(key: SyncedKey) {
   clearTimeout(timers.get(key));
@@ -300,6 +337,8 @@ export function startCloudSync() {
   browser.storage.onChanged.addListener((changes, area) => {
     if (area === 'local') {
       for (const key of Object.keys(changes)) if (isSynced(key)) schedulePush(key);
+      // Albums à objectif modifiés ici : le paquet partagé suit (il repartira par schedulePush).
+      if (changes['goalAlbums'] || changes['collectionCache.v2']) scheduleRebuild();
       // Synchro réactivée depuis les paramètres : on rattrape tout.
       const toggled = changes['cloudSync'] as { newValue?: CloudSyncState; oldValue?: CloudSyncState } | undefined;
       if (toggled && Boolean(toggled.newValue?.enabled) !== Boolean(toggled.oldValue?.enabled ?? true)) {

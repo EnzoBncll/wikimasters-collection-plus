@@ -1,4 +1,4 @@
-import { CheckCircle2, Copy, Layers, Loader2, PanelLeft, Search, SearchX, Sparkles } from 'lucide-react';
+import { CheckCircle2, Copy, Layers, Loader2, PanelLeft, Search, SearchX, Sparkles, Star, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -8,6 +8,7 @@ import { useCardViewer } from './card-viewer';
 import { hasActiveFilters, useReview, useVisibleCards, type SortKey } from '@/hooks/use-review';
 import { cn } from '@/lib/utils';
 import { CardGrid, type CardGridHandle } from './card-grid';
+import { DiscardDialog } from './discard-dialog';
 import { DuplicatesDialog } from './duplicates-dialog';
 import { FilterSidebar } from './filter-sidebar';
 import { SelectionBar } from './selection-bar';
@@ -17,13 +18,16 @@ import type { OwnedCard } from '@/lib/types';
 const SORT_LABEL: Record<SortKey, string> = { rarity: 'Rareté', date: 'Date d’obtention', title: 'Titre', count: 'Exemplaires' };
 
 export function ReviewView() {
-  const { ready, cards, newIds, error, setTrade, validateReview, syncing } = useCollection();
+  const { ready, cards, newIds, error, setTrade, validateReview, syncing, discardMarked, legacyNotTradeCards, convertLegacyNotTrade, job } = useCollection();
   const review = useReview();
   const visible = useVisibleCards();
   const gridRef = useRef<CardGridHandle>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [dupsOpen, setDupsOpen] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const discardCount = useMemo(() => discardMarked().length, [cards, discardMarked]); // eslint-disable-line react-hooks/exhaustive-deps
+  const legacyCount = useMemo(() => legacyNotTradeCards().length, [cards, legacyNotTradeCards]); // eslint-disable-line react-hooks/exhaustive-deps
   /** Mode revue ouvert : sur la sélection si elle existe, sinon on choisit le lot en entrant. */
   const [deck, setDeck] = useState<OwnedCard[] | null>(null);
   const openDeck = () => setDeck(review.selected.size ? visible.filter((c) => review.selected.has(c.cardId)) : []);
@@ -81,7 +85,8 @@ export function ReviewView() {
       } else if (e.key === 'Enter') {
         if (visible[state.focus]) useCardViewer.getState().open(visible, state.focus);
       } else if (key === 't') setTrade(targets, 'trade');
-      else if (key === 'n') setTrade(targets, 'not_trade');
+      else if (key === 'f' || key === 'n') setTrade(targets, 'not_trade');
+      else if (key === 'u') setTrade(targets, 'unset');
       else if (key === 'd') setTrade(targets, 'discard');
       else if (key === 'e' && targets.length) {
         if (!state.selected.size && targets[0]) state.set({ selected: new Set([targets[0].cardId]) });
@@ -154,6 +159,20 @@ export function ReviewView() {
             <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums">{dupCount}</span>
           </Button>
 
+          {discardCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 rounded-full"
+              onClick={() => setDiscardOpen(true)}
+              title="Défausser pour de vrai toutes les cartes marquées Discard (en wikibidoux), puis vider l’étiquette"
+            >
+              <Trash2 className="size-3.5 text-discard" />
+              Défausser
+              <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums">{discardCount}</span>
+            </Button>
+          )}
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="h-9 rounded-full">
@@ -183,6 +202,19 @@ export function ReviewView() {
           </div>
         </div>
 
+        {legacyCount > 0 && (
+          <div className="mx-4 mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-not-trade/40 bg-not-trade/10 px-4 py-2.5 text-sm sm:mx-6">
+            <Star className="size-4 shrink-0 fill-not-trade text-not-trade" />
+            <p className="min-w-0 flex-1">
+              « Not Trade » est remplacé par les <b>favoris</b> du site (une favorite n’est plus échangeable).{' '}
+              {legacyCount} carte{legacyCount > 1 ? 's portent' : ' porte'} encore l’ancienne étiquette.
+            </p>
+            <Button size="sm" className="h-8 rounded-full" disabled={Boolean(job)} onClick={() => void convertLegacyNotTrade()}>
+              Passer en favori
+            </Button>
+          </div>
+        )}
+
         <div className="min-h-0 flex-1">
           {!ready || (syncing && !cards.length) ? (
             <EmptyState icon={<Loader2 className="size-6 animate-spin" />} title="Chargement de ta collection…" text="Le premier chargement lit toutes les pages ; les suivants sont instantanés." />
@@ -205,6 +237,7 @@ export function ReviewView() {
         <SelectionBar targets={targets} visible={visible} />
       </div>
       <DuplicatesDialog open={dupsOpen} onClose={() => setDupsOpen(false)} />
+      <DiscardDialog open={discardOpen} tagChanges={0} onClose={() => setDiscardOpen(false)} />
       {deck && <ReviewDeck selection={deck} onClose={() => setDeck(null)} />}
     </div>
   );

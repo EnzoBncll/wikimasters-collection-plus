@@ -74,7 +74,8 @@ export const extensionTransport: Transport = {
     return { status: response.status, text: await response.text() };
   },
   async cookies() {
-    const list = await browser.cookies.getAll({ url: SITE_ORIGIN });
+    // Safari peut refuser l'API cookies : la page relaie alors les requêtes avec sa propre session.
+    const list = (await browser.cookies?.getAll({ url: SITE_ORIGIN }).catch(() => [])) ?? [];
     return new Map(list.map((c) => [c.name, safeDecode(c.value)]));
   },
 };

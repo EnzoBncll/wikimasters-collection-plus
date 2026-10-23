@@ -1,9 +1,13 @@
 import { Switch } from '@/components/ui/switch';
+import { hasNotifications } from '@/lib/platform';
 import type { Settings } from '@/lib/store';
 import { cn } from '@/lib/utils';
 
 type Update = (patch: Partial<Settings>) => void;
 type BoolKey = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
+
+/** Options cachées sans notifications système (Safari). */
+const NOTIFY_KEYS = new Set<keyof Settings>(['notifyFull', 'proReminder']);
 
 interface Row {
   key: BoolKey;
@@ -58,11 +62,12 @@ export const SITE_GROUPS: { title: string; rows: Row[] }[] = [
       {
         key: 'revealPanels',
         title: 'Rangement au révélé',
-        text: 'Statut Trade / Not Trade / Discard sous la carte, recherche d’étiquette et volets de chaque côté : sans ouvrir la carte.',
+        text: 'Statut Trade / Favori / Discard sous la carte, recherche d’étiquette et volets de chaque côté (repliables) : sans ouvrir la carte. Sans albums de rangement, un seul volet.',
         extra: (s, update) => (
           <div className="space-y-1.5">
-            <Sub label="Volet de gauche · Rangement" on={s.revealPanelLeft} onChange={(revealPanelLeft) => update({ revealPanelLeft })} />
-            <Sub label="Volet de droite · Collections" on={s.revealPanelRight} onChange={(revealPanelRight) => update({ revealPanelRight })} />
+            {s.albumKinds && <Sub label="Volet de gauche · Rangement" on={s.revealPanelLeft} onChange={(revealPanelLeft) => update({ revealPanelLeft })} />}
+            <Sub label={s.albumKinds ? 'Volet de droite · Collections' : 'Volet des étiquettes'} on={s.revealPanelRight} onChange={(revealPanelRight) => update({ revealPanelRight })} />
+            <Sub label="Défausser pour de vrai les cartes marquées Discard à la fin du paquet" on={s.revealDiscard} onChange={(revealDiscard) => update({ revealDiscard })} />
             <Sub label="Raccourcis clavier (1–9, ⇧1–9, ← ↓ →, /)" on={s.revealKeys} onChange={(revealKeys) => update({ revealKeys })} />
           </div>
         ),
@@ -72,6 +77,7 @@ export const SITE_GROUPS: { title: string; rows: Row[] }[] = [
   {
     title: 'Paquets et tirages',
     rows: [
+      { key: 'albumsButton', title: 'Bouton Albums', text: 'À droite de Collection+ : tes albums par-dessus le site, sans changer d’onglet.' },
       { key: 'packStats', title: 'Statistiques de tirage', text: 'Bilan du jour, taux de drop, séries sans L / UR / SR / shiny, derniers paquets.' },
       { key: 'tabTitle', title: 'Compteur dans l’onglet', text: '(8/10) devant le titre de l’onglet WikiMasters.' },
       { key: 'iconBadge', title: 'Compteur sur l’icône', text: 'Nombre de paquets estimé sur l’icône de l’extension.' },
@@ -138,7 +144,7 @@ export function SiteSettings({ settings, update, dense, groupClassName }: { sett
         <section key={group.title} className={cn('space-y-2', groupClassName)}>
           <h2 className="px-1 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">{group.title}</h2>
           <div className="divide-y rounded-2xl border bg-card">
-            {group.rows.map((row) => (
+            {group.rows.filter((row) => hasNotifications() || !NOTIFY_KEYS.has(row.key)).map((row) => (
               <div key={row.key} className={cn('space-y-2', dense ? 'px-3 py-2.5' : 'px-5 py-4')}>
                 <label className="flex cursor-pointer items-center justify-between gap-4">
                   <span className="min-w-0">

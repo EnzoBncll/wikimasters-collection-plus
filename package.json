@@ -14,6 +14,8 @@
     "dev": "wxt",
     "build": "wxt build",
     "zip": "wxt zip",
+    "build:safari": "wxt build -b safari --mv3",
+    "safari:xcode": "node dev/safari-xcode.mjs",
     "typecheck": "tsc --noEmit",
     "postinstall": "wxt prepare",
     "preview:mock": "wxt build && node dev/preview.mjs",

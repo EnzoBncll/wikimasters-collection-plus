@@ -1,6 +1,7 @@
 import { geminiJson } from './gemini';
 import { resolveTitles, searchArticles, type GoalEntry } from './goal-albums';
-import { parseQuery, searchEntities, type WdEntity } from './goal-search';
+import { sleep } from './queue';
+import { fallbackCountries, parseQuery, searchEntities, type WdEntity } from './goal-search';
 
 /**
  * « Demande libre » des albums à objectif : une phrase (« le top 50 des personnalités féminines françaises avant 1900 »)
@@ -210,7 +211,7 @@ export const canQuery = (plan: QueryPlan, r: Resolved) => Boolean(r.subject || (
 export async function runPlan(plan: QueryPlan, r: Resolved): Promise<FreeEntry[]> {
   // Ordre des motifs : les plus sélectifs d'abord, sinon Wikidata dépasse son délai.
   const parts: string[] = [];
-  if (r.nationalities.length) parts.push(`VALUES ?nat { ${r.nationalities.map((e) => `wd:${e.qid}`).join(' ')} } ?item wdt:P27 ?nat .`);
+  const nationality = r.nationalities.length ? `VALUES ?nat { ${r.nationalities.map((e) => `wd:${e.qid}`).join(' ')} } ?item wdt:P27 ?nat .` : null;
   if (plan.gender) parts.push(`?item wdt:P21 wd:${plan.gender === 'female' ? 'Q6581072' : 'Q6581097'} .`);
   if (r.places.length) {
     const vals = r.places.map((e) => `wd:${e.qid}`).join(' ');
@@ -236,18 +237,54 @@ export async function runPlan(plan: QueryPlan, r: Resolved): Promise<FreeEntry[]
   const limit = Math.min(1000, Math.max(1, plan.limit ?? 400));
   const order = plan.ranking === 'notoriety' ? 'DESC(?links)' : plan.ranking === 'chronological' ? '?year ?title' : '?title';
   type Row = { item: { value: string }; title: { value: string }; desc?: { value: string }; year?: { value: string }; links?: { value: string } };
-  const query = (minLinks: number) =>
+  const select = (where: string[], minLinks: number, max: number) =>
     sparql<Row>(`SELECT ?item ?title ?desc (MIN(YEAR(?d)) AS ?year) (MAX(?n) AS ?links) WHERE {
-      ${parts.join('\n      ')}
+      ${where.join('\n      ')}
       ?item wikibase:sitelinks ?n .${minLinks ? ` FILTER(?n >= ${minLinks})` : ''}
       ?a schema:about ?item ; schema:isPartOf <https://fr.wikipedia.org/> ; schema:name ?title .
       OPTIONAL { ?item schema:description ?desc . FILTER(LANG(?desc) = "fr") }
-    } GROUP BY ?item ?title ?desc ORDER BY ${order} LIMIT ${limit}`);
+    } GROUP BY ?item ?title ?desc ORDER BY ${order} LIMIT ${max}`);
+  const query = (minLinks: number) => select(nationality ? [nationality, ...parts] : parts, minLinks, limit);
   // « Top N » sur un large ensemble (toutes les Françaises nées avant 1900) : on ne garde d'abord que les articles
   // traduits dans au moins 20 langues, beaucoup plus rapide ; on élargit s'il n'y en a pas assez.
   const broad = !r.subject && plan.people;
   let rows = plan.ranking === 'notoriety' && limit <= 200 && broad ? await query(20) : [];
+  // Personnes sans nationalité sur Wikidata : rattrapées par le pays de naissance ou de la fonction.
+  // Seulement avec un sujet (sans lui, « toutes les personnes sans nationalité » est bien trop large), en trois temps
+  // légers (ids, pays, détails) et en 20 s au plus : sur un sujet immense (les peintres), on s'en passe.
+  const stateless =
+    nationality && plan.people && r.subject
+      ? Promise.race([
+          sparql<{ item: { value: string } }>(`SELECT DISTINCT ?item WHERE {
+      ${parts.join('\n      ')}
+      FILTER NOT EXISTS { ?item wdt:P27 [] }
+      ?a schema:about ?item ; schema:isPartOf <https://fr.wikipedia.org/> .
+    } LIMIT 1500`),
+          sleep(20_000).then(() => []),
+        ]).catch(() => [])
+      : null;
   if (rows.length < limit) rows = await query(broad ? 3 : 0);
+  if (stateless) {
+    const wanted = new Set(r.nationalities.map((e) => e.qid));
+    const seen = new Set(rows.map((row) => row.item.value.split('/').pop()!));
+    const qids = (await stateless).map((row) => row.item.value.split('/').pop()!).filter((qid) => !seen.has(qid));
+    const countries = qids.length ? await fallbackCountries(qids) : new Map<string, Set<string>>();
+    const keep = qids.filter((qid) => [...(countries.get(qid) ?? [])].some((c) => wanted.has(c)));
+    const found: Row[] = [];
+    for (let i = 0; i < keep.length; i += 200) {
+      found.push(...(await select([`VALUES ?item { ${keep.slice(i, i + 200).map((q) => `wd:${q}`).join(' ')} }`, ...parts], 0, limit).catch(() => [])));
+    }
+    if (found.length) {
+      const num = (v?: { value: string }) => (v ? Number(v.value) : null);
+      const byOrder = (a: Row, b: Row) =>
+        plan.ranking === 'notoriety'
+          ? (num(b.links) ?? 0) - (num(a.links) ?? 0)
+          : plan.ranking === 'chronological'
+            ? (num(a.year) ?? Infinity) - (num(b.year) ?? Infinity) || a.title.value.localeCompare(b.title.value, 'fr')
+            : a.title.value.localeCompare(b.title.value, 'fr');
+      rows = [...rows, ...found].sort(byOrder).slice(0, limit);
+    }
+  }
   return rows.map((row, i) => ({
     title: row.title.value,
     qid: row.item.value.split('/').pop()!,

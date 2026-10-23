@@ -1,4 +1,4 @@
-import { Bot, ChevronDown, CloudCheck, RefreshCw, ClipboardCopy, Download, FileSpreadsheet, FileText, FolderCog, Globe, Loader2, Monitor, Moon, Palette, Sun, Trash2, Zap } from 'lucide-react';
+import { Bot, ChevronDown, ClipboardPaste, CloudCheck, Copy, RefreshCw, ClipboardCopy, Download, FileSpreadsheet, FileText, FolderCog, Globe, Loader2, Monitor, Moon, Palette, Sun, Trash2, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,11 @@ import { useVisibleCards } from '@/hooks/use-review';
 import { useSuggestions } from '@/hooks/use-suggestions';
 import { CLOUD_SYNC_NOW, cloudSyncItem, SYNCED_LABELS, type CloudSyncState } from '@/lib/cloud-sync';
 import { downloadText, toCsv, toTsv } from '@/lib/csv';
+import { driveSyncItem, isDriveAvailable } from '@/lib/drive-sync';
+import { syncGoalRemotes } from '@/lib/goal-remotes';
+import { exportTransferCode, importTransferCode } from '@/lib/goal-sync';
+import { ALL_THEME_NAMES } from '@/lib/themes';
+import { clearSiteVault, siteVaultItem } from '@/lib/site-vault';
 import { testGeminiKey } from '@/lib/gemini';
 import { EXPORT_SHEETS, type SheetExport } from '@/lib/sheets';
 import { PALETTES, holoGradient, type PaletteId } from '@/lib/palettes';
@@ -22,6 +27,7 @@ import { BrandIcon } from './brand-icon';
 import { CARD_TAG_STYLES } from './card-tags';
 import { SiteSettings } from './site-settings';
 import { ago } from './sync-status';
+import { IS_SAFARI } from '@/lib/platform';
 import { resetSiteTour } from '@/lib/tour';
 import { useOnboarding } from './onboarding';
 import { WmCard } from './wm-card';
@@ -521,16 +527,57 @@ function GeminiKeyRow() {
   );
 }
 
+/** Tri automatique par thème : un album de rangement « · Thème » par carte (lib/themes.ts). */
+function ThemeSortRow() {
+  const settings = useCollection((s) => s.settings);
+  const updateSettings = useCollection((s) => s.updateSettings);
+  const sortByTheme = useCollection((s) => s.sortByTheme);
+  const [busy, setBusy] = useState(false);
+  const run = async () => {
+    setBusy(true);
+    try {
+      const n = await sortByTheme();
+      toast(n ? `${n} carte(s) rangée(s) par thème : vérifie et envoie depuis la boîte d’envoi` : 'Toutes tes cartes ont déjà un thème', 'success');
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const toggle = async (themeSort: boolean) => {
+    // Les thèmes sont des albums de rangement : on active la distinction collection / rangement avec.
+    await updateSettings(themeSort ? { themeSort, albumKinds: true } : { themeSort });
+    if (themeSort) await run();
+  };
+  return (
+    <>
+      <SettingRow
+        title="Tri automatique par thème"
+        text={`Chaque carte sans thème est rangée dans un album de rangement : ${ALL_THEME_NAMES.join(', ')}. Classement d’après Wikidata et la description, sans IA. Une carte déjà rangée (ou corrigée à la main) ne bouge plus ; tout passe par la boîte d’envoi.`}
+      >
+        <Switch checked={settings.themeSort} onCheckedChange={toggle} disabled={busy} />
+      </SettingRow>
+      {settings.themeSort && (
+        <div className="flex justify-end px-5 pb-4">
+          <Button variant="outline" size="sm" onClick={run} disabled={busy}>
+            {busy ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Trier maintenant
+          </Button>
+        </div>
+      )}
+    </>
+  );
+}
+
 function OrganizeSection() {
   const settings = useCollection((s) => s.settings);
   const updateSettings = useCollection((s) => s.updateSettings);
   return (
     <div className="space-y-8">
       <Group title="Statut d'échange">
-        <SettingRow title="Tout Trade par défaut" text="Une carte sans étiquette Trade ni Not Trade est considérée comme Trade.">
+        <SettingRow title="Tout Trade par défaut" text="Une carte neutre (ni Trade, ni Favori, ni Discard) est considérée comme Trade.">
           <Switch checked={settings.defaultTrade} onCheckedChange={(defaultTrade) => updateSettings({ defaultTrade })} />
         </SettingRow>
-        <SettingRow title="Pastilles sur le site" text="Affiche Trade / Not Trade sur les cartes de WikiMasters.">
+        <SettingRow title="Pastilles sur le site" text="Affiche Trade / Favori / Discard sur les cartes de WikiMasters.">
           <Switch checked={settings.showBadges} onCheckedChange={(showBadges) => updateSettings({ showBadges })} />
         </SettingRow>
       </Group>
@@ -542,6 +589,7 @@ function OrganizeSection() {
         >
           <Switch checked={settings.albumKinds} onCheckedChange={(albumKinds) => updateSettings({ albumKinds })} />
         </SettingRow>
+        <ThemeSortRow />
       </Group>
 
       <Group title="Règles automatiques">
@@ -622,7 +670,108 @@ function CloudSyncGroup() {
           </Button>
         </div>
       )}
+      <GoalCopies />
     </Group>
+  );
+}
+
+/**
+ * Albums à objectif hors de la synchro de Chrome : coffre dans le compte WikiMasters, Google Drive, code de transfert.
+ * Leur liste de cases n'existe que dans l'extension : sans copie, un autre ordinateur ne voit que l'étiquette.
+ */
+function GoalCopies() {
+  const settings = useCollection((s) => s.settings);
+  const updateSettings = useCollection((s) => s.updateSettings);
+  const [vault, setVault] = useState<{ lastAt: number | null; error: string | null; tags: number } | null>(null);
+  const [drive, setDrive] = useState<{ enabled: boolean; lastAt: number | null; error: string | null } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  useEffect(() => {
+    void siteVaultItem.getValue().then(setVault);
+    void driveSyncItem.getValue().then(setDrive);
+    const a = siteVaultItem.watch(setVault);
+    const b = driveSyncItem.watch(setDrive);
+    return () => (a(), b());
+  }, []);
+
+  const run = async (key: string, fn: () => Promise<unknown>) => {
+    setBusy(key);
+    try {
+      await fn();
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    } finally {
+      setBusy(null);
+    }
+  };
+  const exchange = () =>
+    run('sync', async () => {
+      const n = await syncGoalRemotes({ interactive: true });
+      toast(n ? `${n} album(s) reçu(s)` : 'Albums à jour', 'success');
+    });
+  const toggleVault = (on: boolean) =>
+    run('vault', async () => {
+      await updateSettings({ siteVault: on });
+      if (on) await syncGoalRemotes();
+      else if (window.confirm('Retirer aussi la copie déjà rangée dans ton compte WikiMasters ?')) await clearSiteVault();
+    });
+  const toggleDrive = (on: boolean) =>
+    run('drive', async () => {
+      await driveSyncItem.setValue({ ...(await driveSyncItem.getValue()), enabled: on });
+      if (on) await syncGoalRemotes({ interactive: true });
+    });
+  const copyCode = () =>
+    run('export', async () => {
+      const { code, count } = await exportTransferCode();
+      await navigator.clipboard.writeText(code);
+      toast(`Code de transfert copié : ${count} album(s), ${code.length} caractères`, 'success');
+    });
+  const pasteCode = () =>
+    run('import', async () => {
+      const code = (window.prompt('Colle le code de transfert (CPT1-…) venu de l’autre ordinateur :') ?? '').trim();
+      if (!code) return;
+      const n = await importTransferCode(code);
+      toast(n ? `${n} album(s) reçu(s)` : 'Tout était déjà là', 'success');
+    });
+
+  return (
+    <>
+      <SettingRow
+        title="Copie des albums à objectif sur WikiMasters"
+        text="La liste des cases de tes albums à objectif est rangée dans ton compte WikiMasters, pour tout ordinateur où tu te connectes, même sans la synchro de Chrome. Elle prend la forme d’étiquettes « ⚙ Collection+ » sans carte, cachées dans Collection+ mais visibles dans la liste d’étiquettes du site."
+      >
+        <Switch checked={settings.siteVault} onCheckedChange={toggleVault} disabled={busy === 'vault'} />
+      </SettingRow>
+      {settings.siteVault && (vault?.lastAt || vault?.error) && (
+        <p className={cn('px-5 pb-3 text-xs', vault?.error ? 'text-destructive' : 'text-muted-foreground')}>
+          {vault?.error ?? `Dernier échange ${ago(vault!.lastAt!)} · ${vault!.tags} étiquette(s) « ⚙ Collection+ »`}
+        </p>
+      )}
+      {isDriveAvailable() && (
+        <>
+          <SettingRow title="Copie dans Google Drive" text="Un fichier caché (dossier réservé à l’extension, invisible dans Drive) suit ton compte Google sur tous tes ordinateurs.">
+            <Switch checked={drive?.enabled ?? false} onCheckedChange={toggleDrive} disabled={busy === 'drive'} />
+          </SettingRow>
+          {drive?.enabled && (drive.lastAt || drive.error) && (
+            <p className={cn('px-5 pb-3 text-xs', drive.error ? 'text-destructive' : 'text-muted-foreground')}>{drive.error ?? `Dernier échange ${ago(drive.lastAt!)}`}</p>
+          )}
+        </>
+      )}
+      <SettingRow title="Transfert manuel" text="Tous tes albums à objectif en un code (CPT1-…) à coller sur l’autre ordinateur. Sans compte, sans réseau entre les deux.">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={copyCode} disabled={Boolean(busy)}>
+            {busy === 'export' ? <Loader2 className="size-4 animate-spin" /> : <Copy className="size-4" />} Copier le code
+          </Button>
+          <Button variant="outline" size="sm" onClick={pasteCode} disabled={Boolean(busy)}>
+            {busy === 'import' ? <Loader2 className="size-4 animate-spin" /> : <ClipboardPaste className="size-4" />} Coller
+          </Button>
+          {(settings.siteVault || drive?.enabled) && (
+            <Button variant="outline" size="sm" onClick={exchange} disabled={Boolean(busy)}>
+              {busy === 'sync' ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Échanger maintenant
+            </Button>
+          )}
+        </div>
+      </SettingRow>
+    </>
   );
 }
 
@@ -676,6 +825,7 @@ function ExportSection() {
           />
         </div>
         <div className="grid gap-4 md:grid-cols-3">
+          {!IS_SAFARI && (
           <Card icon={<FileSpreadsheet className="size-5" />} title="Google Sheets" text="Classeur mis en forme (Collection, À échanger, Stats), mis à jour au même lien à chaque export.">
             <Button onClick={exportSheets} disabled={exporting || !rows.length}>
               {exporting ? <Loader2 className="size-4 animate-spin" /> : <FileSpreadsheet className="size-4" />}
@@ -686,6 +836,7 @@ function ExportSection() {
               Miniatures
             </label>
           </Card>
+          )}
           <Card icon={<FileText className="size-5" />} title="Fichier CSV" text="Pour Excel, Numbers ou un import manuel.">
             <Button
               variant="outline"

@@ -407,7 +407,8 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
         image: emblemCard ? cardImage(emblemCard) : undefined,
       };
       if (!goal) {
-        return { ...base, total: tagCards.length, have: tagCards.length, toStick: 0, at: 0, done: true, parts: [] };
+        // Liste pas (encore) reçue d'un autre ordinateur : surtout pas « fini ».
+        return { ...base, total: 0, have: tagCards.length, toStick: 0, at: 0, done: kindOf(tag) === 'finished', missing: true, parts: [] };
       }
       const match = matchEntries(goal.entries, cards, facts);
       const stuck = (i: number) => match.get(i)?.tagIds.includes(tag.id) ?? false;
