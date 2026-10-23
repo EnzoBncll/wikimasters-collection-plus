@@ -2,9 +2,9 @@
 
 Tout ce qu'il faut coller dans le Developer Dashboard (https://chrome.google.com/webstore/devconsole).
 
-## Package — version 0.9.2
+## Package — version 0.10.0
 
-Zip à envoyer au Store : `store/wikimasters-collection-plus-0.9.2-chrome.zip`, à construire une fois la version passée à 0.9.2
+Zip à envoyer au Store : `store/wikimasters-collection-plus-0.10.0-chrome.zip`, à construire une fois la version passée à 0.10.0
 (`npm version patch`, puis `WXT_STORE=1 pnpm zip` et copie du zip de `.output/` dans `store/`). Manifest sans champ `key`,
 permissions : storage, unlimitedStorage, cookies, alarms, notifications.
 
@@ -229,10 +229,10 @@ Puis cocher les trois certifications :
 ## Checklist avant de cliquer sur « Submit for review »
 
 - [ ] Compte développeur Chrome Web Store (le compte pro) bien sélectionné comme propriétaire de l'item
-- [ ] Upload du zip `store/wikimasters-collection-plus-0.9.2-chrome.zip` (Package → Upload new package)
+- [ ] Upload du zip `store/wikimasters-collection-plus-0.10.0-chrome.zip` (Package → Upload new package)
 - [ ] Anciennes captures supprimées, puis les 5 nouvelles uploadées dans l'ordre (`01-ouverture.png` en premier)
 - [ ] Tuile promo 440×280 et marquee 1400×560 remplacées par les nouvelles
 - [ ] Description courte + détaillée remplacées
 - [ ] Privacy practices : justification de **storage** mise à jour (chrome.storage.sync), **alarms** et **notifications** ajoutées
 - [ ] Data usage inchangé (Authentication information : oui ; Website content : oui ; le reste : non)
-- [ ] Version du manifest : 0.9.2
+- [ ] Version du manifest : 0.10.0
