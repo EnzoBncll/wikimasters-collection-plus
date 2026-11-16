@@ -17,6 +17,7 @@ const barButton =
 /** Barre d'actions flottante, visible dès qu'une carte est sélectionnée ou qu'un étiquetage tourne. */
 export function SelectionBar({ targets, visible }: { targets: OwnedCard[]; visible: OwnedCard[] }) {
   const { setTrade, job } = useCollection();
+  const statusOn = useCollection((s) => !s.tradeTags?.off);
   const { selected, set, tagPickerOpen } = useReview();
   const setTagsOpen = (tagPickerOpen: boolean) => set({ tagPickerOpen });
   const show = selected.size > 0 || Boolean(job);
@@ -53,15 +54,19 @@ export function SelectionBar({ targets, visible }: { targets: OwnedCard[]; visib
                   <span className="hidden sm:inline">sélectionnée{selected.size > 1 ? 's' : ''}</span>
                 </button>
                 <span className="mx-1 h-5 w-px bg-frame-active" />
-                <button type="button" className={barButton} onClick={() => setTrade(targets, 'trade')}>
-                  <span className="size-2 rounded-full bg-trade" /> Trade <Kbd>T</Kbd>
-                </button>
+                {statusOn && (
+                  <button type="button" className={barButton} onClick={() => setTrade(targets, 'trade')}>
+                    <span className="size-2 rounded-full bg-trade" /> Trade <Kbd>T</Kbd>
+                  </button>
+                )}
                 <button type="button" className={barButton} onClick={() => setTrade(targets, 'not_trade')}>
                   <span className="size-2 rounded-full bg-not-trade" /> Favori <Kbd>F</Kbd>
                 </button>
-                <button type="button" className={barButton} onClick={() => setTrade(targets, 'discard')} title="Défausser (D)">
-                  <Trash2 className="size-4 text-discard" /> Discard <Kbd>D</Kbd>
-                </button>
+                {statusOn && (
+                  <button type="button" className={barButton} onClick={() => setTrade(targets, 'discard')} title="Défausser (D)">
+                    <Trash2 className="size-4 text-discard" /> Discard <Kbd>D</Kbd>
+                  </button>
+                )}
                 <button type="button" className={barButton} onClick={() => setTrade(targets, 'unset')} title="Retirer le statut (U)">
                   <span className="size-2 rounded-full border border-dashed border-current" /> Neutre <Kbd>U</Kbd>
                 </button>

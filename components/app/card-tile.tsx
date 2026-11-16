@@ -1,6 +1,7 @@
 import { ArrowLeftRight, Maximize2 } from 'lucide-react';
 import { memo } from 'react';
 import { describeAcquisition, fullDate, latestAcquisition } from '@/lib/acquisitions';
+import { useCollection } from '@/hooks/use-collection';
 import { RARITY_LABEL, type OwnedCard, type TradeStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { TRADE_LABEL, TradeCart, tradeDotClass } from './trade-cart';
@@ -83,7 +84,7 @@ export const CardTile = memo(function CardTile({
                 e.stopPropagation();
                 onToggleStatus(index);
               }}
-              title={`${TRADE_LABEL[status]}${pending ? ' · pas encore envoyé' : ''} — cliquer pour passer en ${status === 'trade' ? 'Favori' : status === 'not_trade' ? 'Discard' : status === 'discard' ? 'Neutre' : 'Trade'}`}
+              title={`${TRADE_LABEL[status]}${pending ? ' · pas encore envoyé' : ''} — cliquer pour passer en ${useCollection.getState().tradeTags?.off ? (status === 'not_trade' ? 'Neutre' : 'Favori') : status === 'trade' ? 'Favori' : status === 'not_trade' ? 'Discard' : status === 'discard' ? 'Neutre' : 'Trade'}`}
               aria-label={`Statut : ${TRADE_LABEL[status]}`}
               className={cn(
                 'absolute top-[4cqw] right-[4cqw] z-10 flex size-[13cqw] cursor-pointer items-center justify-center rounded-full transition duration-150 hover:scale-115 active:scale-95',

@@ -21,7 +21,7 @@ import { applyTagChanges, type TagChange } from '@/lib/tagging';
 import { syncGoalRemotes, watchGoalRemotes } from '@/lib/goal-remotes';
 import { planThemes, THEME_COLOR, themeTagName, themeTags } from '@/lib/themes';
 import { enrichCards, factsItem, labelsItem } from '@/lib/wikidata';
-import { clearStatusChanges, explicitStatus, FAVORITE_TAG, newCardIds, tradeStatus, type TradeTags, statusChanges, systemTagIds, type StatusTarget } from '@/lib/trade';
+import { clearStatusChanges, explicitStatus, FAVORITE_TAG, findStatusSiteTags, newCardIds, tradeStatus, type TradeTags, statusChanges, systemTagIds, type StatusTarget } from '@/lib/trade';
 import { DEFAULT_SETTINGS } from '@/lib/store';
 import type { OwnedCard, SiteTag, TradeStatus } from '@/lib/types';
 import { sleep } from '@/lib/queue';
@@ -84,6 +84,10 @@ interface CollectionState {
   /** Met un renommage / changement de couleur en attente d'envoi (renvoie false si le nom est déjà pris). */
   updateTag(tagId: string, patch: { name?: string; color?: string }): Promise<boolean>;
   deleteTag(tagId: string): Promise<void>;
+  /** Étiquettes Trade / Discard encore sur le site alors qu'on s'en passe (réglage statusTags coupé). */
+  leftoverStatusTags(): SiteTag[];
+  /** Supprime ces étiquettes du site (et donc leurs poses). Renvoie le nombre d'étiquettes supprimées. */
+  removeStatusTags(): Promise<number>;
   validateReview(): Promise<void>;
   updateSettings(patch: Partial<Settings>): Promise<void>;
   /** Cartes marquées Discard (sur le site ou en attente) : candidates à la vraie défausse. */
@@ -242,8 +246,10 @@ export const useCollection = create<CollectionState>((set, get) => {
     },
 
     cycleTrade(card) {
-      // Neutre → Trade → Favori → Discard → Neutre.
-      const next: Record<string, StatusTarget | 'unset'> = { unset: 'trade', trade: 'not_trade', not_trade: 'discard', discard: 'unset' };
+      // Neutre → Trade → Favori → Discard → Neutre ; sans étiquettes de statut : Neutre ↔ Favori.
+      const next: Record<string, StatusTarget | 'unset'> = get().tradeTags?.off
+        ? { unset: 'not_trade', not_trade: 'unset', trade: 'unset', discard: 'unset' }
+        : { unset: 'trade', trade: 'not_trade', not_trade: 'discard', discard: 'unset' };
       get().setTrade([card], next[get().explicitOf(card)]!);
     },
 
@@ -391,6 +397,42 @@ export const useCollection = create<CollectionState>((set, get) => {
       }
     },
 
+    leftoverStatusTags() {
+      const { tradeTags, remoteTags, settings } = get();
+      return tradeTags?.off ? findStatusSiteTags(remoteTags, settings) : [];
+    },
+
+    async removeStatusTags() {
+      const leftovers = get().leftoverStatusTags();
+      if (!leftovers.length || get().job) return 0;
+      const label = 'Suppression des étiquettes Trade / Discard';
+      set({ job: { done: 0, total: leftovers.length, failed: 0, label } });
+      let done = 0;
+      let failed = 0;
+      for (const tag of leftovers) {
+        try {
+          await api.delete(tag.id);
+          for (const card of get().remote) {
+            if (!card.tagIds.includes(tag.id)) continue;
+            for (const ownedId of card.ownedIds) card.ownedTags[ownedId] = (card.ownedTags[ownedId] ?? []).filter((t) => t !== tag.id);
+            card.tagIds = card.tagIds.filter((t) => t !== tag.id);
+          }
+          setRemoteTags(get().remoteTags.filter((t) => t.id !== tag.id));
+        } catch (error) {
+          failed++;
+          console.error('[Collection+]', error);
+        }
+        set({ job: { done: ++done, total: leftovers.length, failed, label } });
+        await sleep(350);
+      }
+      set({ remote: [...get().remote], job: null });
+      setPending(prunePending(get().pending, remoteById(), new Set([...get().remoteTags.map((t) => t.id), FAVORITE_TAG.id])));
+      await persist();
+      if (failed) toast(`${failed} étiquette(s) n'ont pas pu être supprimées`, 'error');
+      else toast('Étiquettes Trade et Discard supprimées de WikiMasters', 'success');
+      return leftovers.length - failed;
+    },
+
     async validateReview() {
       const snapshot = Object.fromEntries(get().remote.map((c) => [c.cardId, c.count]));
       const now = Date.now();
@@ -450,9 +492,12 @@ export const useCollection = create<CollectionState>((set, get) => {
     },
 
     async updateSettings(patch) {
-      const settings = { ...get().settings, ...patch };
+      const before = get().settings;
+      const settings = { ...before, ...patch };
       set({ settings });
       await settingsItem.setValue(settings);
+      // Étiquettes de statut activées / coupées : la synchro (re)crée Trade et Discard, ou s'en passe.
+      if (patch.statusTags !== undefined && patch.statusTags !== before.statusTags) await get().sync();
     },
   };
 });

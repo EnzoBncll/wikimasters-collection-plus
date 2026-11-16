@@ -67,7 +67,9 @@ export const SITE_GROUPS: { title: string; rows: Row[] }[] = [
           <div className="space-y-1.5">
             {s.albumKinds && <Sub label="Volet de gauche · Rangement" on={s.revealPanelLeft} onChange={(revealPanelLeft) => update({ revealPanelLeft })} />}
             <Sub label={s.albumKinds ? 'Volet de droite · Collections' : 'Volet des étiquettes'} on={s.revealPanelRight} onChange={(revealPanelRight) => update({ revealPanelRight })} />
-            <Sub label="Défausser pour de vrai les cartes marquées Discard à la fin du paquet" on={s.revealDiscard} onChange={(revealDiscard) => update({ revealDiscard })} />
+            {s.statusTags !== false && (
+              <Sub label="Défausser pour de vrai les cartes marquées Discard à la fin du paquet" on={s.revealDiscard} onChange={(revealDiscard) => update({ revealDiscard })} />
+            )}
             <Sub label="Raccourcis clavier (1–9, ⇧1–9, ← ↓ →, /)" on={s.revealKeys} onChange={(revealKeys) => update({ revealKeys })} />
           </div>
         ),

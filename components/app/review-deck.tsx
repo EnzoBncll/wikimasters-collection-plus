@@ -75,6 +75,8 @@ const freshStats = (): Stats => ({ seen: new Set(), tags: 0, statuses: { trade: 
 
 export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onClose: () => void }) {
   const { cards, tags, tradeTags, newIds, explicitOf, setTrade, stageTags, createTag } = useCollection();
+  // Sans étiquettes Trade / Discard (réglage) : seuls Favori et Neutre restent.
+  const statuses = tradeTags?.off ? STATUSES.filter((s) => s.id === 'not_trade' || s.id === 'unset') : STATUSES;
   const fullStage = useCollection((s) => s.settings.reviewFullStage ?? false);
   const updateSettings = useCollection((s) => s.updateSettings);
   const split = useCollection((s) => s.settings.albumKinds);
@@ -165,7 +167,7 @@ export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onC
     }
   };
   const setStatus = (target: StatusTarget | 'unset') => {
-    if (!card) return;
+    if (!card || !statuses.some((s) => s.id === target)) return;
     setTrade([card], target);
     setStats((s) => ({ ...s, statuses: { ...s.statuses, [target]: s.statuses[target] + 1 } }));
     go(1);
@@ -392,7 +394,7 @@ export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onC
             </div>
             {/* Statut en arc sous la carte : le choisir passe à la suivante. */}
             <div className="flex items-end gap-2">
-              {STATUSES.map((s, i) => {
+              {statuses.map((s, i) => {
                 const Icon = s.icon;
                 return (
                   <button
@@ -401,7 +403,7 @@ export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onC
                     onClick={() => setStatus(s.id)}
                     className={cn(
                       'flex h-10 cursor-pointer items-center gap-2 rounded-full bg-white/10 px-4 text-sm font-medium transition hover:bg-white/20',
-                      i === 1 && 'translate-y-2',
+                      i === 1 && statuses.length > 2 && 'translate-y-2',
                       status === s.id && 'bg-white text-zinc-900',
                     )}
                   >
@@ -468,7 +470,9 @@ export function ReviewDeck({ selection, onClose }: { selection: OwnedCard[]; onC
             ))}
           </div>
           <p className="text-xs text-white/50">
-            Trade {stats.statuses.trade} · Favori {stats.statuses.not_trade} · Discard {stats.statuses.discard} · Neutre {stats.statuses.unset}
+            {tradeTags?.off
+              ? `Favori ${stats.statuses.not_trade} · Neutre ${stats.statuses.unset}`
+              : `Trade ${stats.statuses.trade} · Favori ${stats.statuses.not_trade} · Discard ${stats.statuses.discard} · Neutre ${stats.statuses.unset}`}
           </p>
           {nextLots.length > 0 && (
             <div className="space-y-2">

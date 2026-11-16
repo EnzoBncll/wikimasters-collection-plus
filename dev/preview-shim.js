@@ -12,6 +12,8 @@
       ...(params.get('shelf') ? { shelfStyle: params.get('shelf') } : {}),
     };
   }
+  // ?statusTags=off : étiquettes Trade / Discard désactivées au départ (le reste des réglages par défaut).
+  if (params.get('statusTags') === 'off') store.settings = { ...(store.settings || {}), statusTags: false };
   // Compteur de paquets du popup : 6 / 10, le prochain dans un peu plus de 4 min.
   if (location.pathname.endsWith('popup.html')) store.packState = { n: 6, max: 10, nextAt: Date.now() + 252000, period: 600000, observedAt: Date.now() };
   // ?demo=viewer : ouvre la première carte de l'album en grand ; ?demo=wishes : ajoute trois souhaits et descend au panneau.
@@ -221,6 +223,7 @@
         return json(entries.filter((e) => ids.includes(e.id)).map(({ id, count, is_shiny, starred, obtained_at }) => ({ id, count, is_shiny, starred, obtained_at })));
       }
       if (path === 'tags' && method === 'POST') { const b = JSON.parse(init.body); const t = { id: 't-' + Date.now(), ...b }; tags.push(t); return json([t], 201); }
+      if (path === 'tags' && method === 'DELETE') { const id = url.searchParams.get('id').slice(3); const i = tags.findIndex((t) => t.id === id); if (i >= 0) tags.splice(i, 1); for (let j = uct.length - 1; j >= 0; j--) if (uct[j][1] === id) uct.splice(j, 1); return new Response(null, { status: 204 }); }
       if (path === 'tags' && method === 'PATCH') { const id = url.searchParams.get('id').slice(3); const tag = tags.find((t) => t.id === id); if (tag) Object.assign(tag, JSON.parse(init.body)); return json(tag ? [tag] : []); }
       if (path === 'user_card_tags' && method === 'GET') { const rows = uct.map(([user_card_id, tag_id]) => ({ user_card_id, tag_id })); const from = Number((init.headers?.range || '0-999').split('-')[0]); return json(rows.slice(from, from + 1000)); }
       if (path === 'user_card_tags' && method === 'POST') { [].concat(JSON.parse(init.body)).forEach((r) => uct.push([r.user_card_id, r.tag_id])); return new Response(null, { status: 201 }); }

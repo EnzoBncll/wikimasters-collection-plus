@@ -7,7 +7,7 @@ import { siteTagsApi } from '@/lib/siteTags';
 import { settingsItem } from '@/lib/store';
 import { currentUserId, rest } from '@/lib/supabase';
 import { randomTagColor } from '@/lib/tag-colors';
-import { FAVORITE_TAG, type TradeTags } from '@/lib/trade';
+import { FAVORITE_TAG, offTradeTags, statusTags, type TradeTags } from '@/lib/trade';
 import type { SiteTag } from '@/lib/types';
 import { ctx, DISPLAY_FONT, esc, onSettings, PANEL_CSS, siteModalOpen, themedHost, typing } from './ctx';
 import { reveal } from './reveal';
@@ -337,7 +337,8 @@ export function startPanels(): PanelsApi {
               const find = (name: string) => list.find((t) => t.name.trim().toLowerCase() === name.trim().toLowerCase());
               const trade = find(ctx.settings.tradeTagName);
               const legacyNotTrade = find(ctx.settings.notTradeTagName) ?? find('Not Trade');
-              if (trade) tradeTags = { trade, notTrade: FAVORITE_TAG, discard: find(ctx.settings.discardTagName), legacyNotTrade };
+              if (ctx.settings.statusTags === false) tradeTags = offTradeTags(legacyNotTrade);
+              else if (trade) tradeTags = { trade, notTrade: FAVORITE_TAG, discard: find(ctx.settings.discardTagName), legacyNotTrade };
             }),
           );
         }
@@ -383,7 +384,8 @@ export function startPanels(): PanelsApi {
     const copy = currentCopy();
     const tt = tradeTags;
     if (!copy || !tt) return;
-    const all: Record<Status | 'legacy', SiteTag | undefined> = { trade: tt.trade, notTrade: tt.notTrade, discard: tt.discard, legacy: undefined };
+    const st = statusTags(tt);
+    const all: Record<Status | 'legacy', SiteTag | undefined> = { trade: st.trade, notTrade: st.not_trade, discard: st.discard, legacy: undefined };
     const tag = all[target];
     if (!tag) return;
     const before = new Set(copy.tagIds);
@@ -502,7 +504,8 @@ export function startPanels(): PanelsApi {
     const tt = tradeTags;
     arc.root.querySelectorAll<SVGGElement>('.seg').forEach((g) => {
       const key = g.dataset.st as Status;
-      const tag = tt ? { trade: tt.trade, notTrade: tt.notTrade, discard: tt.discard }[key] : undefined;
+      const st = tt && statusTags(tt);
+      const tag = st ? { trade: st.trade, notTrade: st.not_trade, discard: st.discard }[key] : undefined;
       const legacy = key === 'notTrade' && tt?.legacyNotTrade && copy?.tagIds.has(tt.legacyNotTrade.id);
       g.classList.toggle('on', Boolean(copy && ((tag && copy.tagIds.has(tag.id)) || legacy)));
       g.style.display = tag || !tt ? '' : 'none';

@@ -5,7 +5,10 @@ import {
   bestDay,
   byDay,
   freshTrend,
+  HIGH_RARITIES,
   inPeriod,
+  isPackPlus,
+  luckOf,
   PACK_PLUS_RATES,
   packScore,
   packsPer,
@@ -15,6 +18,7 @@ import {
   type StatsPeriod,
   type Summary,
 } from '@/lib/pull-stats';
+import type { Rarity } from '@/lib/types';
 import { ctx, esc, onSettings, PANEL_CSS, themedHost } from './ctx';
 
 /**
@@ -72,6 +76,11 @@ const CSS = `${PANEL_CSS}
   .up { color: oklch(0.72 0.17 150); } .down { color: oklch(0.68 0.2 25); } .eq { color: var(--muted-foreground); }
   .nb { text-align: right; color: var(--muted-foreground); font-variant-numeric: tabular-nums; }
   .note { font-size: 10px; color: var(--muted-foreground); margin-top: 4px; }
+  .dl .sig { font-weight: 800; }
+  .sub { display: flex; justify-content: space-between; font-size: 10.5px; font-weight: 600; margin: 8px 0 4px; }
+  .sub span { font-weight: 400; color: var(--muted-foreground); }
+  .luck { font-size: 11px; margin-top: 6px; line-height: 1.4; }
+  .luck > span { font-weight: 700; }
 
   .kv { display: flex; flex-direction: column; gap: 5px; font-size: 12px; }
   .kv div { display: flex; align-items: center; gap: 6px; }
@@ -205,7 +214,6 @@ export function startPackStats() {
 function view(pulls: PullRecord[], goals: Record<string, GoalAlbum>, ui: Ui): string {
   const list = inPeriod(pulls, ui.period);
   const s = summarize(list);
-  const all = summarize(pulls);
   const tabs = (['today', 'week', 'all'] as StatsPeriod[])
     .map((p) => `<button data-act="period" data-p="${p}" class="${ui.period === p ? 'on' : ''}">${PERIOD_LABEL[p]}</button>`)
     .join('');
@@ -217,7 +225,7 @@ function view(pulls: PullRecord[], goals: Record<string, GoalAlbum>, ui: Ui): st
   if (!pulls.length) return `${head}<div class="body"><div class="empty">Ouvre un paquet pour commencer à suivre tes tirages.</div></div>`;
   if (!list.length) return `${head}<div class="body">${tiles(s)}<div class="empty">Aucun paquet ${ui.period === 'today' ? "aujourd'hui" : 'ces 7 derniers jours'} : choisis « Tout » pour l'historique complet.</div></div>`;
 
-  const colA = `${best(list)}${rates(list, s, all, ui.period)}${forecast(pulls)}`;
+  const colA = `${best(list)}${rates(list, pulls, ui.period)}${forecast(pulls)}`;
   const colB = `${records(pulls)}${goalCards(list, goals)}${freshness(pulls, s)}`;
   return `${head}<div class="body">${tiles(s)}
     <div class="cols"><div class="col a">${colA}</div><div class="col b">${colB}</div>
@@ -255,31 +263,80 @@ function best(list: PullRecord[]): string {
     <div class="mix">${mix}</div>`;
 }
 
-/**
- * Taux de drop de la période. Repère et écart : les taux annoncés quand la période n'a que des Pack ++,
- * sinon ta moyenne sur tout l'historique (les paquets standards n'ont pas de taux publics).
- */
-function rates(list: PullRecord[], s: Summary, all: Summary, period: StatsPeriod): string {
-  const onlyPlus = list.every((p) => p.src === 'pro-daily');
-  const ref = (r: (typeof RARITIES)[number]) => (onlyPlus ? PACK_PLUS_RATES[r] : period !== 'all' && all.cards ? all.counts[r] / all.cards : null);
-  const shares = RARITIES.map((r) => s.counts[r] / (s.cards || 1));
+/** Une ligne « chanceux ou pas » sur les SR, UR et L réunies, face au repère. */
+function luckLine(sum: Summary, ref: (r: Rarity) => number | null, label: string): string {
+  const refs = HIGH_RARITIES.map(ref);
+  if (refs.some((p) => p == null)) return '';
+  const p = refs.reduce<number>((a, b) => a + (b ?? 0), 0);
+  const k = HIGH_RARITIES.reduce((n, r) => n + sum.counts[r], 0);
+  const res = luckOf(k, sum.cards, p);
+  if (!res) return '';
+  const odds = res.chance > 0 ? `1 chance sur ${nf(Math.max(2, Math.round(1 / res.chance)))}` : 'quasi jamais';
+  const facts = `<b>${nf(k)}</b> SR ou mieux pour <b>${res.expected.toLocaleString('fr-FR', { maximumFractionDigits: 1 })}</b> attendues ${label}`;
+  const text =
+    res.luck === 'lucky'
+      ? `<span class="up">Chanceux</span> : ${facts} (aussi bien par hasard : ${odds}).`
+      : res.luck === 'unlucky'
+        ? `<span class="down">Pas de chance</span> : ${facts} (aussi peu par hasard : ${odds}).`
+        : `<span class="eq">Dans la norme</span> : ${facts}.`;
+  return `<div class="luck">${text}</div>`;
+}
+
+/** Barres par rareté, trait du repère et écart (en gras quand il est significatif). */
+function rateRows(sum: Summary, ref: (r: Rarity) => number | null): string {
+  const shares = RARITIES.map((r) => sum.counts[r] / (sum.cards || 1));
   const max = Math.max(...shares, ...RARITIES.map((r) => ref(r) ?? 0), 0.0001);
-  const rows = RARITIES.map((r, i) => {
+  return RARITIES.map((r, i) => {
     const share = shares[i]!;
     const base = ref(r);
     const delta = base == null ? null : share - base;
+    const sig = base == null ? null : luckOf(sum.counts[r], sum.cards, base);
+    const strong = sig && sig.luck !== 'normal' ? ' sig' : '';
+    const tip = base == null ? '' : ` title="Repère ${pct(base)} · ${sig?.luck === 'normal' ? 'écart dans la norme (hasard)' : 'écart net, rarement dû au seul hasard'}"`;
     const deltaHtml =
-      delta == null ? '' : Math.abs(delta) < 0.0005 ? '<span class="eq">=</span>' : `<span class="${delta > 0 ? 'up' : 'down'}">${delta > 0 ? '+' : '−'}${pct(Math.abs(delta))}</span>`;
+      delta == null ? '' : Math.abs(delta) < 0.0005 ? '<span class="eq">=</span>' : `<span class="${delta > 0 ? 'up' : 'down'}${strong}">${delta > 0 ? '+' : '−'}${pct(Math.abs(delta))}</span>`;
     return `<div class="rt">${chip(r)}<span class="tr"><i style="width:${Math.max(share > 0 ? 3 : 0, (share / max) * 100)}%;background:${RARITY_COLOR[r]}"></i>${
       base != null ? `<u style="left:calc(${(base / max) * 100}% - 1px)" title="Repère : ${pct(base)}"></u>` : ''
-    }</span><span class="pc">${pct(share)}</span><span class="dl">${deltaHtml}</span><span class="nb">${s.counts[r]}</span></div>`;
+    }</span><span class="pc">${pct(share)}</span><span class="dl"${tip}>${deltaHtml}</span><span class="nb">${sum.counts[r]}</span></div>`;
   }).join('');
-  const note = onlyPlus
-    ? 'Trait et écart : taux annoncés du Pack ++.'
-    : period !== 'all'
-      ? 'Trait et écart : ta moyenne sur tout l’historique (les paquets standards n’ont pas de taux publics).'
-      : '';
-  return `<h5>Taux de drop <span>${plural(s.cards, 'carte')}</span></h5><div class="rates">${rows}</div>${note ? `<div class="note">${note}</div>` : ''}`;
+}
+
+/**
+ * Taux de drop de la période, paquets standards et Pack ++ séparés (leurs taux diffèrent).
+ * Pack ++ : écart aux taux annoncés. Paquets standards : WikiMasters ne publie pas de taux,
+ * l'écart se fait donc à ta propre moyenne (sur tes paquets standards de tout l'historique).
+ */
+function rates(list: PullRecord[], pulls: PullRecord[], period: StatsPeriod): string {
+  const s = summarize(list);
+  const plus = list.filter(isPackPlus);
+  const std = list.filter((p) => !isPackPlus(p));
+  const blocks: string[] = [];
+  if (std.length) {
+    const own = summarize(pulls.filter((p) => !isPackPlus(p)));
+    const ref = (r: Rarity) => (period !== 'all' && own.cards ? own.counts[r] / own.cards : null);
+    const sum = summarize(std);
+    const note =
+      period !== 'all'
+        ? 'Paquets standards : WikiMasters ne publie pas leurs taux. Trait et écart : ta moyenne sur tout l’historique.'
+        : 'Paquets standards : WikiMasters ne publie pas leurs taux, pas de repère officiel. Choisis Aujourd’hui ou 7 jours pour te comparer à ta moyenne.';
+    blocks.push(
+      `${plus.length ? `<div class="sub">Paquets standards <span>${plural(sum.cards, 'carte')}</span></div>` : ''}<div class="rates">${rateRows(sum, ref)}</div>${
+        period !== 'all' ? luckLine(sum, ref, 'à ta moyenne') : ''
+      }<div class="note">${note}</div>`,
+    );
+  }
+  if (plus.length) {
+    const sum = summarize(plus);
+    const ref = (r: Rarity) => PACK_PLUS_RATES[r];
+    blocks.push(
+      `${std.length ? `<div class="sub">Pack ++ <span>${plural(sum.cards, 'carte')}</span></div>` : ''}<div class="rates">${rateRows(sum, ref)}</div>${luckLine(
+        sum,
+        ref,
+        'aux taux annoncés',
+      )}<div class="note">Pack ++ : trait et écart aux taux annoncés (C 40 %, PC 20 %, R 25 %, SR 10 %, UR 4,5 %, L 0,5 %).</div>`,
+    );
+  }
+  return `<h5>Taux de drop <span>${plural(s.cards, 'carte')}</span></h5>${blocks.join('')}`;
 }
 
 /** Prévision : à ton rythme, une carte de cette rareté tous les X paquets, et où tu en es. */

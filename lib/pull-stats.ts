@@ -26,7 +26,9 @@ export function inPeriod(pulls: PullRecord[], period: StatsPeriod, now = Date.no
 
 /**
  * Taux annoncés du Pack ++ (15 cartes, Club), d'après les règles publiées (wikimasters.fr/regles).
- * Les paquets standards n'ont pas de taux publics : on compare alors à ta propre moyenne.
+ * Les paquets standards n'ont pas de taux publics (vérifié en novembre 2026 : ni les pages du site,
+ * ni les CGU, ni le code de la page n'en donnent ; le tirage est fait par le serveur) : on compare
+ * alors à ta propre moyenne.
  */
 export const PACK_PLUS_RATES: Record<Rarity, number> = { C: 0.4, PC: 0.2, R: 0.25, SR: 0.1, UR: 0.045, L: 0.005 };
 
@@ -143,4 +145,54 @@ export function freshTrend(pulls: PullRecord[], now = Date.now()): { before: num
     return s.known >= 10 ? s.fresh / s.known : null;
   };
   return { before: rate(pulls.filter((p) => p.t >= now - 30 * DAY && p.t < mid)), recent: rate(pulls.filter((p) => p.t >= mid)) };
+}
+
+/** Paquets Pack ++ (pack PRO quotidien), seuls à avoir des taux annoncés. */
+export const isPackPlus = (p: PullRecord) => p.src === 'pro-daily';
+
+/** Raretés « hautes » : ce qui fait qu'on se sent chanceux. */
+export const HIGH_RARITIES: Rarity[] = ['SR', 'UR', 'L'];
+
+/** P(X ≥ k) et P(X ≤ k) pour X ~ Binomiale(n, p), calculées en log pour tenir sur des milliers de cartes. */
+export function binomialTails(k: number, n: number, p: number): { atLeast: number; atMost: number } {
+  if (n <= 0 || p <= 0) return { atLeast: k <= 0 ? 1 : 0, atMost: 1 };
+  if (p >= 1) return { atLeast: 1, atMost: k >= n ? 1 : 0 };
+  const lq = Math.log1p(-p);
+  const lp = Math.log(p);
+  // log C(n, i) par récurrence, pmf(i) = C(n,i) p^i q^(n-i).
+  let logC = 0;
+  let below = 0; // P(X < k)
+  let at = 0; // P(X = k)
+  for (let i = 0; i <= Math.min(k, n); i++) {
+    if (i > 0) logC += Math.log(n - i + 1) - Math.log(i);
+    const pmf = Math.exp(logC + i * lp + (n - i) * lq);
+    if (i < k) below += pmf;
+    else at = pmf;
+  }
+  const atMost = Math.min(1, below + at);
+  return { atLeast: Math.max(0, Math.min(1, 1 - below)), atMost };
+}
+
+export type Luck = 'lucky' | 'normal' | 'unlucky';
+
+export interface LuckResult {
+  luck: Luck;
+  /** Nombre observé et attendu d'après le repère. */
+  observed: number;
+  expected: number;
+  /** Probabilité de faire au moins aussi bien (chanceux) ou au plus aussi mal (malchanceux) par pur hasard. */
+  chance: number;
+}
+
+/**
+ * Chanceux ou pas, sur `n` cartes dont `k` d'un groupe de probabilité `p` : significatif seulement si un
+ * écart au moins aussi grand arrive moins d'une fois sur 20 par hasard (sinon « dans la norme »).
+ */
+export function luckOf(k: number, n: number, p: number, threshold = 0.05): LuckResult | null {
+  if (!n || p <= 0 || p >= 1) return null;
+  const { atLeast, atMost } = binomialTails(k, n, p);
+  const expected = n * p;
+  if (k > expected && atLeast < threshold) return { luck: 'lucky', observed: k, expected, chance: atLeast };
+  if (k < expected && atMost < threshold) return { luck: 'unlucky', observed: k, expected, chance: atMost };
+  return { luck: 'normal', observed: k, expected, chance: k >= expected ? atLeast : atMost };
 }

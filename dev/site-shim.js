@@ -8,6 +8,25 @@
     siteLook: params.get('look') || 'solid', cardStyle: params.get('style') || 'classic' };
   // Mini-visites déjà vues, sauf avec ?tour (elles couvriraient les captures).
   if (!params.has('tour')) store.siteTourSeen = { pulls: 99, reveal: 99 };
+  // ?pulls=demo : un historique de tirages (paquets standards et Pack ++) pour les statistiques de /pulls.
+  if (params.get('pulls') === 'demo') {
+    let seed = 7;
+    const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const draw = (rates) => { let x = rnd(); for (const [r, p] of rates) if ((x -= p) < 0) return r; return 'C'; };
+    const STD = [['L', 0.004], ['UR', 0.02], ['SR', 0.06], ['R', 0.16], ['PC', 0.26], ['C', 0.496]];
+    const PLUS = [['L', 0.012], ['UR', 0.07], ['SR', 0.13], ['R', 0.25], ['PC', 0.18], ['C', 0.358]];
+    const now = Date.now();
+    const pulls = [];
+    for (let d = 20; d >= 0; d--) {
+      const n = d === 0 ? 9 : 4 + Math.floor(rnd() * 8);
+      for (let k = 0; k < n; k++) {
+        const plus = k === 0 && d % 2 === 0;
+        pulls.push({ t: now - d * 864e5 - (n - k) * 12e5, src: plus ? 'pro-daily' : 'open',
+          cards: Array.from({ length: plus ? 15 : 5 }, (_, i) => ({ id: String(1000 + d * 100 + k * 15 + i), name: `Carte ${d}-${k}-${i}`, r: draw(plus ? PLUS : STD), s: rnd() < 0.02, o: rnd() < 0.3 ? 1 : 2 })) });
+      }
+    }
+    store.pulls = pulls;
+  }
   // Album à objectif « Footballeurs » : Zidane déjà collé, Messi attendu (2e carte du paquet).
   const wiki = (t) => `https://fr.wikipedia.org/wiki/${encodeURIComponent(t.replace(/ /g, '_'))}`;
   store.goalAlbums = { 't-foot': { entries: ['Zinédine Zidane', 'Kylian Mbappé', 'Michel Platini', 'Thierry Henry', 'Lionel Messi', 'Karim Benzema', 'Antoine Griezmann', 'Paul Pogba', 'Raymond Kopa', 'Just Fontaine']
