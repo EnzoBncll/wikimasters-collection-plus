@@ -1,5 +1,5 @@
 import { animate, motion, useMotionValue, useTransform, type MotionValue } from 'framer-motion';
-import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ExternalLink, Gem, Hand, GalleryHorizontalEnd, ImageDown, LayoutGrid, Loader2, Paintbrush, Pencil, Plus, RefreshCw, RotateCcw, Share2, Sparkles, Store, Target, Trophy, X } from 'lucide-react';
+import { BookOpen, ChevronDown, ChevronLeft, ChevronRight, ChevronsLeft, ExternalLink, Gem, Hand, GalleryHorizontalEnd, ImageDown, LayoutGrid, ListPlus, Loader2, Paintbrush, Pencil, Plus, RefreshCw, RotateCcw, Share2, Sparkles, Store, Target, Trophy, X } from 'lucide-react';
 import { createContext, Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useCollection } from '@/hooks/use-collection';
@@ -35,6 +35,7 @@ import { WmCard } from './wm-card';
 import { cardImage } from './card-image';
 import { useThumbnails } from './wiki-peek';
 import { GoalListMissing } from './goal-missing';
+import { addCardsToGoal, AlbumGrid, albumViewItem, GoalListEditor, GoalOffList, type AlbumView } from './goal-tools';
 import { CardStylePicker } from './export-view';
 import { CARD_STYLE_IDS, type CardStyle } from '@/lib/store';
 
@@ -819,6 +820,16 @@ export function Album({ title, gradient: openedGradient, cards, layoutKey, tagId
   const stageIntoAlbum = useCollection((s) => s.stageIntoAlbum);
   const facts = useSuggestions((s) => s.facts);
   const [goal, setGoal] = useState<GoalAlbum | null>(null);
+  const [editingList, setEditingList] = useState(false);
+  /** Livre réaliste ou grille pleine page à défilement (réglage commun à tous les albums). */
+  const [view, setView] = useState<AlbumView>('book');
+  useEffect(() => {
+    void albumViewItem.getValue().then(setView);
+  }, []);
+  const changeView = (next: AlbumView) => {
+    setView(next);
+    void albumViewItem.setValue(next);
+  };
   useEffect(() => {
     if (!tagId) return;
     goalAlbumsItem.getValue().then((all) => setGoal(all[tagId] ?? null));
@@ -862,13 +873,15 @@ export function Album({ title, gradient: openedGradient, cards, layoutKey, tagId
     const collected = layout.filter((id) => id && !id.startsWith('goal:') && !id.startsWith('section:')).length;
     const matched = new Set([...match.values()].map((c) => c.cardId));
     const extra = cards.filter((c) => !matched.has(c.cardId));
+    let annexAt: number | null = null;
     if (goal.annex && extra.length) {
       while (layout.length % perPage) layout.push(null);
+      annexAt = layout.length;
       layout.push(...raritySlots(extra));
     }
     const toStick = [...match.values()].filter((c) => !inAlbum.has(c.cardId));
     const missing = goal.entries.filter((_, i) => !match.has(i));
-    return { layout, match, collected, toStick, missing, entryAt: built.entryAt, runs: built.runs, runOf: built.runOf };
+    return { layout, match, collected, toStick, missing, extra, annexAt, entryAt: built.entryAt, runs: built.runs, runOf: built.runOf };
   }, [goal, allCards, facts, cards, sectionMode, perPage, cols]);
   // Mode Marché : cases manquantes en vente (recherche lancée au clic, résultat partagé avec le panneau du dessous).
   const market = useMarket((s) => (tagId ? s.byAlbum[tagId] : undefined));
@@ -1156,6 +1169,18 @@ export function Album({ title, gradient: openedGradient, cards, layoutKey, tagId
   const jump = (to: number) => {
     if (state.current.leaf || state.current.closed) return;
     setSpread(Math.max(0, Math.min(spreads - 1, to)));
+  };
+  /** Cartes hors liste : la première page de l'annexe (livre) ou son intertitre (grille). */
+  const showAnnex = () => {
+    const at = goalLayout?.annexAt;
+    if (at == null) return;
+    if (view === 'grid') {
+      document.querySelector('[data-grid-annex]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      return;
+    }
+    if (state.current.closed) toggleCover(true);
+    setSpread(Math.min(spreads - 1, Math.floor(Math.floor(at / perPage) / 2)));
+    bookRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   };
 
   // Clavier
@@ -1600,7 +1625,7 @@ export function Album({ title, gradient: openedGradient, cards, layoutKey, tagId
       {!studio && (
       <>
       {/* Premier écran : le livre ; en dessous, liste de souhaits et suggestions. */}
-      <div data-backdrop className="flex min-h-full flex-col items-center justify-center gap-5 py-6">
+      <div data-backdrop className={cn('flex min-h-full flex-col items-center gap-5 py-6', view === 'book' && 'justify-center')}>
       <div className="flex w-full items-center justify-between gap-4 px-6 text-white" style={{ maxWidth: pageW * 2 + 40 }}>
         <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
           <h2 className="min-w-[5rem] truncate text-xl font-bold">{title}</h2>
@@ -1610,7 +1635,7 @@ export function Album({ title, gradient: openedGradient, cards, layoutKey, tagId
             </span>
           )}
           {albumTag && !goal && kindOf(albumTag) === 'goal' && <GoalListMissing tagId={albumTag.id} />}
-          {!closed && <span className="hidden shrink-0 text-xs text-white/60 tabular-nums xl:inline">{`p. ${L + 1}–${R + 1} / ${total}`}</span>}
+          {!closed && view === 'book' && <span className="hidden shrink-0 text-xs text-white/60 tabular-nums xl:inline">{`p. ${L + 1}–${R + 1} / ${total}`}</span>}
         </div>
         <div className="flex shrink-0 items-center gap-2 text-sm">
           {albumTag && goal && goalLayout && goalLayout.collected >= goal.entries.length && kindOf(albumTag) !== 'finished' && (
@@ -1658,6 +1683,27 @@ export function Album({ title, gradient: openedGradient, cards, layoutKey, tagId
               <Plus className="size-3.5" /> Tout coller ({goalLayout.toStick.length})
             </button>
           )}
+          {albumTag && goal && (
+            <button
+              type="button"
+              onClick={() => setEditingList(true)}
+              aria-label="Modifier la liste"
+              title="Modifier la liste : ajouter, retirer ou déplacer des cases"
+              className="flex size-9 cursor-pointer items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20"
+            >
+              <ListPlus className="size-4" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => changeView(view === 'grid' ? 'book' : 'grid')}
+            aria-label={view === 'grid' ? 'Afficher en livre' : 'Afficher en grille'}
+            title={view === 'grid' ? 'Afficher en livre' : 'Afficher en grille (pleine page, défilement)'}
+            aria-pressed={view === 'grid'}
+            className={cn('flex size-9 cursor-pointer items-center justify-center rounded-full transition', view === 'grid' ? 'bg-white text-zinc-900 hover:bg-white/85' : 'bg-white/10 hover:bg-white/20')}
+          >
+            {view === 'grid' ? <BookOpen className="size-4" /> : <LayoutGrid className="size-4" />}
+          </button>
           {/* Style d'album : ouvre le mode Style (livre à gauche, réglages à droite). */}
           <button
             type="button"
@@ -1679,7 +1725,7 @@ export function Album({ title, gradient: openedGradient, cards, layoutKey, tagId
               <Plus className="size-4" />
             </button>
           )}
-          <button
+          {view === 'book' && <button
             type="button"
             onClick={() => (closed ? toggleCover(true) : toggleCover(false))}
             disabled={Boolean(leaf)}
@@ -1688,7 +1734,7 @@ export function Album({ title, gradient: openedGradient, cards, layoutKey, tagId
             className="flex size-9 cursor-pointer items-center justify-center rounded-full bg-white/10 transition hover:bg-white/20"
           >
             {closed ? <BookOpen className="size-4" /> : <ChevronsLeft className="size-4" />}
-          </button>
+          </button>}
           <button
             type="button"
             onClick={onClose}
@@ -1700,9 +1746,14 @@ export function Album({ title, gradient: openedGradient, cards, layoutKey, tagId
         </div>
       </div>
 
-      {bookRow}
+      {view === 'grid' && (
+        <div className="w-full px-6" style={{ maxWidth: Math.max(pageW * 2 + 40, 1200) }}>
+          <AlbumGrid slots={shown ?? []} byId={byId} goal={pageProps.goal} unsent={unsent} />
+        </div>
+      )}
+      {view === 'book' && bookRow}
 
-      <div className="flex w-full flex-col items-center gap-2 text-xs text-white/60" style={{ maxWidth: pageW * 2 }}>
+      {view === 'book' && <div className="flex w-full flex-col items-center gap-2 text-xs text-white/60" style={{ maxWidth: pageW * 2 }}>
         {spreads > 1 && !closed && (
           <input
             type="range"
@@ -1729,11 +1780,22 @@ export function Album({ title, gradient: openedGradient, cards, layoutKey, tagId
         >
           <ChevronDown className="size-3.5" /> {storage ? 'Cartes à ajouter' : tagId ? 'Fiche, cartes à ajouter et souhaits' : 'Liste de souhaits et suggestions'}
         </button>
-      </div>
+      </div>}
       </div>
 
       <div ref={wishesRef} data-backdrop data-wishes className="mx-auto w-full space-y-6 px-6 pb-12" style={{ maxWidth: pageW * 2 + 40 }}>
         {tagId && !storage && <AlbumSheetPanel tagId={tagId} cards={cards} />}
+        {tagId && goal && goalLayout && goalLayout.extra.length > 0 && (
+          <GoalOffList
+            cards={goalLayout.extra}
+            annex={goal.annex}
+            onAdd={(list) => addCardsToGoal(tagId, goal, list, facts)}
+            onShowAnnex={showAnnex}
+          />
+        )}
+        {tagId && goal && editingList && (
+          <GoalListEditor tagId={tagId} name={title} goal={goal} allCards={allCards} facts={facts} onClose={() => setEditingList(false)} />
+        )}
         {goalLayout && goalLayout.missing.length > 0 && (
           <GoalMissing entries={goalLayout.missing} allEntries={goal!.entries} market={market} onSearch={searchMarket} />
         )}

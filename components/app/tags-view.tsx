@@ -78,6 +78,7 @@ function TagRow({
   onOpen,
   controls,
   icon: Icon = Folder,
+  progress,
 }: {
   name: string;
   color: string | null;
@@ -87,8 +88,11 @@ function TagRow({
   controls: React.ReactNode;
   /** Icône du dossier (poubelle pour Discard). */
   icon?: LucideIcon;
+  /** Avancement d'un album à objectif (cases collées / cases de la liste). */
+  progress?: { have: number; total: number; missing?: boolean };
 }) {
   const preview = cards.slice(0, 5);
+  const pct = progress && progress.total > 0 ? Math.round((progress.have / progress.total) * 100) : 0;
   return (
     <div
       role="button"
@@ -105,9 +109,37 @@ function TagRow({
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold">{name}</p>
-        <p className="text-xs text-muted-foreground">
-          {cards.length} {cards.length === 1 ? 'carte' : 'cartes'}
-        </p>
+        {progress ? (
+          progress.missing ? (
+            <p className="text-xs text-muted-foreground">
+              {cards.length} {cards.length === 1 ? 'carte' : 'cartes'} · liste pas encore reçue
+            </p>
+          ) : (
+            <div className="mt-1 flex items-center gap-2.5" title={`${progress.have} / ${progress.total} cases remplies`}>
+              <div
+                className="h-2 max-w-64 flex-1 overflow-hidden rounded-full bg-muted"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={progress.total}
+                aria-valuenow={progress.have}
+                aria-label={`Avancement de ${name}`}
+              >
+                <div
+                  className={cn('h-full rounded-full transition-[width] duration-500', pct >= 100 ? 'bg-amber-500' : 'bg-primary')}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+              <span className={cn('shrink-0 text-xs font-semibold tabular-nums', pct >= 100 ? 'text-amber-600 dark:text-amber-400' : 'text-foreground')}>{pct} %</span>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                {progress.have} / {progress.total}
+              </span>
+            </div>
+          )
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {cards.length} {cards.length === 1 ? 'carte' : 'cartes'}
+          </p>
+        )}
       </div>
       <div className="hidden items-center -space-x-3 sm:flex">
         {preview.map((card, i) => (
@@ -426,6 +458,8 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
     });
   }, [goals, finished, goalAlbums, albumLooks, albumStyles, byTag, cards, facts, settings.albumStyle]);
 
+  const bookById = useMemo(() => new Map(books.map((b) => [b.tag.id, b])), [books]);
+
   const prefixButton = unprefixedGoals.length > 0 && (
     <Button variant="outline" size="sm" className="h-7 rounded-full px-2.5 text-xs" onClick={prefixGoals}>
       Ajouter « ◇ » à {unprefixedGoals.length} album{unprefixedGoals.length > 1 ? 's' : ''}
@@ -506,9 +540,21 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
         {prefixButton}
       </div>
       <div className="divide-y overflow-hidden rounded-2xl border bg-card">
-        {goals.map((tag) => (
-          <TagRow key={tag.id} name={tag.name} color={tag.color} cards={byTag.get(tag.id) ?? []} onOpen={() => openAlbum(tag)} controls={tagControls(tag, false)} icon={Target} />
-        ))}
+        {goals.map((tag) => {
+          const book = bookById.get(tag.id);
+          return (
+            <TagRow
+              key={tag.id}
+              name={tag.name}
+              color={tag.color}
+              cards={byTag.get(tag.id) ?? []}
+              onOpen={() => openAlbum(tag)}
+              controls={tagControls(tag, false)}
+              icon={Target}
+              progress={book && { have: book.have, total: book.total, missing: book.missing }}
+            />
+          );
+        })}
       </div>
     </section>
   );
@@ -559,7 +605,7 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
           </h2>
           <div className="divide-y overflow-hidden rounded-2xl border border-amber-400/40 bg-card shadow-[0_0_0_1px_rgb(234_179_8/0.08),0_10px_30px_-18px_rgb(234_179_8/0.6)]">
             {finished.map((tag) => (
-              <TagRow key={tag.id} name={tag.name} color={tag.color} cards={byTag.get(tag.id) ?? []} onOpen={() => openAlbum(tag)} controls={tagControls(tag, false)} icon={Trophy} />
+              <TagRow key={tag.id} name={tag.name} color={tag.color} cards={byTag.get(tag.id) ?? []} onOpen={() => openAlbum(tag)} controls={tagControls(tag, false)} icon={Trophy} progress={goalAlbums[tag.id] && bookById.get(tag.id)} />
             ))}
           </div>
         </section>

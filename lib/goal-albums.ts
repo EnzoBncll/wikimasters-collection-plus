@@ -334,3 +334,37 @@ export async function criterionEntries(c: Criterion): Promise<GoalEntry[]> {
     .sort((a, b) => (a.start && b.start ? a.start.localeCompare(b.start) : a.start ? -1 : b.start ? 1 : 0) || a.title.localeCompare(b.title, 'fr'))
     .map(({ start: _, ...e }) => e);
 }
+
+/* ---------- Retouches après création ---------- */
+
+/**
+ * Cases à ajouter pour des cartes de la collection (titre d'article relu sur Wikipédia : redirections, élément Wikidata,
+ * miniature). Sans réseau, la case garde le titre de la carte.
+ */
+export async function entriesForCards(cards: OwnedCard[], facts: Record<string, CardFacts>, section: string | null = null): Promise<GoalEntry[]> {
+  const titles = cards.map(articleTitle);
+  const resolved = await resolveTitles(titles).catch(() => new Map<string, GoalEntry>());
+  return cards.map((card, i) => {
+    const r = resolved.get(titles[i]!);
+    return { title: r?.title ?? titles[i]!, qid: r?.qid ?? facts[card.cardId]?.qid ?? null, description: r?.description ?? null, section, thumbnail: r?.thumbnail ?? null };
+  });
+}
+
+/**
+ * Insère des cases à la fin d'une partie (ou à la fin de la liste si la partie est nulle ou absente),
+ * en écartant celles déjà présentes. Renvoie la nouvelle liste.
+ */
+export function insertEntries(entries: GoalEntry[], added: GoalEntry[], section: string | null): GoalEntry[] {
+  const known = new Set(entries.map((e) => titleKey(e.title)));
+  const fresh = added.filter((e) => {
+    const k = titleKey(e.title);
+    if (known.has(k)) return false;
+    known.add(k);
+    return true;
+  });
+  if (!fresh.length) return entries;
+  const tagged = fresh.map((e) => ({ ...e, section }));
+  const last = section === null ? -1 : entries.findLastIndex((e) => e.section === section);
+  if (last < 0) return [...entries, ...tagged];
+  return [...entries.slice(0, last + 1), ...tagged, ...entries.slice(last + 1)];
+}
