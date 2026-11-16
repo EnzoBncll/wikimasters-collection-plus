@@ -17,6 +17,6 @@ ALLOWED_ORIGINS = "chrome-extension://npnhlblglinajejkkjcigeebgbogpbii"
 [[d1_databases]]
 binding = "DB"
 database_name = "collection-plus-sync"
-# Renseigné par `wrangler d1 create collection-plus-sync` (voir server/README.md).
-database_id = "00000000-0000-0000-0000-000000000000"
+# Base créée par `wrangler d1 create collection-plus-sync` (compte Cloudflare d'Enzo, région WEUR).
+database_id = "6b82edcc-9c36-4a2b-9046-1b6c96b424f2"
 migrations_dir = "migrations"

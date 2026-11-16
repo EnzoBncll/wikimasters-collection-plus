@@ -1,5 +1,7 @@
 # Serveur de synchro Collection+
 
+**En ligne :** `https://collection-plus-sync.collection-plus-sync.workers.dev` (compte Cloudflare d'Enzo, base D1 `collection-plus-sync` en Europe de l'Ouest). La clé `ACCOUNT_KEY` est rangée hors du dépôt, dans `~/.collection-plus-sync-account-key` sur le Mac d'Enzo.
+
 Synchro **facultative** des albums à objectif, liée au compte WikiMasters, hébergée sur **Cloudflare Workers + D1**
 (offre gratuite : 100 000 requêtes par jour, 5 Go de base, pas de mise en pause).
 
