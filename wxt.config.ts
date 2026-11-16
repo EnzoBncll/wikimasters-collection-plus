@@ -11,6 +11,12 @@ try {
   // Pas de .env.local : export Sheets désactivé.
 }
 const googleClientId = process.env.WXT_GOOGLE_CLIENT_ID;
+/**
+ * Serveur de synchro des albums liée au compte WikiMasters (server/, Cloudflare Workers). Optionnelle : sans adresse,
+ * l'option n'apparaît pas. À mettre dans .env.local : WXT_SYNC_URL=https://collection-plus-sync.<compte>.workers.dev
+ */
+const syncUrl = process.env.WXT_SYNC_URL?.replace(/\/+$/, '');
+const syncOrigin = syncUrl ? `${new URL(syncUrl).origin}/*` : null;
 /** Build pour le Chrome Web Store (`WXT_STORE=1 pnpm zip`) : le Store refuse le champ `key`. */
 const storeBuild = process.env.WXT_STORE === '1';
 /** Clé publique : fige l'identifiant (npnhlblglinajejkkjcigeebgbogpbii) des installations depuis les Releases GitHub, données comprises. */
@@ -39,7 +45,7 @@ export default defineConfig({
       ...(safari ? [] : ['notifications']),
       ...(googleClientId && !safari ? ['identity'] : []),
     ],
-    host_permissions: ['https://www.wiki-masters.com/*', 'https://cyrxjeppjqsxxjayfrur.supabase.co/*'],
+    host_permissions: ['https://www.wiki-masters.com/*', 'https://cyrxjeppjqsxxjayfrur.supabase.co/*', ...(syncOrigin ? [syncOrigin] : [])],
     // Police Unbounded, et page Albums ouverte par-dessus le site (bouton Albums) avec ses scripts et styles.
     web_accessible_resources: [{ resources: ['fonts/*', 'albums.html', 'chunks/*', 'assets/*'], matches: ['https://www.wiki-masters.com/*'] }],
     ...(googleClientId && !safari

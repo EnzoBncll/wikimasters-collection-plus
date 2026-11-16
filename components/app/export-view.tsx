@@ -7,6 +7,7 @@ import { useCollection } from '@/hooks/use-collection';
 import { toast } from '@/hooks/use-toast';
 import { useVisibleCards } from '@/hooks/use-review';
 import { useSuggestions } from '@/hooks/use-suggestions';
+import { accountSyncItem, deleteAccountData, isAccountSyncAvailable } from '@/lib/account-sync';
 import { CLOUD_SYNC_NOW, cloudSyncItem, SYNCED_LABELS, type CloudSyncState } from '@/lib/cloud-sync';
 import { downloadText, toCsv, toTsv } from '@/lib/csv';
 import { driveSyncItem, isDriveAvailable } from '@/lib/drive-sync';
@@ -676,7 +677,8 @@ function CloudSyncGroup() {
 }
 
 /**
- * Albums à objectif hors de la synchro de Chrome : coffre dans le compte WikiMasters, Google Drive, code de transfert.
+ * Albums à objectif hors de la synchro de Chrome : coffre dans le compte WikiMasters, serveur Collection+ lié au compte,
+ * Google Drive, code de transfert.
  * Leur liste de cases n'existe que dans l'extension : sans copie, un autre ordinateur ne voit que l'étiquette.
  */
 function GoalCopies() {
@@ -684,13 +686,16 @@ function GoalCopies() {
   const updateSettings = useCollection((s) => s.updateSettings);
   const [vault, setVault] = useState<{ lastAt: number | null; error: string | null; tags: number } | null>(null);
   const [drive, setDrive] = useState<{ enabled: boolean; lastAt: number | null; error: string | null } | null>(null);
+  const [account, setAccount] = useState<{ enabled: boolean; lastAt: number | null; error: string | null; albums: number } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   useEffect(() => {
     void siteVaultItem.getValue().then(setVault);
     void driveSyncItem.getValue().then(setDrive);
+    void accountSyncItem.getValue().then(setAccount);
     const a = siteVaultItem.watch(setVault);
     const b = driveSyncItem.watch(setDrive);
-    return () => (a(), b());
+    const c = accountSyncItem.watch(setAccount);
+    return () => (a(), b(), c());
   }, []);
 
   const run = async (key: string, fn: () => Promise<unknown>) => {
@@ -719,6 +724,22 @@ function GoalCopies() {
       await driveSyncItem.setValue({ ...(await driveSyncItem.getValue()), enabled: on });
       if (on) await syncGoalRemotes({ interactive: true });
     });
+  const toggleAccount = (on: boolean) =>
+    run('account', async () => {
+      await accountSyncItem.setValue({ ...(await accountSyncItem.getValue()), enabled: on, error: null });
+      if (on) {
+        await syncGoalRemotes();
+        const state = await accountSyncItem.getValue();
+        if (state.error) throw new Error(state.error);
+      } else if (account?.lastAt && window.confirm('Effacer aussi la copie gardée sur le serveur Collection+ ?')) await deleteAccountData();
+    });
+  const eraseAccount = () =>
+    run('erase', async () => {
+      if (!window.confirm('Effacer du serveur Collection+ tout ce qui concerne ton compte WikiMasters ? Tes albums restent sur cet ordinateur.')) return;
+      await accountSyncItem.setValue({ ...(await accountSyncItem.getValue()), enabled: false });
+      await deleteAccountData();
+      toast('Données effacées du serveur', 'success');
+    });
   const copyCode = () =>
     run('export', async () => {
       const { code, count } = await exportTransferCode();
@@ -746,6 +767,26 @@ function GoalCopies() {
           {vault?.error ?? `Dernier échange ${ago(vault!.lastAt!)} · ${vault!.tags} étiquette(s) « ⚙ Collection+ »`}
         </p>
       )}
+      {isAccountSyncAvailable() && (
+        <>
+          <SettingRow
+            title="Synchro par le serveur Collection+ (facultatif)"
+            text="Tes albums à objectif suivent ton compte WikiMasters : connecte-toi au site sur n’importe quel ordinateur et ils reviennent. Seule la liste des cases (codes CP1, sans tes cartes) est gardée, sur un serveur Cloudflare. Ton jeton de session WikiMasters sert uniquement à vérifier qui tu es, il n’est jamais conservé. Effaçable à tout moment."
+          >
+            <Switch checked={account?.enabled ?? false} onCheckedChange={toggleAccount} disabled={busy === 'account' || busy === 'erase'} />
+          </SettingRow>
+          {(account?.enabled || account?.lastAt) && (
+            <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-3">
+              <p className={cn('text-xs', account?.error ? 'text-destructive' : 'text-muted-foreground')}>
+                {account?.error ?? (account?.lastAt ? `Dernier échange ${ago(account.lastAt)} · ${account.albums} album(s) sur le serveur` : 'Pas encore d’échange')}
+              </p>
+              <Button variant="ghost" size="sm" onClick={eraseAccount} disabled={Boolean(busy)}>
+                {busy === 'erase' ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />} Effacer mes données du serveur
+              </Button>
+            </div>
+          )}
+        </>
+      )}
       {isDriveAvailable() && (
         <>
           <SettingRow title="Copie dans Google Drive" text="Un fichier caché (dossier réservé à l’extension, invisible dans Drive) suit ton compte Google sur tous tes ordinateurs.">
@@ -764,7 +805,7 @@ function GoalCopies() {
           <Button variant="outline" size="sm" onClick={pasteCode} disabled={Boolean(busy)}>
             {busy === 'import' ? <Loader2 className="size-4 animate-spin" /> : <ClipboardPaste className="size-4" />} Coller
           </Button>
-          {(settings.siteVault || drive?.enabled) && (
+          {(settings.siteVault || drive?.enabled || account?.enabled) && (
             <Button variant="outline" size="sm" onClick={exchange} disabled={Boolean(busy)}>
               {busy === 'sync' ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Échanger maintenant
             </Button>

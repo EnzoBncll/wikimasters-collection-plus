@@ -1,0 +1,7 @@
+# Copier en .dev.vars pour `pnpm dev` (jamais commité).
+# Clé secrète qui transforme l'identifiant WikiMasters en identifiant de compte (HMAC). En production : `wrangler secret put ACCOUNT_KEY`.
+ACCOUNT_KEY=dev-only-secret-change-me
+# En local : faux service d'identité (pnpm dev:auth) au lieu de Supabase.
+AUTH_URL=http://127.0.0.1:8788/auth/v1/user
+# Origines acceptées en local : l'extension et l'aperçu `pnpm preview:mock`.
+ALLOWED_ORIGINS=chrome-extension://npnhlblglinajejkkjcigeebgbogpbii,http://localhost:5178,http://localhost:5190
