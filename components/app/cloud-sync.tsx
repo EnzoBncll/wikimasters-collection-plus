@@ -13,6 +13,7 @@ import {
   RefreshCw,
   Share2,
   Trash2,
+  Users,
 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { create } from 'zustand';
@@ -33,15 +34,16 @@ import { exportTransferCode, importTransferCode } from '@/lib/goal-sync';
 import { clearSiteVault, siteVaultItem } from '@/lib/site-vault';
 import { factsItem } from '@/lib/wikidata';
 import { cn } from '@/lib/utils';
+import { CompareTab } from './friend-compare';
 import { ago } from './sync-status';
 
 /**
  * Nuage « Synchro et partage » des albums à objectif : un bouton dans l'encoche (état des copies d'un coup d'œil)
- * qui ouvre un panneau à trois volets — où vont tes albums (synchro), les partager (lien, page HTML, PDF, code),
- * et un guide pas à pas.
+ * qui ouvre un panneau à quatre volets — où vont tes albums (synchro), les partager (lien, page HTML, PDF, code),
+ * les comparer avec la collection d'un ami, et un guide pas à pas.
  */
 
-type Tab = 'sync' | 'share' | 'guide';
+type Tab = 'sync' | 'share' | 'compare' | 'guide';
 
 export const useCloudPanel = create<{ open: boolean; tab: Tab; show: (tab?: Tab) => void; close: () => void }>((set) => ({
   open: false,
@@ -108,6 +110,7 @@ export function CloudSyncButton() {
 const TABS: { id: Tab; label: string; icon: typeof Cloud }[] = [
   { id: 'sync', label: 'Synchro', icon: Cloud },
   { id: 'share', label: 'Partager', icon: Share2 },
+  { id: 'compare', label: 'Comparer', icon: Users },
   { id: 'guide', label: 'Guide', icon: BookOpen },
 ];
 
@@ -141,6 +144,7 @@ export function CloudSyncPanel({ onOpenAlbums }: { onOpenAlbums: () => void }) {
         <div className="min-h-0 flex-1 overflow-y-auto">
           {tab === 'sync' && <SyncTab />}
           {tab === 'share' && <ShareTab />}
+          {tab === 'compare' && <CompareTab />}
           {tab === 'guide' && (
             <GuideTab
               onOpenAlbums={() => {
@@ -401,6 +405,10 @@ const STEPS = [
     text: 'Onglet Partager : envoie le lien (ton ami l’ouvre, WikiMasters lui propose d’ajouter l’album), ou la page HTML / le PDF pour montrer ta progression. Sans l’extension, la page explique comment l’installer.',
   },
   {
+    title: 'Comparer avec un ami',
+    text: 'Onglet Comparer : choisis un ami (ou tape un pseudo). Collection+ lit sa collection comme sa page de profil et la confronte à tes albums : sa progression à côté de la tienne, et les cartes qu’il a et qui te manquent, pour proposer un échange.',
+  },
+  {
     title: 'Recevoir un album',
     text: 'Ouvre le lien reçu (ou le bouton « Ajouter à Collection+ » de la page) : sur WikiMasters, une bulle te propose l’album. Tu peux aussi coller un code CP1 dans Albums › + › « Importer un album ».',
   },
@@ -429,6 +437,11 @@ function GuideTab({ onOpenAlbums }: { onOpenAlbums: () => void }) {
             {i === 2 && (
               <Button size="sm" variant="outline" onClick={() => show('share')}>
                 Partager un album
+              </Button>
+            )}
+            {i === 3 && (
+              <Button size="sm" variant="outline" onClick={() => show('compare')}>
+                Comparer
               </Button>
             )}
           </div>
