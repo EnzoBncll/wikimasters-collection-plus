@@ -22,7 +22,9 @@ export function SyncStatus() {
 
   const label = syncing
     ? syncProgress?.step === 'collection'
-      ? `Page ${(syncProgress.page ?? 0) + 1} · ${syncProgress.cards} cartes`
+      ? syncProgress.waitS
+        ? `Page ${(syncProgress.page ?? 0) + 1} · le site ralentit, reprise dans ${syncProgress.waitS} s`
+        : `Page ${(syncProgress.page ?? 0) + 1} · ${syncProgress.cards} cartes${syncProgress.resumed ? ' (reprise)' : ''}`
       : syncProgress?.step === 'tags'
         ? 'Étiquettes…'
         : 'Vérification…'

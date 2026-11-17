@@ -1,38 +1,119 @@
+import { storage } from '#imports';
 import { sleep } from './queue';
 import { transport } from './transport';
 import type { Acquisition, CopyInfo, OwnedCard, Rarity, SiteTag } from './types';
 
-const MAX_COLLECTION_PAGES = 300;
+/** Garde-fou contre une boucle infinie (réponse du site anormale), bien au-delà des plus grosses collections. */
+const MAX_COLLECTION_PAGES = 5000;
+/** Petite pause entre deux pages, pour ne pas déclencher la limite de requêtes du site. */
+const PAGE_PAUSE_MS = 120;
+/** Une reprise n'est proposée que si le chargement interrompu est récent. */
+const RESUME_MAX_AGE = 30 * 60 * 1000;
 
-/** Requête JSON vers l'API du site (cookies de session inclus), avec retry sur 5xx / 429. */
-export async function apiJson<T = any>(path: string, maxAttempts = 4): Promise<T> {
+/** Appelé quand le site demande de ralentir (429) ou ne répond pas : attente avant le prochain essai. */
+export type RetryListener = (info: { attempt: number; waitMs: number; status: number }) => void;
+
+/**
+ * Requête JSON vers l'API du site (cookies de session inclus), avec retry sur 5xx / 429 / réseau.
+ * Sur 429, l'attente monte jusqu'à 30 s par essai (≈ 2 min en tout) : la limite du site est à la minute.
+ */
+export async function apiJson<T = any>(path: string, maxAttempts = 4, onRetry?: RetryListener): Promise<T> {
   for (let attempt = 1; ; attempt++) {
-    const { status, text } = await transport().siteFetch(path, { headers: { accept: 'application/json' } });
-    if (status >= 200 && status < 300) return (text ? JSON.parse(text) : null) as T;
-    const retryable = status === 0 || status === 429 || status >= 500;
-    if (!retryable || attempt >= maxAttempts) {
-      throw new Error(`GET ${path.split('?')[0]} : HTTP ${status}${status === 401 || status === 403 ? ' (es-tu connecté à WikiMasters ?)' : ''}`);
+    let status = 0;
+    let text = '';
+    try {
+      ({ status, text } = await transport().siteFetch(path, { headers: { accept: 'application/json' } }));
+    } catch {
+      status = 0; // Coupure réseau : on réessaie comme une erreur serveur.
     }
-    await sleep(Math.min(8000, 500 * 2 ** (attempt - 1)));
+    if (status >= 200 && status < 300) return (text ? JSON.parse(text) : null) as T;
+    const limited = status === 429;
+    const retryable = status === 0 || limited || status >= 500;
+    const attempts = limited ? Math.max(maxAttempts, 8) : maxAttempts;
+    if (!retryable || attempt >= attempts) {
+      throw new Error(
+        `GET ${path.split('?')[0]} : HTTP ${status}` +
+          (status === 401 || status === 403 ? ' (es-tu connecté à WikiMasters ?)' : limited ? ' (le site limite les requêtes, réessaie dans une minute)' : ''),
+      );
+    }
+    const waitMs = limited ? Math.min(30_000, 2000 * 2 ** (attempt - 1)) : Math.min(8000, 500 * 2 ** (attempt - 1));
+    onRetry?.({ attempt, waitMs, status });
+    await sleep(waitMs);
   }
 }
 
-/** Récupère toute la collection (toutes les pages) et regroupe les exemplaires par carte. */
-export async function fetchFullCollection(onPage?: (page: number, cards: number) => void): Promise<OwnedCard[]> {
-  const byCard = new Map<string, OwnedCard>();
+/** Chargement complet en cours : permet de reprendre là où il s'est arrêté au lieu de tout relire. */
+interface PartialCollection {
+  startedAt: number;
+  nextPage: number;
+  cards: OwnedCard[];
+  /** Exemplaires déjà lus, pour ne pas les compter deux fois si les pages se décalent. */
+  seen: string[];
+}
+const partialCollection = storage.defineItem<PartialCollection | null>('local:collectionPartial', { fallback: null });
 
-  for (let page = 0; page < MAX_COLLECTION_PAGES; page++) {
-    const json = await apiJson<any>(`/api/my-collection?sort=rarity&page=${page}&stats=0`);
+export interface CollectionProgress {
+  page: number;
+  cards: number;
+  /** Secondes d'attente avant le prochain essai, quand le site demande de ralentir. */
+  waitS?: number;
+  /** Le chargement reprend une tentative précédente interrompue. */
+  resumed?: boolean;
+}
+
+/** Récupère toute la collection (toutes les pages) et regroupe les exemplaires par carte. */
+export async function fetchFullCollection(onProgress?: (p: CollectionProgress) => void): Promise<OwnedCard[]> {
+  const byCard = new Map<string, OwnedCard>();
+  const seen = new Set<string>();
+  let startPage = 0;
+  let startedAt = Date.now();
+
+  const partial = await partialCollection.getValue().catch(() => null);
+  if (partial && Date.now() - partial.startedAt < RESUME_MAX_AGE && partial.nextPage > 0) {
+    for (const card of partial.cards) byCard.set(card.cardId, card);
+    for (const id of partial.seen) seen.add(id);
+    startPage = partial.nextPage;
+    startedAt = partial.startedAt;
+  }
+  const resumed = startPage > 0;
+
+  let finished = false;
+  let page = startPage;
+  for (; page < MAX_COLLECTION_PAGES; page++) {
+    if (page > startPage) await sleep(PAGE_PAUSE_MS);
+    let json: any;
+    try {
+      json = await apiJson<any>(`/api/my-collection?sort=rarity&page=${page}&stats=0`, 5, ({ waitMs }) =>
+        onProgress?.({ page, cards: byCard.size, waitS: Math.round(waitMs / 1000), resumed }),
+      );
+    } catch (error) {
+      // On garde ce qui a été lu : le prochain essai repartira de cette page.
+      if (page > 0) {
+        await partialCollection
+          .setValue({ startedAt, nextPage: page, cards: [...byCard.values()], seen: [...seen] })
+          .catch(() => undefined);
+        throw new Error(`${error instanceof Error ? error.message : String(error)} · ${page} pages lues, la prochaine synchro reprendra à la page ${page + 1}`);
+      }
+      throw error;
+    }
     const entries: any[] = Array.isArray(json?.collection) ? json.collection : [];
-    if (!entries.length) break;
+    if (!entries.length) {
+      finished = true;
+      break;
+    }
 
     for (const entry of entries) {
       const card = entry?.card;
       const cardId: string | undefined = entry?.card_id ?? card?.id;
       if (!cardId || !card?.wikipedia_title) continue;
 
-      const existing = byCard.get(cardId);
       const ownedId: string | null = entry?.id ?? null;
+      if (ownedId) {
+        if (seen.has(ownedId)) continue;
+        seen.add(ownedId);
+      }
+      const existing = byCard.get(cardId);
+
       const count = Number(entry?.count) || 1;
       const tagIds = extractTagIds(entry);
       const acquired = extractAcquisition(entry);
@@ -68,10 +149,15 @@ export async function fetchFullCollection(onPage?: (page: number, cards: number)
       }
     }
 
-    onPage?.(page, byCard.size);
-    if (json?.has_more === false || json?.hasMore === false) break;
+    onProgress?.({ page, cards: byCard.size, resumed });
+    if (json?.has_more === false || json?.hasMore === false) {
+      finished = true;
+      break;
+    }
   }
 
+  await partialCollection.setValue(null).catch(() => undefined);
+  if (!finished) console.warn(`[Collection+] chargement arrêté à ${page} pages (garde-fou)`);
   return [...byCard.values()];
 }
 

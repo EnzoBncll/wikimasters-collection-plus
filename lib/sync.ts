@@ -15,6 +15,9 @@ export interface SyncProgress {
   step: 'check' | 'collection' | 'tags';
   page?: number;
   cards?: number;
+  /** Le site demande de ralentir : secondes d'attente avant le prochain essai. */
+  waitS?: number;
+  resumed?: boolean;
 }
 
 /**
@@ -47,7 +50,7 @@ export async function syncCollection(
   const mode: SyncMode = canReuse ? 'light' : 'full';
   const cards = canReuse
     ? cached!.cards
-    : await fetchFullCollection((page, n) => onProgress?.({ step: 'collection', page, cards: n }));
+    : await fetchFullCollection((p) => onProgress?.({ step: 'collection', ...p }));
 
   if (!canReuse) await mergeAcquisitions(cards, cached?.version === 2 ? cached.fullAt : null);
   if (cards.some((c) => !c.description)) await fillDescriptions(cards);
