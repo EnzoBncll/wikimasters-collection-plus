@@ -14,6 +14,11 @@ export interface Settings {
   defaultTrade: boolean;
   tradeTagName: string;
   notTradeTagName: string;
+  /**
+   * Étiquettes Trade et Discard sur le site (statuts Trade / Discard, boîte d'envoi des défausses).
+   * Coupé : elles ne sont plus créées à la synchro ; seul le favori (étoile du site) reste.
+   */
+  statusTags: boolean;
   /** Étiquette des cartes à défausser. */
   discardTagName: string;
   /** Pastilles Trade / Not Trade sur les cartes du site. */
@@ -116,6 +121,7 @@ export const DEFAULT_SETTINGS: Settings = {
   tradeTagName: '🟢 Trade',
   notTradeTagName: '🔴 Not Trade',
   discardTagName: '🗑️ Discard',
+  statusTags: true,
   showBadges: true,
   sheetImages: true,
   theme: 'system',

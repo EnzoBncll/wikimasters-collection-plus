@@ -152,8 +152,8 @@ export function FilterSidebar({ className }: { className?: string }) {
 
         <section>
           <SectionTitle active={(review.status !== 'all' ? 1 : 0) + review.rarities.size}>Statut · Rareté</SectionTitle>
-          <div className="grid grid-cols-4 gap-0.5 rounded-xl bg-muted p-0.5" role="radiogroup" aria-label="Statut">
-            {STATUSES.map(({ value, short }) => {
+          <div className={cn('grid gap-0.5 rounded-xl bg-muted p-0.5', tradeTags?.off ? 'grid-cols-2' : 'grid-cols-4')} role="radiogroup" aria-label="Statut">
+            {STATUSES.filter(({ value }) => !tradeTags?.off || value === 'not_trade' || value === 'unset').map(({ value, short }) => {
               const active = review.status === value;
               return (
                 <button

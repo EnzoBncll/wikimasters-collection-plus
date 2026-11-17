@@ -568,16 +568,101 @@ function ThemeSortRow() {
   );
 }
 
+/** Se passer des étiquettes Trade et Discard : réglage, puis suppression (confirmée) de celles déjà sur le site. */
+function StatusTagsRow() {
+  const settings = useCollection((s) => s.settings);
+  const updateSettings = useCollection((s) => s.updateSettings);
+  const syncing = useCollection((s) => s.syncing);
+  const job = useCollection((s) => s.job);
+  const remoteTags = useCollection((s) => s.remoteTags);
+  const leftoverStatusTags = useCollection((s) => s.leftoverStatusTags);
+  const removeStatusTags = useCollection((s) => s.removeStatusTags);
+  const cards = useCollection((s) => s.remote);
+  const [confirming, setConfirming] = useState(false);
+  const leftovers = useMemo(() => leftoverStatusTags(), [leftoverStatusTags, remoteTags, settings.statusTags]); // eslint-disable-line react-hooks/exhaustive-deps
+  const counts = useMemo(
+    () => leftovers.map((t) => ({ tag: t, n: cards.filter((c) => c.tagIds.includes(t.id)).length })),
+    [leftovers, cards],
+  );
+  const poses = counts.reduce((sum, c) => sum + c.n, 0);
+  const on = settings.statusTags !== false;
+  return (
+    <>
+      <SettingRow
+        title="Étiquettes Trade et Discard"
+        text={
+          on
+            ? 'Les statuts Trade et Discard sont des étiquettes sur WikiMasters, recréées à chaque synchro. Coupe pour t’en passer : seul Favori (l’étoile du site) reste.'
+            : 'Désactivées : plus créées à la synchro. Plus de statut Trade ni Discard, ni de défausse des cartes marquées ; Favori (l’étoile du site) reste.'
+        }
+      >
+        <Switch
+          checked={on}
+          disabled={syncing || Boolean(job)}
+          onCheckedChange={(statusTags) => {
+            setConfirming(false);
+            void updateSettings({ statusTags });
+          }}
+        />
+      </SettingRow>
+      {!on && leftovers.length > 0 && (
+        <div className="mx-5 mb-4 space-y-3 rounded-xl border border-dashed p-4 text-sm">
+          <p>
+            Encore sur WikiMasters :{' '}
+            {counts.map(({ tag, n }, i) => (
+              <span key={tag.id}>
+                {i > 0 && ', '}
+                <b>{tag.name}</b> ({n} carte{n > 1 ? 's' : ''})
+              </span>
+            ))}
+            . Tant qu’elles existent, elles s’affichent comme des étiquettes ordinaires.
+          </p>
+          {confirming ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="flex-1 text-xs text-destructive">
+                Supprimer {leftovers.length > 1 ? 'ces étiquettes' : 'cette étiquette'} du site retire {poses} pose{poses > 1 ? 's' : ''} sur tes cartes. Les cartes restent ; c’est définitif.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => setConfirming(false)}>
+                Annuler
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={Boolean(job)}
+                onClick={async () => {
+                  await removeStatusTags();
+                  setConfirming(false);
+                }}
+              >
+                {job ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />} Confirmer la suppression
+              </Button>
+            </div>
+          ) : (
+            <div className="flex justify-end">
+              <Button variant="outline" size="sm" onClick={() => setConfirming(true)}>
+                <Trash2 className="size-4" /> Supprimer du site…
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
 function OrganizeSection() {
   const settings = useCollection((s) => s.settings);
   const updateSettings = useCollection((s) => s.updateSettings);
   return (
     <div className="space-y-8">
       <Group title="Statut d'échange">
-        <SettingRow title="Tout Trade par défaut" text="Une carte neutre (ni Trade, ni Favori, ni Discard) est considérée comme Trade.">
-          <Switch checked={settings.defaultTrade} onCheckedChange={(defaultTrade) => updateSettings({ defaultTrade })} />
-        </SettingRow>
-        <SettingRow title="Pastilles sur le site" text="Affiche Trade / Favori / Discard sur les cartes de WikiMasters.">
+        <StatusTagsRow />
+        {settings.statusTags !== false && (
+          <SettingRow title="Tout Trade par défaut" text="Une carte neutre (ni Trade, ni Favori, ni Discard) est considérée comme Trade.">
+            <Switch checked={settings.defaultTrade} onCheckedChange={(defaultTrade) => updateSettings({ defaultTrade })} />
+          </SettingRow>
+        )}
+        <SettingRow title="Pastilles sur le site" text={settings.statusTags !== false ? 'Affiche Trade / Favori / Discard sur les cartes de WikiMasters.' : 'Affiche Favori sur les cartes de WikiMasters.'}>
           <Switch checked={settings.showBadges} onCheckedChange={(showBadges) => updateSettings({ showBadges })} />
         </SettingRow>
       </Group>

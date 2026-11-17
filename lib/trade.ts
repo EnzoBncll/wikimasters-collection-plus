@@ -12,6 +12,11 @@ export interface TradeTags {
   discard?: SiteTag;
   /** Ancienne étiquette « Not Trade », remplacée par les favoris : masquée, à convertir (convertLegacyNotTrade). */
   legacyNotTrade?: SiteTag;
+  /**
+   * Étiquettes Trade et Discard désactivées (réglage « statusTags ») : `trade` vaut alors TRADE_OFF,
+   * une étiquette virtuelle posée sur aucune carte, et `discard` est absente. Seul le favori (étoile) reste.
+   */
+  off?: boolean;
 }
 
 /**
@@ -22,11 +27,27 @@ export interface TradeTags {
 export const FAVORITE_TAG: SiteTag = { id: 'wmt-favori', name: '★ Favori', color: '#eab308' };
 export const isFavoriteTag = (tagId: string) => tagId === FAVORITE_TAG.id;
 
+/** Place de l'étiquette Trade quand les étiquettes de statut sont désactivées : n'existe pas sur le site, ne correspond à aucune carte. */
+export const TRADE_OFF: SiteTag = { id: 'wmt-trade-off', name: 'Trade (désactivé)', color: '#22c55e' };
+
+/** Statuts utilisables : sans les étiquettes Trade / Discard, il ne reste que le favori. */
+export const statusTagsOn = (tradeTags: TradeTags | null | undefined) => !tradeTags?.off;
+
+/**
+ * Étiquettes Trade / Discard (et leur ancien nom « Trade ») présentes sur le site, cherchées par nom :
+ * ce que « Supprimer du site » retire quand on s'en passe.
+ */
+export function findStatusSiteTags(tags: SiteTag[], settings: Settings): SiteTag[] {
+  const names = [settings.tradeTagName, LEGACY_TRADE_TAG_NAMES.trade, settings.discardTagName].map((n) => n.trim().toLowerCase());
+  return tags.filter((t) => names.includes(t.name.trim().toLowerCase()));
+}
+
 /** Statuts qu'on peut poser (le reste est « sans statut »). */
 export type StatusTarget = Exclude<TradeStatus, 'unset'>;
 
 /** Étiquette du site correspondant à chaque statut. */
 export function statusTags(tradeTags: TradeTags): Partial<Record<StatusTarget, SiteTag>> {
+  if (tradeTags.off) return { not_trade: tradeTags.notTrade };
   return { trade: tradeTags.trade, not_trade: tradeTags.notTrade, discard: tradeTags.discard };
 }
 
@@ -44,10 +65,15 @@ export function systemTagIds(tradeTags: TradeTags | null | undefined): Set<strin
 /**
  * Trouve (ou crée) les étiquettes Trade et Discard sur le site ; Trade est nommée avec sa pastille (🟢).
  * L'ancienne étiquette « Trade » est renommée, pas dupliquée. « Not Trade » n'est plus créée : c'est le favori du site.
+ * Réglage « statusTags » coupé : rien n'est créé ni renommé, Trade et Discard redeviennent des étiquettes ordinaires.
  */
 export async function ensureTradeTags(api: SiteTagsApi, settings: Settings): Promise<{ tags: SiteTag[]; tradeTags: TradeTags }> {
   let tags = await api.list();
   const find = (name: string) => tags.find((t) => t.name.trim().toLowerCase() === name.trim().toLowerCase());
+  if (settings.statusTags === false) {
+    const legacyNotTrade = find(settings.notTradeTagName) ?? find(LEGACY_TRADE_TAG_NAMES.notTrade);
+    return { tags, tradeTags: offTradeTags(legacyNotTrade) };
+  }
 
   const ensure = async (name: string, legacy: string | null, color: string) => {
     let tag = find(name);
@@ -70,6 +96,11 @@ export async function ensureTradeTags(api: SiteTagsApi, settings: Settings): Pro
   return { tags, tradeTags: { trade, notTrade: FAVORITE_TAG, discard, legacyNotTrade } };
 }
 
+/** Statuts sans étiquettes Trade / Discard : le favori seul. */
+export function offTradeTags(legacyNotTrade?: SiteTag): TradeTags {
+  return { trade: TRADE_OFF, notTrade: FAVORITE_TAG, legacyNotTrade, off: true };
+}
+
 /** Favori : étoile du site, ou ancienne étiquette Not Trade pas encore convertie. */
 function isFavorite(card: OwnedCard, tradeTags: TradeTags) {
   return card.tagIds.includes(tradeTags.notTrade.id) || Boolean(tradeTags.legacyNotTrade && card.tagIds.includes(tradeTags.legacyNotTrade.id));
@@ -78,6 +109,7 @@ function isFavorite(card: OwnedCard, tradeTags: TradeTags) {
 export function tradeStatus(card: OwnedCard, tradeTags: TradeTags, settings: Settings): TradeStatus {
   if (tradeTags.discard && card.tagIds.includes(tradeTags.discard.id)) return 'discard';
   if (isFavorite(card, tradeTags)) return 'not_trade';
+  if (tradeTags.off) return 'unset';
   if (card.tagIds.includes(tradeTags.trade.id)) return 'trade';
   return settings.defaultTrade ? 'trade' : 'unset';
 }

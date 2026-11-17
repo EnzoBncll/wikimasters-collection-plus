@@ -207,7 +207,7 @@ export function AlbumAddDialog({ tagId, name, onClose }: { tagId: string; name: 
             ))}
           </div>
           <select value={status} onChange={(e) => setStatus(e.target.value as StatusFilter)} className={selectClass} aria-label="Statut">
-            {STATUSES.map((s) => (
+            {STATUSES.filter((s) => !tradeTags?.off || (s.id !== 'trade' && s.id !== 'discard')).map((s) => (
               <option key={s.id} value={s.id}>
                 {s.label}
               </option>
