@@ -65,31 +65,37 @@ Tape n'importe quel thème, Collection+ te construit l'album correspondant avec 
 – « les spécialités culinaires de Hongrie »
 – « les jeux Nintendo sortis sur GameCube »
 – « les rois de France », « le top 50 des personnalités féminines françaises avant 1900 »...
-Collection+ cherche une liste Wikipédia ou Wikidata, traduit ta phrase en règles modifiables (avec une clé Gemini gratuite, facultative), ou part de ta propre liste collée. Tu choisis les cartes et l'ordre : l'album prend le préfixe ◇, ses parties et ses cases numérotées — cartes collées, cartes possédées à coller d'un clic, cartes à trouver (et celles en vente sur le marché). Quand tu tires une carte de la liste, l'album s'ouvre et la carte s'y colle. Un code court « CP1-… » le partage avec un ami.
+Collection+ cherche une liste Wikipédia ou Wikidata, traduit ta phrase en règles modifiables (avec une clé Gemini gratuite, facultative), ou part de ta propre liste collée. Tu choisis les cartes et l'ordre : l'album prend le préfixe ◇, ses parties et ses cases numérotées — cartes collées, cartes possédées à coller d'un clic, cartes à trouver (et celles en vente sur le marché). Quand tu tires une carte de la liste, l'album s'ouvre et la carte s'y colle. La liste reste modifiable à tout moment : ajoute des cases (même pour des cartes que tu n'as pas encore), retire-en, change l'ordre, et donne une case aux cartes rangées hors liste. La progression s'affiche partout, en barre et en pourcentage, et une vue grille fait défiler toutes les cases sur une seule page.
 
 ★ DES LIVRES EN 3D, DANS TA BIBLIOTHÈQUE
 Chaque album se feuillette comme un vrai livre : relié, classeur, grimoire ou herbier, en 3D ou à plat. Le mode « Style d'album » règle tout en direct : couverture, couleur, emblème, cases par page, façon de séparer les parties (de la tuile titre au simple trait de couleur), habillage des cartes, ambiance. Tes albums à compléter et tes collections finies se rangent sur les étagères de la bibliothèque (bois, verre ou marbre) : un livre par album, plus haut à mesure qu'il se remplit, halo et sceau une fois fini.
+
+★ PARTAGER ET COMPARER
+Partage un album par lien, page web interactive, PDF ou code court : sur WikiMasters, ton ami clique « Ajouter à mes albums » et l'album se crée chez lui, ses cartes déjà rangées. Compare-toi à un ami : sa progression à côté de la tienne pour chaque album, les cartes qu'il a et pas toi (idées d'échange), et l'inverse.
 
 ★ OUVERTURE DES PAQUETS
 Sur la page d'ouverture de WikiMasters : tes paquets en éventail autour d'un grand bouton, compteur et temps avant la réserve pleine. Au révélé : mise en scène selon la rareté (tension puis explosion des UR et L, reflet des shiny), sons, pastille « New », carte à l'habillage choisi — dont le full-art, la photo sur toute la carte — récap du paquet, touche Espace pour enchaîner.
 
 ★ RANGER SANS OUVRIR LA CARTE
-Pendant le révélé, tes rangements à gauche, tes collections à droite : un clic (ou 1 à 9) pose l'étiquette. Le statut Trade / Not Trade / Discard est en arc sous la carte, au clavier avec ← ↓ →. Recherche et création d'étiquette sans quitter le paquet. Chaque volet et les raccourcis clavier se désactivent séparément dans le popup.
+Pendant le révélé, tes rangements à gauche, tes collections à droite : un clic (ou 1 à 9) pose l'étiquette. Le statut Trade / Favori / Discard est en arc sous la carte, au clavier avec ← ↓ →. Recherche et création d'étiquette sans quitter le paquet. Chaque volet et les raccourcis clavier se désactivent séparément dans le popup.
 
 ★ STATISTIQUES DE TIRAGE
-Aujourd'hui, 7 jours ou tout l'historique : paquets, cartes, nouvelles, shiny, taux de drop par rareté, prévisions (« un L tous les X paquets »), records (plus longue série sans L, meilleur paquet, meilleur jour), cartes tirées pour tes albums à compléter, histogramme sur 30 jours, frise de tes paquets et image récap à partager. Deux colonnes sur grand écran, une sur mobile.
+Aujourd'hui, 7 jours ou tout l'historique : paquets, cartes, nouvelles, shiny, taux de drop par rareté, prévisions (« un L tous les X paquets »), records (plus longue série sans L, meilleur paquet, meilleur jour), cartes tirées pour tes albums à compléter, histogramme sur 30 jours, frise de tes paquets et image récap à partager. « Suis-je chanceux ? » compare tes tirages aux taux annoncés ou à ta moyenne et te donne un verdict. Deux colonnes sur grand écran, une sur mobile.
 
 ★ SOUHAITS
 Une page pour ta liste de souhaits WikiMasters : recherche dans le catalogue pour ajouter une carte, filtre « à trouver » et « chez tes amis » (qui la possède, pour proposer un échange), et un clic pour retirer les cartes que tu as obtenues.
 
 ★ SYNCHRONISATION ENTRE TES ORDINATEURS
-Albums à compléter, mises en page, souhaits, règles et réglages suivent sur chaque ordinateur où tu es connecté à Chrome, automatiquement (vérification toutes les 5 minutes) ou d'un clic depuis le popup. Aucun compte à créer, aucun serveur.
+Albums à compléter, mises en page, souhaits, règles et réglages suivent sur chaque ordinateur où tu es connecté à Chrome, automatiquement ou d'un clic. En option, tes albums à compléter peuvent aussi être rattachés à ton compte WikiMasters, pour les retrouver sur n'importe quel ordinateur, sans autre compte à créer ; tu effaces cette copie d'un clic quand tu veux.
 
 ÉQUITABLE PAR CONCEPTION
 Collection+ n'automatise rien sur WikiMasters et n'offre aucun avantage de jeu : pas de bot, pas d'action en ton absence, pas d'accès à des informations que le site ne donne pas déjà. C'est uniquement du confort (tri, étiquettes, albums, statistiques, export) sur des données que tu peux déjà voir et des actions que tu valides toi-même, un clic à la fois.
 
-CARTES ET TRI TRADE / NOT TRADE
-Toute ta collection, filtres compacts (statut, rareté, étiquettes, doublons, nouvelles cartes), sélection multiple, recherche et raccourcis clavier (T Trade, N Not Trade, E étiqueter, A tout sélectionner, / rechercher). Rien ne part sur le site tout de suite : tes changements s'accumulent dans une boîte d'envoi et partent d'un clic. Défausse des doublons avec récapitulatif (jamais les shiny ni les favoris).
+CARTES ET TRI TRADE / FAVORI
+Toute ta collection, filtres compacts (statut, rareté, étiquettes, doublons, nouvelles cartes), sélection multiple, recherche et raccourcis clavier (T Trade, N Favori, E étiqueter, A tout sélectionner, / rechercher). Rien ne part sur le site tout de suite : tes changements s'accumulent dans une boîte d'envoi et partent d'un clic. Défausse des doublons avec récapitulatif (jamais les shiny ni les favoris). Les étiquettes Trade et Discard sont facultatives : tu peux t'en passer et les retirer du site.
+
+GROSSES COLLECTIONS
+Même avec des milliers de cartes, la collection se charge en entier : l'extension patiente quand le site demande de ralentir et reprend là où elle s'était arrêtée.
 
 ÉTIQUETTES ET ALBUMS
 Trois groupes : albums à compléter (◇), collections, rangements (·). Chaque étiquette se feuillette comme un album, avec rangement à la main ou par rareté. Une collection terminée prend « ✓ » et la couleur or. Mode revue : tes cartes une par une, comme à l'ouverture d'un paquet.
@@ -104,7 +110,7 @@ THÈMES
 Mode clair, sombre ou automatique, 10 palettes qui recolorent l'interface, le bouton sur le site et l'icône de l'extension, et dix habillages de cartes.
 
 CONFIDENTIALITÉ
-Aucun serveur, aucune collecte de données. Ta session WikiMasters est lue uniquement pour appeler l'API du site en ton nom ; tes données restent dans ton navigateur, et la synchronisation entre ordinateurs passe par ton propre compte Chrome. Détails : https://enzobncll.github.io/wikimasters-collection-plus/privacy.html
+Aucune collecte de données, aucune publicité. Ta session WikiMasters est lue uniquement pour appeler l'API du site en ton nom ; tes données restent dans ton navigateur, et la synchronisation entre ordinateurs passe par ton propre compte Chrome. Seule exception, si tu l'actives : la synchro par compte garde une copie de tes albums à compléter sur le serveur de Collection+ (ta session sert seulement à vérifier ton identité, elle n'est jamais stockée), et tu peux l'effacer à tout moment. Détails : https://enzobncll.github.io/wikimasters-collection-plus/privacy.html
 
 Projet open source, gratuit, sans publicité : https://github.com/EnzoBncll/wikimasters-collection-plus
 ```
@@ -134,7 +140,7 @@ Français (fr)
 ### Single purpose (finalité unique — un champ texte libre)
 
 ```
-Collection+ permet de consulter, trier (Trade / Not Trade), étiqueter, ranger en albums et exporter la collection de cartes d'un utilisateur sur le site WikiMasters (wiki-masters.com), y compris au moment où il ouvre ses paquets (rangement des cartes tirées, statistiques de ses tirages, liste de souhaits). Toutes les fonctionnalités de l'extension servent cette seule finalité de gestion de la collection.
+Collection+ permet de consulter, trier (Trade / Not Trade), étiqueter, ranger en albums et exporter la collection de cartes d'un utilisateur sur le site WikiMasters (wiki-masters.com), y compris au moment où il ouvre ses paquets (rangement des cartes tirées, statistiques de ses tirages, liste de souhaits), ainsi que de synchroniser et partager ses albums de collection. Toutes les fonctionnalités de l'extension servent cette seule finalité de gestion de la collection.
 ```
 
 ### Justification des permissions
@@ -217,14 +223,18 @@ Cases à cocher côté formulaire Google — à cocher ainsi :
 - **Health info** : Non
 - **Financial and payment info** : Non
 - **Authentication information** : Oui — le cookie de session WikiMasters, lu pour appeler
-  l'API du site au nom de l'utilisateur ; jamais transmis ailleurs ni stocké par l'extension.
+  l'API du site au nom de l'utilisateur. Si l'utilisateur active la synchro par compte (désactivée
+  par défaut), le jeton est aussi envoyé au serveur de Collection+, uniquement pour vérifier son
+  identité auprès de WikiMasters ; il n'est jamais stocké.
 - **Personal communications** : Non
 - **Location** : Non
 - **Web history** : Non
 - **User activity** : Non (les actions dans l'extension — étiqueter, trier — ne sont envoyées
   qu'au site WikiMasters lui-même, pas collectées par l'extension)
 - **Website content** : Oui — la collection de cartes de l'utilisateur (lue sur WikiMasters),
-  utilisée uniquement pour l'affichage et les fonctions de l'extension.
+  utilisée uniquement pour l'affichage et les fonctions de l'extension. Avec la synchro par compte
+  activée, ses listes d'albums à objectif sont gardées sur le serveur de Collection+ (effaçables
+  depuis l'extension).
 
 Puis cocher les trois certifications :
 - Je ne vends ni ne transfère les données utilisateur à des tiers en dehors des cas approuvés.
@@ -243,5 +253,7 @@ Puis cocher les trois certifications :
 - [ ] Tuile promo 440×280 et marquee 1400×560 remplacées par les nouvelles
 - [ ] Description courte + détaillée remplacées
 - [ ] Privacy practices : justification de **storage** mise à jour (chrome.storage.sync), **alarms** et **notifications** ajoutées
-- [ ] Data usage inchangé (Authentication information : oui ; Website content : oui ; le reste : non)
+- [ ] Description détaillée remplacée (0.11 : liste modifiable, partager et comparer, chance, synchro par compte, grosses collections)
+- [ ] Privacy practices : justification du nouvel host_permission `collection-plus-sync…workers.dev` ajoutée, Single purpose remplacé
+- [ ] Data usage relu (Authentication information et Website content : textes mis à jour pour la synchro par compte ; le reste : non)
 - [ ] Version du manifest : 0.11.0
