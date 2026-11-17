@@ -1,4 +1,5 @@
 import { defineBackground } from '#imports';
+import { isStoreInstall, requestStoreUpdate, updateReadyItem } from '@/lib/updates';
 import { startCloudSync } from '@/lib/cloud-sync';
 import { OPEN_REVIEW_TAB } from '@/lib/messages';
 import { EXPORT_SHEETS, exportToSheets, isSheetsConfigured } from '@/lib/sheets';
@@ -107,6 +108,7 @@ export default defineBackground(() => {
   if (hasNotifications()) browser.notifications.onClicked.addListener(openPulls);
   browser.alarms.create('wmt-tick', { periodInMinutes: 1 });
   schedule();
+  watchStoreUpdates();
 
   browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (message?.type === SITE_COOKIES) {
@@ -145,3 +147,22 @@ export default defineBackground(() => {
     }
   });
 });
+
+/**
+ * Mises à jour du Chrome Web Store appliquées sans attendre le redémarrage du navigateur :
+ * on demande à Chrome de vérifier au démarrage puis toutes les 6 h ; une fois la mise à jour téléchargée,
+ * on recharge l'extension tout de suite si aucune de ses pages n'est ouverte, sinon l'app propose de redémarrer.
+ */
+function watchStoreUpdates() {
+  if (!isStoreInstall()) return;
+  browser.runtime.onUpdateAvailable?.addListener(async (details) => {
+    await updateReadyItem.setValue(details?.version ?? 'nouvelle');
+    const own = await browser.tabs.query({ url: `${browser.runtime.getURL('/')}*` }).catch(() => []);
+    if (!own.length) browser.runtime.reload();
+  });
+  // Le service worker redémarre souvent : on ne recrée pas l'alarme à chaque réveil.
+  void browser.alarms.get('wmt-update').then(async (a) => { if (!a) await browser.alarms.create('wmt-update', { delayInMinutes: 1, periodInMinutes: 360 }); });
+  browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === 'wmt-update') void requestStoreUpdate();
+  });
+}

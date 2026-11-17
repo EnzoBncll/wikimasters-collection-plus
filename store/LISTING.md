@@ -2,9 +2,9 @@
 
 Tout ce qu'il faut coller dans le Developer Dashboard (https://chrome.google.com/webstore/devconsole).
 
-## Package — version 0.10.0
+## Package — version 0.11.0
 
-Zip à envoyer au Store : `store/wikimasters-collection-plus-0.10.0-chrome.zip`, à construire une fois la version passée à 0.10.0
+Zip à envoyer au Store : `store/wikimasters-collection-plus-0.11.0-chrome.zip`, à construire une fois la version passée à 0.11.0
 (`npm version patch`, puis `WXT_STORE=1 pnpm zip` et copie du zip de `.output/` dans `store/`). Manifest sans champ `key`,
 permissions : storage, unlimitedStorage, cookies, alarms, notifications.
 
@@ -187,6 +187,15 @@ Trade et la liste de souhaits des utilisateurs. L'extension appelle directement 
 connecté, pour appliquer les mêmes changements que ferait le site.
 ```
 
+**host_permissions — https://collection-plus-sync.collection-plus-sync.workers.dev/\* (depuis 0.11.0)**
+```
+Serveur de synchronisation de Collection+, utilisé uniquement si l'utilisateur active l'option
+« Synchro par compte WikiMasters » (désactivée par défaut). Il garde une copie de ses albums à objectif
+rattachée à son compte, pour les retrouver sur ses autres ordinateurs. Le jeton de session sert seulement
+à vérifier l'identité auprès de WikiMasters et n'est jamais stocké ; l'utilisateur peut effacer ses
+données du serveur à tout moment depuis l'extension.
+```
+
 **identity / oauth2 (uniquement si tu rebuild avec `WXT_GOOGLE_CLIENT_ID`)**
 ```
 Utilisé uniquement si l'utilisateur choisit d'exporter sa collection vers Google Sheets. Limité
@@ -229,10 +238,10 @@ Puis cocher les trois certifications :
 ## Checklist avant de cliquer sur « Submit for review »
 
 - [ ] Compte développeur Chrome Web Store (le compte pro) bien sélectionné comme propriétaire de l'item
-- [ ] Upload du zip `store/wikimasters-collection-plus-0.10.0-chrome.zip` (Package → Upload new package)
+- [ ] Upload du zip `store/wikimasters-collection-plus-0.11.0-chrome.zip` (Package → Upload new package)
 - [ ] Anciennes captures supprimées, puis les 5 nouvelles uploadées dans l'ordre (`01-ouverture.png` en premier)
 - [ ] Tuile promo 440×280 et marquee 1400×560 remplacées par les nouvelles
 - [ ] Description courte + détaillée remplacées
 - [ ] Privacy practices : justification de **storage** mise à jour (chrome.storage.sync), **alarms** et **notifications** ajoutées
 - [ ] Data usage inchangé (Authentication information : oui ; Website content : oui ; le reste : non)
-- [ ] Version du manifest : 0.10.0
+- [ ] Version du manifest : 0.11.0

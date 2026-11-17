@@ -29,7 +29,7 @@ import { holoGradient, PALETTES } from '@/lib/palettes';
 import { DEFAULT_SETTINGS, getSettings, reviewedSnapshotItem, settingsItem, type Settings } from '@/lib/store';
 import { openReviewTab } from '@/lib/tabs';
 import { newCardIds } from '@/lib/trade';
-import { availableUpdate, checkForUpdate, currentVersion, type UpdateInfo } from '@/lib/updates';
+import { availableUpdate, checkForUpdate, currentVersion, forcedUpdate, type UpdateInfo } from '@/lib/updates';
 import { cn } from '@/lib/utils';
 
 applyAppearance(cachedAppearance() ?? DEFAULT_SETTINGS);
@@ -227,9 +227,13 @@ function HomeTab() {
       </a>
       <CloudSyncRow />
       {update?.latest && (
-        <a href={update.url} target="_blank" rel="noopener" className="block rounded-xl bg-muted px-3 py-2 text-center text-xs hover:underline">
-          Version {update.latest} disponible — voir la mise à jour
-        </a>
+        <button
+          type="button"
+          onClick={() => open()}
+          className={`block w-full cursor-pointer rounded-xl px-3 py-2 text-center text-xs hover:underline ${forcedUpdate(update) ? 'bg-destructive/15 font-semibold text-destructive' : 'bg-muted'}`}
+        >
+          {forcedUpdate(update) ? `Mise à jour ${update.latest} obligatoire — l’appliquer` : `Version ${update.latest} disponible — mettre à jour`}
+        </button>
       )}
       <p className="pt-1 text-center text-[11px] text-muted-foreground">v{currentVersion()}</p>
     </div>

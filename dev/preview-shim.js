@@ -13,6 +13,9 @@
     };
   }
   // ?statusTags=off : étiquettes Trade / Discard désactivées au départ (le reste des réglages par défaut).
+  // ?update=available|forced (+ &store pour une installation Chrome Web Store) : bandeau ou fenêtre de mise à jour.
+  const upd = params.get('update');
+  if (upd) store.updateInfo = { checkedAt: Date.now(), latest: '99.0.0', url: '#', notes: '', minVersion: upd === 'forced' ? '99.0.0' : null };
   if (params.get('statusTags') === 'off') store.settings = { ...(store.settings || {}), statusTags: false };
   // Compteur de paquets du popup : 6 / 10, le prochain dans un peu plus de 4 min.
   if (location.pathname.endsWith('popup.html')) store.packState = { n: 6, max: 10, nextAt: Date.now() + 252000, period: 600000, observedAt: Date.now() };
@@ -76,7 +79,7 @@
       onChanged: { addListener: (l) => listeners.push((c) => l(c)), removeListener() {} },
     }, sync: { QUOTA_BYTES: 102400, async get() { return {}; }, async set() {}, async remove() {}, async getBytesInUse() { return 5300; } },
     onChanged: { addListener: (l) => listeners.push(l), removeListener() {} } },
-    runtime: { id: 'test', getManifest: () => ({ oauth2: null, version: '0.1.0' }), getURL: (p) => p, sendMessage: async () => ({ error: 'not_configured' }), onMessage: { addListener() {} } },
+    runtime: { id: 'test', getManifest: () => ({ oauth2: null, version: '0.1.0', ...(params.has('store') ? { update_url: 'https://clients2.google.com/service/update2/crx' } : {}) }), requestUpdateCheck: async () => ({ status: 'no_update' }), reload() { location.reload(); }, getURL: (p) => p, sendMessage: async () => ({ error: 'not_configured' }), onMessage: { addListener() {} } },
     tabs: { query: async () => [] },
     cookies: { getAll: async () => [{ name: 'sb-cyrxjeppjqsxxjayfrur-auth-token', value: session }] },
   };

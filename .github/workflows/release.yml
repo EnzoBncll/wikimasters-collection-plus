@@ -50,7 +50,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Note de version : la section « ## X.Y.Z » de CHANGELOG.md si elle existe (avec sa ligne min-version),
+          # sinon les notes générées par GitHub.
+          awk -v v="## ${TAG#v} " 'index($0, v) == 1 { on = 1; next } /^## / { on = 0 } on' CHANGELOG.md > notes.md 2>/dev/null || true
+          if [ -s notes.md ]; then NOTES=(--notes-file notes.md); else NOTES=(--generate-notes); fi
           gh release create "$TAG" .output/*-chrome.zip \
             --target "$GITHUB_SHA" \
             --title "Collection+ $TAG" \
-            --generate-notes
+            "${NOTES[@]}"
