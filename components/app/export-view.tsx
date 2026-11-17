@@ -1,4 +1,4 @@
-import { Bot, ChevronDown, ClipboardPaste, CloudCheck, Copy, RefreshCw, ClipboardCopy, Download, FileSpreadsheet, FileText, FolderCog, Globe, Loader2, Monitor, Moon, Palette, Sun, Trash2, Zap } from 'lucide-react';
+import { Bot, ChevronDown, Cloud, CloudCheck, Share2, RefreshCw, ClipboardCopy, Download, FileSpreadsheet, FileText, FolderCog, Globe, Loader2, Monitor, Moon, Palette, Sun, Trash2, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -7,13 +7,10 @@ import { useCollection } from '@/hooks/use-collection';
 import { toast } from '@/hooks/use-toast';
 import { useVisibleCards } from '@/hooks/use-review';
 import { useSuggestions } from '@/hooks/use-suggestions';
+import { useCloudPanel } from './cloud-sync';
 import { CLOUD_SYNC_NOW, cloudSyncItem, SYNCED_LABELS, type CloudSyncState } from '@/lib/cloud-sync';
 import { downloadText, toCsv, toTsv } from '@/lib/csv';
-import { driveSyncItem, isDriveAvailable } from '@/lib/drive-sync';
-import { syncGoalRemotes } from '@/lib/goal-remotes';
-import { exportTransferCode, importTransferCode } from '@/lib/goal-sync';
 import { ALL_THEME_NAMES } from '@/lib/themes';
-import { clearSiteVault, siteVaultItem } from '@/lib/site-vault';
 import { testGeminiKey } from '@/lib/gemini';
 import { EXPORT_SHEETS, type SheetExport } from '@/lib/sheets';
 import { PALETTES, holoGradient, type PaletteId } from '@/lib/palettes';
@@ -760,103 +757,23 @@ function CloudSyncGroup() {
   );
 }
 
-/**
- * Albums à objectif hors de la synchro de Chrome : coffre dans le compte WikiMasters, Google Drive, code de transfert.
- * Leur liste de cases n'existe que dans l'extension : sans copie, un autre ordinateur ne voit que l'étiquette.
- */
+/** Albums à objectif hors de la synchro de Chrome : tout est dans le nuage « Synchro et partage » (cloud-sync.tsx). */
 function GoalCopies() {
-  const settings = useCollection((s) => s.settings);
-  const updateSettings = useCollection((s) => s.updateSettings);
-  const [vault, setVault] = useState<{ lastAt: number | null; error: string | null; tags: number } | null>(null);
-  const [drive, setDrive] = useState<{ enabled: boolean; lastAt: number | null; error: string | null } | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
-  useEffect(() => {
-    void siteVaultItem.getValue().then(setVault);
-    void driveSyncItem.getValue().then(setDrive);
-    const a = siteVaultItem.watch(setVault);
-    const b = driveSyncItem.watch(setDrive);
-    return () => (a(), b());
-  }, []);
-
-  const run = async (key: string, fn: () => Promise<unknown>) => {
-    setBusy(key);
-    try {
-      await fn();
-    } catch (e) {
-      toast((e as Error).message, 'error');
-    } finally {
-      setBusy(null);
-    }
-  };
-  const exchange = () =>
-    run('sync', async () => {
-      const n = await syncGoalRemotes({ interactive: true });
-      toast(n ? `${n} album(s) reçu(s)` : 'Albums à jour', 'success');
-    });
-  const toggleVault = (on: boolean) =>
-    run('vault', async () => {
-      await updateSettings({ siteVault: on });
-      if (on) await syncGoalRemotes();
-      else if (window.confirm('Retirer aussi la copie déjà rangée dans ton compte WikiMasters ?')) await clearSiteVault();
-    });
-  const toggleDrive = (on: boolean) =>
-    run('drive', async () => {
-      await driveSyncItem.setValue({ ...(await driveSyncItem.getValue()), enabled: on });
-      if (on) await syncGoalRemotes({ interactive: true });
-    });
-  const copyCode = () =>
-    run('export', async () => {
-      const { code, count } = await exportTransferCode();
-      await navigator.clipboard.writeText(code);
-      toast(`Code de transfert copié : ${count} album(s), ${code.length} caractères`, 'success');
-    });
-  const pasteCode = () =>
-    run('import', async () => {
-      const code = (window.prompt('Colle le code de transfert (CPT1-…) venu de l’autre ordinateur :') ?? '').trim();
-      if (!code) return;
-      const n = await importTransferCode(code);
-      toast(n ? `${n} album(s) reçu(s)` : 'Tout était déjà là', 'success');
-    });
-
+  const show = useCloudPanel((s) => s.show);
   return (
-    <>
-      <SettingRow
-        title="Copie des albums à objectif sur WikiMasters"
-        text="La liste des cases de tes albums à objectif est rangée dans ton compte WikiMasters, pour tout ordinateur où tu te connectes, même sans la synchro de Chrome. Elle prend la forme d’étiquettes « ⚙ Collection+ » sans carte, cachées dans Collection+ mais visibles dans la liste d’étiquettes du site."
-      >
-        <Switch checked={settings.siteVault} onCheckedChange={toggleVault} disabled={busy === 'vault'} />
-      </SettingRow>
-      {settings.siteVault && (vault?.lastAt || vault?.error) && (
-        <p className={cn('px-5 pb-3 text-xs', vault?.error ? 'text-destructive' : 'text-muted-foreground')}>
-          {vault?.error ?? `Dernier échange ${ago(vault!.lastAt!)} · ${vault!.tags} étiquette(s) « ⚙ Collection+ »`}
-        </p>
-      )}
-      {isDriveAvailable() && (
-        <>
-          <SettingRow title="Copie dans Google Drive" text="Un fichier caché (dossier réservé à l’extension, invisible dans Drive) suit ton compte Google sur tous tes ordinateurs.">
-            <Switch checked={drive?.enabled ?? false} onCheckedChange={toggleDrive} disabled={busy === 'drive'} />
-          </SettingRow>
-          {drive?.enabled && (drive.lastAt || drive.error) && (
-            <p className={cn('px-5 pb-3 text-xs', drive.error ? 'text-destructive' : 'text-muted-foreground')}>{drive.error ?? `Dernier échange ${ago(drive.lastAt!)}`}</p>
-          )}
-        </>
-      )}
-      <SettingRow title="Transfert manuel" text="Tous tes albums à objectif en un code (CPT1-…) à coller sur l’autre ordinateur. Sans compte, sans réseau entre les deux.">
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={copyCode} disabled={Boolean(busy)}>
-            {busy === 'export' ? <Loader2 className="size-4 animate-spin" /> : <Copy className="size-4" />} Copier le code
-          </Button>
-          <Button variant="outline" size="sm" onClick={pasteCode} disabled={Boolean(busy)}>
-            {busy === 'import' ? <Loader2 className="size-4 animate-spin" /> : <ClipboardPaste className="size-4" />} Coller
-          </Button>
-          {(settings.siteVault || drive?.enabled) && (
-            <Button variant="outline" size="sm" onClick={exchange} disabled={Boolean(busy)}>
-              {busy === 'sync' ? <Loader2 className="size-4 animate-spin" /> : <RefreshCw className="size-4" />} Échanger maintenant
-            </Button>
-          )}
-        </div>
-      </SettingRow>
-    </>
+    <SettingRow
+      title="Albums à objectif : synchro et partage"
+      text="Serveur Collection+, copie WikiMasters, Google Drive, transfert par code, et partage d’un album en lien, page HTML ou PDF. Aussi depuis le nuage en haut à droite."
+    >
+      <div className="flex flex-wrap gap-2">
+        <Button variant="outline" size="sm" onClick={() => show('sync')}>
+          <Cloud className="size-4" /> Synchro
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => show('share')}>
+          <Share2 className="size-4" /> Partager
+        </Button>
+      </div>
+    </SettingRow>
   );
 }
 

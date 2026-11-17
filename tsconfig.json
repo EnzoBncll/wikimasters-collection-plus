@@ -1,5 +1,7 @@
 {
   "extends": "./.wxt/tsconfig.json",
+  // server/ (Cloudflare Worker) a son propre tsconfig et ses propres types.
+  "exclude": ["node_modules", ".output", "server"],
   "compilerOptions": {
     "jsx": "react-jsx",
     "paths": {

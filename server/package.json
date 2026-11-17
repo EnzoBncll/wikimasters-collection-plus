@@ -1,0 +1,26 @@
+{
+  "name": "collection-plus-sync",
+  "private": true,
+  "type": "module",
+  "description": "Synchro des albums à objectif de Collection+ liée au compte WikiMasters (Cloudflare Workers + D1).",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "dev:auth": "node dev/mock-auth.mjs",
+    "db:local": "wrangler d1 migrations apply collection-plus-sync --local",
+    "db:remote": "wrangler d1 migrations apply collection-plus-sync --remote",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test:e2e": "node dev/e2e.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250101.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.150.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "workerd"
+    ]
+  }
+}

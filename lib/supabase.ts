@@ -54,6 +54,11 @@ async function getSession(): Promise<Session> {
   throw new Error('Session WikiMasters introuvable ou expirée : recharge la page (F5) et reconnecte-toi si besoin.');
 }
 
+/** Jeton de session, pour qu'un service tiers (synchro du compte, account-sync.ts) vérifie l'identité. Jamais stocké. */
+export async function sessionToken(): Promise<string> {
+  return (await getSession()).accessToken;
+}
+
 export async function currentUserId(): Promise<string> {
   return (await getSession()).userId;
 }

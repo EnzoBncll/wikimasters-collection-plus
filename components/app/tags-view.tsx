@@ -1,6 +1,6 @@
 import { Archive, ArrowRight, BookOpen, Library, Folder, Share2, LayoutGrid, List, Lock, MoreHorizontal, Pencil, Plus, RotateCcw, Sparkles, Target, Trash2, Trophy, type LucideIcon } from 'lucide-react';
 import { AnimatePresence } from 'framer-motion';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatedFolder, type Project } from '@/components/ui/3d-folder';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,6 +24,7 @@ import { useSuggestions } from '@/hooks/use-suggestions';
 import { LIBRARY_ORDERS, LibraryShelf, SHELF_STYLES, type ShelfBook } from './library-shelf';
 import { albumLooksItem, albumStylesItem, type AlbumLook } from '@/lib/album';
 import { decodeAlbumCode, encodeAlbumCode, resolveSharedEntries } from '@/lib/album-code';
+import { pendingAlbumCodeItem } from '@/lib/album-export';
 import { factsItem } from '@/lib/wikidata';
 import { useImproveCounts } from './consolidate-view';
 import { cn } from '@/lib/utils';
@@ -289,6 +290,25 @@ export function TagsView({ onOpenReview }: { onOpenReview: () => void }) {
       return (e as Error).message;
     }
   };
+
+  // Album reçu par un lien : créé dès que la collection est chargée (une seule fois par code).
+  const loaded = cards.length > 0;
+  const importRef = useRef(importGoal);
+  importRef.current = importGoal;
+  useEffect(() => {
+    if (!loaded) return;
+    let busy = false;
+    const take = async (code: string | null) => {
+      if (!code || busy) return;
+      busy = true;
+      await pendingAlbumCodeItem.setValue(null);
+      const error = await importRef.current(code);
+      if (error) toast(error, 'error');
+      busy = false;
+    };
+    void pendingAlbumCodeItem.getValue().then(take);
+    return pendingAlbumCodeItem.watch(take);
+  }, [loaded]);
 
   // Cartes par étiquette ; Trade inclut les cartes « Trade par défaut ».
   const byTag = useMemo(() => {

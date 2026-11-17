@@ -179,6 +179,24 @@
         else entries.splice(i, 1);
         return json({ ok: true, wikibidous: 1 });
       }
+      // Amis et collection d'un autre joueur (onglet Comparer du nuage).
+      if (url.pathname === '/api/friends') {
+        return json({ friendships: [
+          { status: 'accepted', requester: { id: 'user-1', username: 'Moi' }, addressee: { id: 'u1', username: 'Léa' } },
+          { status: 'accepted', requester: { id: 'u2', username: 'Max' }, addressee: { id: 'user-1', username: 'Moi' } },
+          { status: 'pending', requester: { id: 'u3', username: 'Sam' }, addressee: { id: 'user-1', username: 'Moi' } },
+        ] });
+      }
+      const profile = url.pathname.match(/^\/api\/profile\/([^/]+)\/collection$/);
+      if (profile) {
+        const who = decodeURIComponent(profile[1]);
+        if (!['Léa', 'Max'].includes(who)) return json({ error: 'Profil introuvable' }, 404);
+        const owned = who === 'Léa' ? ['Pelé', 'Lionel Messi', 'Johan Cruyff', 'Thierry Henry', 'Paris', 'Zeus'] : ['Kylian Mbappé', 'Tokyo'];
+        const all = owned.concat(Array.from({ length: 70 }, (_, k) => `Carte ${who} ${k}`));
+        const page = Number(url.searchParams.get('page')) || 0;
+        const collection = all.slice(page * 50, page * 50 + 50).map((t, k) => ({ id: `${who}-${page}-${k}`, card_id: `c-${t}`, owned_by_viewer: false, card: { id: `c-${t}`, wikipedia_title: t, rarity: R[k % 6], image_url: null } }));
+        return json({ collection, total: all.length, rarityCounts: {}, tagOptions: who === 'Léa' ? [{ id: 'x1', name: '◇ Footballeurs' }, { id: 'x2', name: '◇ Rois de France' }, { id: 'x3', name: 'Trade' }] : [] });
+      }
       // Marché : quelques annonces pour le mode Marché des albums à objectif (?q= cherche dans le titre).
       if (url.pathname === '/api/marketplace') {
         window.__calls.push('q=' + url.searchParams.get('q'));

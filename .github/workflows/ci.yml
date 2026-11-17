@@ -18,3 +18,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm build
+      # Serveur de synchro (Cloudflare Worker) : projet à part, ses propres dépendances.
+      - run: pnpm --dir server install --frozen-lockfile
+      - run: pnpm --dir server typecheck

@@ -1,0 +1,22 @@
+# Synchro des albums à objectif de Collection+ — voir server/README.md (déploiement).
+name = "collection-plus-sync"
+main = "src/index.ts"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[vars]
+# Service d'identité de WikiMasters (Supabase) : le jeton envoyé par l'extension y est vérifié, puis oublié.
+AUTH_URL = "https://cyrxjeppjqsxxjayfrur.supabase.co/auth/v1/user"
+# Clé publique « anon » du site (présente dans son JS client, pas un secret).
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5cnhqZXBwanFzeHhqYXlmcnVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM4ODAzMzksImV4cCI6MjA4OTQ1NjMzOX0.BZluyXygNxuQGDPxFX1zG5i-cqp10CVK-8GGtuak4Rg"
+# Origines acceptées, séparées par des virgules : l'extension des Releases GitHub, et celle du Chrome Web Store
+# (ajouter « chrome-extension://<ID du Store> » une fois connu). Les autres requêtes sont refusées.
+ALLOWED_ORIGINS = "chrome-extension://npnhlblglinajejkkjcigeebgbogpbii"
+# ACCOUNT_KEY est un secret : `wrangler secret put ACCOUNT_KEY` (jamais ici).
+
+[[d1_databases]]
+binding = "DB"
+database_name = "collection-plus-sync"
+# Base créée par `wrangler d1 create collection-plus-sync` (compte Cloudflare d'Enzo, région WEUR).
+database_id = "6b82edcc-9c36-4a2b-9046-1b6c96b424f2"
+migrations_dir = "migrations"

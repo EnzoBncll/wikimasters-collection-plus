@@ -190,11 +190,13 @@ Tes réglages, règles et données restent en place (l'identifiant de l'extensio
 
 Installe Collection+ sur chaque ordinateur et connecte-toi à Chrome avec le même compte, synchronisation activée (`chrome://settings/syncSetup`, « Extensions » coché). Tes albums à objectif, mises en page et réglages arrivent d'eux-mêmes, en quelques secondes, et chaque changement repart vers les autres ordinateurs ; une vérification automatique repasse toutes les 5 minutes. Si deux ordinateurs ont modifié les mêmes données hors ligne, les deux versions sont fusionnées.
 
+Sans synchro de Chrome, les albums à objectif peuvent aussi suivre ton compte WikiMasters (copie dans le compte, Google Drive, ou **synchro par le serveur Collection+**, facultative) : **Paramètres › Synchro et export**.
+
 La synchronisation de Chrome offre 100 Ko par extension : les données sont compressées, ce qui laisse de la place pour des dizaines d'albums à objectif. La place utilisée s'affiche dans **Paramètres › Synchro et export**.
 
 ## Confidentialité
 
-Aucun serveur, aucune collecte : voir [PRIVACY.md](PRIVACY.md). La synchronisation entre ordinateurs passe par ton compte Chrome (`chrome.storage.sync`) ; la clé Gemini n'en fait pas partie. Les suggestions et les albums à objectif interrogent Wikidata et Wikipédia (API publiques, sans compte). Si tu ajoutes une clé Gemini (facultative), seule la phrase de ta demande est envoyée à Google pour être comprise ; la clé reste sur ton ordinateur.
+Aucune collecte : voir [PRIVACY.md](PRIVACY.md). Pas de serveur, sauf la synchro par le serveur Collection+, facultative et désactivée par défaut (albums à objectif seulement, effaçable d'un clic). La synchronisation entre ordinateurs passe par ton compte Chrome (`chrome.storage.sync`) ; la clé Gemini n'en fait pas partie. Les suggestions et les albums à objectif interrogent Wikidata et Wikipédia (API publiques, sans compte). Si tu ajoutes une clé Gemini (facultative), seule la phrase de ta demande est envoyée à Google pour être comprise ; la clé reste sur ton ordinateur.
 
 ---
 
@@ -230,6 +232,10 @@ Le workflow [Release](.github/workflows/release.yml) construit le zip et crée l
 2. **Écran de consentement OAuth** (externe) → ajouter les comptes testeurs.
 3. **Identifiants → ID client OAuth** → type **Extension Chrome**, ID de l'élément : `npnhlblglinajejkkjcigeebgbogpbii`.
 4. En local : `WXT_GOOGLE_CLIENT_ID=…` dans `.env.local`. Pour les Releases : variable de dépôt `WXT_GOOGLE_CLIENT_ID` (Settings → Secrets and variables → Actions → Variables).
+
+### Serveur de synchro (optionnel)
+
+Le dossier [`server/`](server/README.md) contient le Worker Cloudflare (+ D1) de la synchro des albums liée au compte WikiMasters : développement local, tests et déploiement y sont décrits. L'extension ne propose l'option que si `WXT_SYNC_URL` est donné au build (`.env.local` ou variable de dépôt).
 
 ### Cache et synchronisation
 
