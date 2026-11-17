@@ -21,7 +21,8 @@
 }
 .lib-room:hover .lib-spot { opacity: 1; }
 .lib-row { position: relative; }
-.lib-shelf { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 9px; padding: 0 20px; perspective: 1400px; perspective-origin: 50% 25%; }
+/* z-index : l'étagère (contexte d'empilement à cause de `perspective`) passe devant la planche, sinon le ⋯ posé sur la planche reste caché dessous. */
+.lib-shelf { position: relative; z-index: 1; display: flex; align-items: flex-end; justify-content: center; gap: 9px; padding: 0 20px; perspective: 1400px; perspective-origin: 50% 25%; }
 .lib-plank { position: relative; height: 22px; margin: 0 -10px; border-radius: 3px; background: linear-gradient(#7a4a26, #4e2e16 60%, #3a2210); box-shadow: 0 14px 26px rgb(0 0 0 / 0.55), inset 0 1px 0 rgb(255 255 255 / 0.15); }
 
 /* Planche en verre : tablette translucide, tranche éclairée aux couleurs de la palette, halo sous l'étagère. */
@@ -53,7 +54,12 @@
 
 /* ---------- Livre en 3D ---------- */
 .lib-slot { position: relative; transition: transform 0.5s var(--lib-ease); }
-.lib-slot:hover, .lib-slot:has(:focus-visible) { z-index: 10; }
+/* Le pointeur ne vise pas le livre animé : la bibliothèque calcule le livre tiré sur une zone stable
+   (library-shelf.tsx, pickBook) et prend le clic sur toute cette zone. Seul le ⋯ du livre tiré reste cliquable. */
+.lib-slot { pointer-events: none; }
+.lib-slot.is-open .lib-more, .lib-more[data-state='open'] { pointer-events: auto; }
+.lib-room.lib-pointing { cursor: pointer; }
+.lib-slot.is-open, .lib-slot:has(:focus-visible) { z-index: 10; }
 .lib-book {
   --d: 175px;
   all: unset;
@@ -80,13 +86,13 @@
 .lib-back { top: 0; right: 100%; width: var(--d); height: 100%; transform-origin: right; transform: rotateY(-90deg); background: color-mix(in oklab, var(--c) 35%, black); }
 .lib-top { left: 0; top: 0; width: 100%; height: var(--d); transform-origin: top; transform: rotateX(-90deg); background: repeating-linear-gradient(90deg, #f3ead6 0 1px, #d6c8aa 1px 2px); }
 
-.lib-slot:hover .lib-book, .lib-slot:has(:focus-visible) .lib-book { transform: translateZ(90px) translateY(-18px) rotateY(-78deg); }
-.lib-slot:hover ~ .lib-slot, .lib-slot:has(:focus-visible) ~ .lib-slot { transform: translateX(150px); }
+.lib-slot.is-open .lib-book, .lib-slot:has(:focus-visible) .lib-book { transform: translateZ(90px) translateY(-18px) rotateY(-78deg); }
+.lib-slot.is-open ~ .lib-slot, .lib-slot:has(:focus-visible) ~ .lib-slot { transform: translateX(150px); }
 /* Les voisins s'inclinent. */
-.lib-slot:has(+ .lib-slot:hover) .lib-book { transform: rotateZ(-7deg); transform-origin: 0% 100%; }
-.lib-slot:hover + .lib-slot .lib-book { transform: rotateZ(6deg); transform-origin: 100% 100%; }
+.lib-slot:has(+ .lib-slot.is-open) .lib-book { transform: rotateZ(-7deg); transform-origin: 0% 100%; }
+.lib-slot.is-open + .lib-slot .lib-book { transform: rotateZ(6deg); transform-origin: 100% 100%; }
 /* Les pages frémissent. */
-.lib-slot:hover .lib-top { animation: lib-rustle 0.5s steps(3) 2; }
+.lib-slot.is-open .lib-top { animation: lib-rustle 0.5s steps(3) 2; }
 @keyframes lib-rustle { 50% { background-position: 1px 0; filter: brightness(1.08); } }
 /* Poussière qui s'envole. */
 .lib-dust { position: absolute; width: 3px; height: 3px; border-radius: 50%; background: rgb(255 240 210 / 0.8); pointer-events: none; animation: lib-dust 1.6s ease-out forwards; }
@@ -147,7 +153,7 @@
 }
 .lib-aura i { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: #fff; box-shadow: 0 0 10px 3px color-mix(in oklab, var(--c) 60%, #fff); animation: lib-twinkle 2s ease-in-out infinite; }
 .lib-done .lib-spine { box-shadow: 0 0 0 1px color-mix(in oklab, var(--c) 60%, #fff); }
-.lib-slot:hover .lib-aura, .lib-slot:has(:focus-visible) .lib-aura { opacity: 0; }
+.lib-slot.is-open .lib-aura, .lib-slot:has(:focus-visible) .lib-aura { opacity: 0; }
 @keyframes lib-breathe { 50% { opacity: 0.55; transform: scale(1.06); } }
 @keyframes lib-twinkle { 0%, 100% { opacity: 0; transform: scale(0.4); } 50% { opacity: 1; transform: scale(1); } }
 
@@ -158,7 +164,7 @@
   transition: opacity 0.35s 0.1s, transform 0.45s 0.1s var(--lib-ease);
   text-align: center; color: #fff; text-shadow: 0 1px 6px rgb(0 0 0 / 0.8);
 }
-.lib-slot:hover .lib-sky, .lib-slot:has(:focus-visible) .lib-sky { opacity: 1; transform: translate(-50%, 0); }
+.lib-slot.is-open .lib-sky, .lib-slot:has(:focus-visible) .lib-sky { opacity: 1; transform: translate(-50%, 0); }
 .lib-sky .p { font: 800 30px/1 var(--font-heading); color: rgb(255 255 255 / 0.9); }
 .lib-sky .n { margin: 2px 0 8px; font-size: 11px; color: rgb(255 255 255 / 0.55); }
 .lib-sky .pr { font-size: 11px; line-height: 1.55; color: rgb(255 255 255 / 0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -173,10 +179,10 @@
   display: grid; place-items: center; width: 22px; height: 18px; border-radius: 6px; cursor: pointer;
   color: rgb(255 255 255 / 0.85); background: rgb(0 0 0 / 0.35); opacity: 0; transition: opacity 0.2s;
 }
-.lib-slot:hover .lib-more, .lib-more:focus-visible, .lib-more[data-state='open'] { opacity: 1; }
+.lib-slot.is-open .lib-more, .lib-more:focus-visible, .lib-more[data-state='open'] { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
-  .lib-aura::before, .lib-aura i, .lib-slot:hover .lib-top { animation: none; }
+  .lib-aura::before, .lib-aura i, .lib-slot.is-open .lib-top { animation: none; }
 }
 
 /* Pastilles du choix de planche (en-tête de la bibliothèque). */
