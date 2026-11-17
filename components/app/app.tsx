@@ -12,6 +12,8 @@ import { Outbox } from './outbox';
 import { EnhanceView, type EnhanceSection } from './enhance-view';
 import { ExportView } from './export-view';
 import { ReviewView } from './review-view';
+import { pendingAlbumCodeItem } from '@/lib/album-export';
+import { CloudSyncButton, CloudSyncPanel } from './cloud-sync';
 import { SyncStatus } from './sync-status';
 import { ThemeToggle } from './theme-toggle';
 import { TagsView } from './tags-view';
@@ -55,6 +57,13 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
   );
   useAppearance();
 
+  // Album reçu par un lien (« Ajouter à Collection+ » sur WikiMasters) : la vue Albums le crée.
+  useEffect(() => {
+    const go = (code: string | null) => code && setView('tags');
+    void pendingAlbumCodeItem.getValue().then(go);
+    return pendingAlbumCodeItem.watch(go);
+  }, []);
+
   useEffect(() => {
     // Après chaque synchro, les cartes déjà analysées une fois le sont aussi pour les nouvelles
     // (seules les cartes inconnues sont envoyées à Wikidata), puis les règles automatiques s'appliquent.
@@ -86,6 +95,7 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
         rightContent={
           <div className="flex items-center gap-1">
             <SyncStatus />
+            <CloudSyncButton />
             <ThemeToggle />
           </div>
         }
@@ -106,6 +116,7 @@ export function App({ initialView = 'review' }: { initialView?: ViewId }) {
       <Outbox />
       <Onboarding onView={setView} />
       <UpdateBanner />
+      <CloudSyncPanel onOpenAlbums={() => setView('tags')} />
     </TooltipProvider>
   );
 }

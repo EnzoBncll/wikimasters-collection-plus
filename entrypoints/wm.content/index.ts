@@ -20,6 +20,7 @@ import { startSiteTour } from './site-tour';
 import { startStage } from './stage';
 import { startTradePreviews } from './trade-previews';
 import { startWishlist } from './wishlist';
+import { startAlbumLink } from './album-link';
 
 const FAB_CSS = `
   :host { all: initial; }
@@ -76,6 +77,7 @@ export default defineContentScript({
     startPackStats();
     startCardTools();
     startWishlist();
+    startAlbumLink();
     startTradePreviews();
     startTabTitle();
     startSiteTour();
